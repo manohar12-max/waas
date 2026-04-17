@@ -18,13 +18,14 @@ import {
   UserCheck
 } from 'lucide-react';
 import { QRCodeCanvas } from 'qrcode.react';
+import SessionContentGen from './SessionContentGen';
 
 export default function InstructorWorkshopManage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const [workshop, setWorkshop] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [viewMode, setViewMode] = useState<'REGISTRY' | 'INVITE'>('REGISTRY');
+  const [viewMode, setViewMode] = useState<'REGISTRY' | 'INVITE' | 'PATH'>('REGISTRY');
   const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
@@ -78,6 +79,7 @@ export default function InstructorWorkshopManage() {
       <div className="flex gap-4 p-2 bg-slate-100 dark:bg-white/5 rounded-[32px] border border-slate-200 dark:border-white/5 max-w-md">
          <button onClick={() => setViewMode('REGISTRY')} className={`flex-1 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all cursor-pointer ${viewMode === 'REGISTRY' ? 'bg-primary-light text-white shadow-xl' : 'opacity-60 dark:opacity-40 hover:opacity-100 text-slate-500 dark:text-white'}`}>Detailed Registry</button>
          <button onClick={() => setViewMode('INVITE')} className={`flex-1 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all cursor-pointer ${viewMode === 'INVITE' ? 'bg-primary-light text-white shadow-xl' : 'opacity-60 dark:opacity-40 hover:opacity-100 text-slate-500 dark:text-white'}`}>Invitation Center</button>
+         <button onClick={() => setViewMode('PATH')} className={`flex-1 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all cursor-pointer ${viewMode === 'PATH' ? 'bg-primary-light text-white shadow-xl' : 'opacity-60 dark:opacity-40 hover:opacity-100 text-slate-500 dark:text-white'}`}>Learning Path</button>
       </div>
 
       <AnimatePresence mode="wait">
@@ -137,37 +139,42 @@ export default function InstructorWorkshopManage() {
                 </div>
              </div>
           </motion.div>
+        ) : viewMode === 'INVITE' ? (
+           <motion.div key="invite" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="grid grid-cols-1 md:grid-cols-2 gap-10">
+              {/* ... invitation content ... */}
+              <div className="bg-card-light dark:bg-card-dark border border-slate-200 dark:border-white/5 p-12 rounded-[56px] space-y-10 shadow-2xl">
+                 <div className="space-y-4 text-center">
+                    <div className="w-20 h-20 bg-primary-light/10 text-primary-light rounded-[32px] flex items-center justify-center mx-auto"><QrCode className="w-10 h-10" /></div>
+                    <h3 className="text-3xl font-black tracking-tight">Onboarding Gateway</h3>
+                    <p className="opacity-40 text-sm font-medium">Students can scan this QR code or use the link to register for your event instantly.</p>
+                 </div>
+                 
+                 <div className="bg-white p-10 rounded-[48px] shadow-2xl w-fit mx-auto">
+                    <QRCodeCanvas value={joinLink} size={300} level="H" includeMargin={true} />
+                 </div>
+              </div>
+
+              <div className="flex flex-col gap-8">
+                 <div className="bg-primary-light text-white p-12 rounded-[56px] space-y-6 shadow-2xl relative overflow-hidden">
+                    <div className="absolute top-0 right-0 p-8 opacity-10"><Copy className="w-32 h-32" /></div>
+                    <h4 className="text-3xl font-black tracking-tight">Invitation Link</h4>
+                    <p className="opacity-80 text-sm leading-relaxed">Broadcast this link to your students to start the registration lifecycle.</p>
+                    
+                    <div className="bg-white/10 p-6 rounded-3xl border border-white/10 font-bold break-all text-sm mb-4">{joinLink}</div>
+                    
+                    <button onClick={() => { navigator.clipboard.writeText(joinLink); alert("Join Path Copied!"); }} className="w-full py-6 bg-white text-primary-light rounded-3xl font-black uppercase tracking-widest shadow-xl transition-all cursor-pointer hover:bg-slate-100 flex items-center justify-center gap-3">Copy Invite Link <Copy className="w-4 h-4" /></button>
+                 </div>
+
+                 <div className="bg-card-dark border border-white/5 p-10 rounded-[56px] space-y-4">
+                    <div className="w-12 h-12 bg-primary-light/10 text-primary-light rounded-2xl flex items-center justify-center"><CheckCircle2 /></div>
+                    <h4 className="text-xl font-black tracking-tight">Ready to start?</h4>
+                    <p className="opacity-40 text-sm font-medium leading-relaxed">Once registrations start coming in, you can activate the Live Session Hall to track attendance in real-time.</p>
+                 </div>
+              </div>
+           </motion.div>
         ) : (
-          <motion.div key="invite" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="grid grid-cols-1 md:grid-cols-2 gap-10">
-             <div className="bg-card-light dark:bg-card-dark border border-slate-200 dark:border-white/5 p-12 rounded-[56px] space-y-10 shadow-2xl">
-                <div className="space-y-4 text-center">
-                   <div className="w-20 h-20 bg-primary-light/10 text-primary-light rounded-[32px] flex items-center justify-center mx-auto"><QrCode className="w-10 h-10" /></div>
-                   <h3 className="text-3xl font-black tracking-tight">Onboarding Gateway</h3>
-                   <p className="opacity-40 text-sm font-medium">Students can scan this QR code or use the link to register for your event instantly.</p>
-                </div>
-                
-                <div className="bg-white p-10 rounded-[48px] shadow-2xl w-fit mx-auto">
-                   <QRCodeCanvas value={joinLink} size={300} level="H" includeMargin={true} />
-                </div>
-             </div>
-
-             <div className="flex flex-col gap-8">
-                <div className="bg-primary-light text-white p-12 rounded-[56px] space-y-6 shadow-2xl relative overflow-hidden">
-                   <div className="absolute top-0 right-0 p-8 opacity-10"><Copy className="w-32 h-32" /></div>
-                   <h4 className="text-3xl font-black tracking-tight">Invitation Link</h4>
-                   <p className="opacity-80 text-sm leading-relaxed">Broadcast this link to your students to start the registration lifecycle.</p>
-                   
-                   <div className="bg-white/10 p-6 rounded-3xl border border-white/10 font-bold break-all text-sm mb-4">{joinLink}</div>
-                   
-                   <button onClick={() => { navigator.clipboard.writeText(joinLink); alert("Join Path Copied!"); }} className="w-full py-6 bg-white text-primary-light rounded-3xl font-black uppercase tracking-widest shadow-xl transition-all cursor-pointer hover:bg-slate-100 flex items-center justify-center gap-3">Copy Invite Link <Copy className="w-4 h-4" /></button>
-                </div>
-
-                <div className="bg-card-dark border border-white/5 p-10 rounded-[56px] space-y-4">
-                   <div className="w-12 h-12 bg-primary-light/10 text-primary-light rounded-2xl flex items-center justify-center"><CheckCircle2 /></div>
-                   <h4 className="text-xl font-black tracking-tight">Ready to start?</h4>
-                   <p className="opacity-40 text-sm font-medium leading-relaxed">Once registrations start coming in, you can activate the Live Session Hall to track attendance in real-time.</p>
-                </div>
-             </div>
+          <motion.div key="path" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}>
+            <SessionContentGen workshopId={id!} />
           </motion.div>
         )}
       </AnimatePresence>

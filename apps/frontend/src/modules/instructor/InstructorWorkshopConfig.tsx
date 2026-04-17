@@ -4,8 +4,9 @@ import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   ChevronLeft, Save, Plus, Trash2, FileText, Video, Link as LinkIcon, 
-  Settings, BookOpen, AlertCircle, Loader2 
+  Settings, BookOpen, AlertCircle, Loader2, BrainCircuit, Layout
 } from 'lucide-react';
+import SessionContentGen from './SessionContentGen';
 
 export default function InstructorWorkshopConfig() {
   const { id } = useParams();
@@ -14,6 +15,7 @@ export default function InstructorWorkshopConfig() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [activeTab, setActiveTab] = useState<'CLASSIC' | 'DYNAMIC'>('DYNAMIC');
 
   const [modules, setModules] = useState<any[]>([]);
   const [gradingConfig, setGradingConfig] = useState({
@@ -92,12 +94,22 @@ export default function InstructorWorkshopConfig() {
         </button>
       </div>
 
-      <div className="space-y-2">
-        <h1 className="text-5xl font-black tracking-tighter">Design Curriculum</h1>
-        <p className="opacity-40 font-medium text-lg">{workshop?.title}</p>
+      <div className="flex gap-4 p-2 bg-slate-100 dark:bg-white/5 rounded-[24px] border border-slate-200 dark:border-white/5 max-w-md">
+         <button onClick={() => setActiveTab('DYNAMIC')} className={`flex-1 py-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all cursor-pointer ${activeTab === 'DYNAMIC' ? 'bg-primary-light text-white shadow-xl' : 'opacity-40 hover:opacity-100'}`}>
+           <BrainCircuit className="w-4 h-4 inline-block mr-2" /> AI Learning Path
+         </button>
+         <button onClick={() => setActiveTab('CLASSIC')} className={`flex-1 py-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all cursor-pointer ${activeTab === 'CLASSIC' ? 'bg-primary-light text-white shadow-xl' : 'opacity-40 hover:opacity-100'}`}>
+           <Layout className="w-4 h-4 inline-block mr-2" /> Classic Modules
+         </button>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
+      <AnimatePresence mode="wait">
+        {activeTab === 'DYNAMIC' ? (
+          <motion.div key="dynamic" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}>
+            <SessionContentGen workshopId={id!} />
+          </motion.div>
+        ) : (
+          <motion.div key="classic" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="grid grid-cols-1 lg:grid-cols-3 gap-10">
         {/* Main Content Areas */}
         <div className="lg:col-span-2 space-y-10">
           {/* Modules Section */}
@@ -232,8 +244,10 @@ export default function InstructorWorkshopConfig() {
               onChange={e => setSummary(e.target.value)}
             />
           </div>
-        </div>
-      </div>
+          </div>
+        </motion.div>
+      )}
+      </AnimatePresence>
     </div>
   );
 }

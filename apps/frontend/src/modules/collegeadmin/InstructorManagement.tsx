@@ -3,6 +3,7 @@ import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, Users, Mail, Phone, Shield, Search, X, Loader2, AlertCircle, Trash2 } from 'lucide-react';
 import UniversalModal from '../../components/UniversalModal';
+import { normalizeEmail } from '../../utils/normalization';
 
 interface Instructor {
   _id: string;
@@ -49,7 +50,11 @@ export default function InstructorManagement() {
     setError("");
     try {
       const token = localStorage.getItem('token');
-      await axios.post(`${import.meta.env.VITE_API_URL}/instructors`, newInstructor, {
+      const payload = {
+        ...newInstructor,
+        email: normalizeEmail(newInstructor.email)
+      };
+      await axios.post(`${import.meta.env.VITE_API_URL}/instructors`, payload, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setShowModal(false);

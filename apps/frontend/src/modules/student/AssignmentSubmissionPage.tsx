@@ -8,6 +8,7 @@ import {
   ChevronRight, ArrowLeft, Lock, UserCheck, 
   AlertCircle, Sparkles
 } from 'lucide-react';
+import { normalizeEmail, normalizePhone } from '../../utils/normalization';
 
 export default function AssignmentSubmissionPage() {
   const { id: assignmentId } = useParams();
@@ -55,8 +56,9 @@ export default function AssignmentSubmissionPage() {
     e.preventDefault();
     setIsVerifying(true);
     try {
+      const normalizedIdentity = normalizeEmail(emailOrPhone) || normalizePhone(emailOrPhone);
       const res = await axios.post(`${import.meta.env.VITE_API_URL}/submissions/validate-student`, {
-        emailOrPhone,
+        emailOrPhone: normalizedIdentity,
         assignmentId
       });
       setStudentId(res.data.studentId);
@@ -101,10 +103,10 @@ export default function AssignmentSubmissionPage() {
   
   if (!assignment) return (
     <div className="min-h-screen bg-[#020202] flex items-center justify-center p-6 bg-radial-gradient">
-      <div className="text-center space-y-4 max-w-sm">
+      <div className="text-center space-y-4 max-w-sm font-outfit">
         <AlertCircle className="w-12 h-12 text-red-500 mx-auto" />
         <h1 className="text-2xl font-black uppercase text-white tracking-tighter">Mission Not Found</h1>
-        <p className="text-white/40 text-sm">Deployment link is invalid or mission coordinates have expired.</p>
+        <p className="text-white/40 text-sm font-medium">Deployment link is invalid or mission coordinates have expired.</p>
       </div>
     </div>
   );
@@ -156,7 +158,7 @@ export default function AssignmentSubmissionPage() {
                            <label className="text-[10px] font-black uppercase tracking-widest opacity-20 ml-2">Email or Phone</label>
                            <input 
                               required 
-                              className="w-full bg-white/[0.03] border border-white/5 rounded-2xl p-5 outline-none font-bold text-lg focus:border-primary-light/40 transition-all placeholder:opacity-10"
+                              className="w-full bg-white/[0.03] border border-white/5 rounded-2xl p-5 outline-none font-bold text-lg focus:border-primary-light/40 transition-all placeholder:opacity-10 cursor-pointer"
                               placeholder="scholar@institute.com"
                               value={emailOrPhone}
                               onChange={e => setEmailOrPhone(e.target.value)}
@@ -165,7 +167,7 @@ export default function AssignmentSubmissionPage() {
                         <button 
                            disabled={isVerifying}
                            type="submit" 
-                           className="w-full py-5 bg-primary-light text-white rounded-2xl font-black uppercase text-xs tracking-[0.2em] shadow-xl shadow-primary-light/10 hover:translate-y-[-1px] transition-all flex items-center justify-center gap-3"
+                           className="w-full py-5 bg-primary-light text-white rounded-2xl font-black uppercase text-xs tracking-[0.2em] shadow-xl shadow-primary-light/10 hover:translate-y-[-1px] transition-all flex items-center justify-center gap-3 cursor-pointer"
                         >
                            {isVerifying ? <Loader2 className="w-5 h-5 animate-spin" /> : <>Access Console <ChevronRight className="w-4 h-4" /></>}
                         </button>
@@ -178,16 +180,16 @@ export default function AssignmentSubmissionPage() {
                            <div className="w-8 h-8 rounded-full bg-primary-light flex items-center justify-center text-white font-black text-xs">{studentName[0]}</div>
                            <p className="font-black text-sm">{studentName}</p>
                         </div>
-                        <button onClick={() => setCurrentStep(1)} className="text-[10px] font-black uppercase tracking-widest opacity-30 hover:opacity-100 transition-all">Not You? Switch</button>
+                        <button onClick={() => setCurrentStep(1)} className="text-[10px] font-black uppercase tracking-widest opacity-30 hover:opacity-100 transition-all cursor-pointer">Not You? Switch</button>
                      </div>
 
                      <form onSubmit={handleSubmit} className="space-y-10">
                         {/* Selector */}
                         <div className="flex gap-2 p-1.5 bg-white/[0.03] border border-white/5 rounded-2xl">
-                           <button type="button" onClick={() => setSubmissionType('link')} className={`flex-1 py-3.5 rounded-xl transition-all font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 ${submissionType === 'link' ? 'bg-white text-black' : 'opacity-30'}`}>
+                           <button type="button" onClick={() => setSubmissionType('link')} className={`flex-1 py-3.5 rounded-xl transition-all font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 cursor-pointer ${submissionType === 'link' ? 'bg-white text-black' : 'opacity-30'}`}>
                               <Github className="w-4 h-4" /> Link
                            </button>
-                           <button type="button" onClick={() => setSubmissionType('file')} className={`flex-1 py-3.5 rounded-xl transition-all font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 ${submissionType === 'file' ? 'bg-white text-black' : 'opacity-30'}`}>
+                           <button type="button" onClick={() => setSubmissionType('file')} className={`flex-1 py-3.5 rounded-xl transition-all font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 cursor-pointer ${submissionType === 'file' ? 'bg-white text-black' : 'opacity-30'}`}>
                               <Upload className="w-4 h-4" /> File
                            </button>
                         </div>
@@ -199,7 +201,7 @@ export default function AssignmentSubmissionPage() {
                                  <label className="text-[10px] font-black uppercase tracking-[0.2em] opacity-20 ml-2">GitHub / Project Repository</label>
                                  <div className="relative group">
                                     <div className="absolute inset-y-0 left-5 flex items-center opacity-30 group-focus-within:opacity-100 transition-opacity"><Github className="w-5 h-5" /></div>
-                                    <input required className="w-full bg-white/[0.03] border border-white/5 rounded-[22px] p-5 pl-14 outline-none font-bold text-lg focus:border-white transition-all" placeholder="https://github.com/..." value={link} onChange={e => setLink(e.target.value)} />
+                                    <input required className="w-full bg-white/[0.03] border border-white/5 rounded-[22px] p-5 pl-14 outline-none font-bold text-lg focus:border-white transition-all cursor-pointer" placeholder="https://github.com/..." value={link} onChange={e => setLink(e.target.value)} />
                                  </div>
                               </div>
                            ) : (
@@ -216,7 +218,7 @@ export default function AssignmentSubmissionPage() {
                            )}
                         </div>
 
-                        <button disabled={submitting} type="submit" className="w-full py-5 bg-primary-light text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-2xl shadow-primary-light/20 hover:scale-[1.01] active:scale-95 transition-all flex items-center justify-center gap-3">
+                        <button disabled={submitting} type="submit" className="w-full py-5 bg-primary-light text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-2xl shadow-primary-light/20 hover:scale-[1.01] active:scale-95 transition-all flex items-center justify-center gap-3 cursor-pointer">
                            {submitting ? <Loader2 className="w-5 h-5 animate-spin" /> : <><CheckCircle2 className="w-5 h-5" /> Deploy Report</>}
                         </button>
                      </form>
@@ -229,15 +231,15 @@ export default function AssignmentSubmissionPage() {
         </div>
       ) : (
         /* Success Centered */
-        <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="text-center space-y-8 max-w-sm relative z-10">
+        <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="text-center space-y-8 max-w-sm relative z-10 font-outfit">
            <div className="w-24 h-24 bg-green-500/10 rounded-[32px] mx-auto flex items-center justify-center text-green-500 border border-green-500/20">
               <CheckCircle2 className="w-12 h-12 stroke-[3]" />
            </div>
            <div className="space-y-2">
               <h2 className="text-4xl font-black tracking-tighter">REPORT SECURED</h2>
-              <p className="text-white/40 text-sm font-medium">Your submission has been cataloged and transmitted to the institutional command center.</p>
+              <p className="text-white/40 text-sm font-medium leading-relaxed">Your submission has been cataloged and transmitted to the institutional command center.</p>
            </div>
-           <button onClick={() => window.location.reload()} className="px-8 py-3.5 bg-white text-black rounded-full font-black uppercase text-[10px] tracking-widest hover:scale-110 transition-all ring-8 ring-white/5">Update Submission</button>
+           <button onClick={() => window.location.reload()} className="px-8 py-3.5 bg-white text-black rounded-full font-black uppercase text-[10px] tracking-widest hover:scale-110 transition-all ring-8 ring-white/5 cursor-pointer">Update Submission</button>
         </motion.div>
       )}
 

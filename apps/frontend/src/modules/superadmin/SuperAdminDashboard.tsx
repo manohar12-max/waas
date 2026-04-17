@@ -3,6 +3,7 @@ import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, School, Users, Activity, ExternalLink, MoreVertical, ShieldCheck, X } from 'lucide-react';
 import UniversalModal from '../../components/UniversalModal';
+import { normalizeEmail } from '../../utils/normalization';
 
 interface College {
   _id: string;
@@ -87,7 +88,11 @@ export default function SuperAdminDashboard() {
     setError("");
     try {
       const token = localStorage.getItem('token');
-      await axios.post(`${import.meta.env.VITE_API_URL}/colleges`, newCollege, {
+      const payload = {
+        ...newCollege,
+        adminEmail: normalizeEmail(newCollege.adminEmail)
+      };
+      await axios.post(`${import.meta.env.VITE_API_URL}/colleges`, payload, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setShowModal(false);
