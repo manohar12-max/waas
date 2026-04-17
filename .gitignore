@@ -1,0 +1,41 @@
+# Dependencies
+node_modules/
+.pnpm-debug.log*
+
+# Build outputs
+dist/
+build/
+.next/
+out/
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# IDEs and Editors
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# OS related
+.DS_Store
+Thumbs.db
+
+# Markdown files (except README.md)
+*.md
+!README.md
+
+# Recursive markdown ignore for subdirectories
+**/*.md
+!**/README.md

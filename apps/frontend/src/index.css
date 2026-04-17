@@ -1,0 +1,73 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, [data-theme="dark"], .dark *));
+
+@theme {
+  --color-primary-light: #818CF8;
+  --color-primary-dark: #6366F1;
+  
+  --color-surface-light: #F8FAFC;
+  --color-surface-dark: #0A0A0A; /* Pure Black Depth */
+  
+  --color-card-light: #FFFFFF;
+  --color-card-dark: #111111; /* Deepest Charcoal Card */
+  
+  --color-background-light: #FFFFFF;
+  --color-background-dark: #000000; /* Vantablack */
+}
+
+@layer base {
+  body {
+    @apply transition-colors duration-500 antialiased selection:bg-primary-light/30;
+    @apply bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100;
+    font-family: 'Outfit', sans-serif;
+  }
+}
+
+.glass-morphism {
+  @apply backdrop-blur-md bg-white/10 border border-white/20 select-none;
+}
+
+.dark .glass-morphism {
+  @apply bg-slate-900/50 border-slate-700/50;
+}
+
+.animated-gradient {
+  background-size: 200% 200%;
+  animation: gradient-shift 8s ease infinite;
+}
+
+@keyframes gradient-shift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+/* Customized Sanctuary Scrollbar */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.01);
+  border-radius: 10px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(129, 140, 248, 0.15); /* primary-light with low opacity */
+  border-radius: 10px;
+  transition: all 0.3s ease;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(129, 140, 248, 0.4);
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
