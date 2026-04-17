@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { JwtService } from '@nestjs/jwt';
@@ -8,6 +8,8 @@ import { User, UserDocument } from '../users/user.schema';
 
 @Injectable()
 export class AssignmentsService {
+  private readonly logger = new Logger(AssignmentsService.name);
+
   constructor(
     @InjectModel(Assignment.name) private assignmentModel: Model<AssignmentDocument>,
     @InjectModel(Submission.name) private submissionModel: Model<SubmissionDocument>,
@@ -16,6 +18,7 @@ export class AssignmentsService {
   ) {}
 
   async createAssignment(data: any, teacherId: string) {
+    this.logger.log(`Creating assignment: ${data.title} by teacher ${teacherId}`);
     const assignment = new this.assignmentModel({
       ...data,
       divisionId: new Types.ObjectId(data.divisionId),
@@ -26,9 +29,9 @@ export class AssignmentsService {
   }
 
   async getAssignmentsByDivision(divisionId: string) {
-    console.log(`[AssignmentsService] Fetching for division: ${divisionId}`);
+    this.logger.log(`Fetching assignments for division: ${divisionId}`);
     const results = await this.assignmentModel.find({ divisionId: new Types.ObjectId(divisionId) }).exec();
-    console.log(`[AssignmentsService] Found ${results.length} assignments`);
+    this.logger.log(`Found ${results.length} assignments for division ${divisionId}`);
     return results;
   }
 
@@ -41,15 +44,23 @@ export class AssignmentsService {
   }
 
   async validateStudentForAssignment(emailOrPhone: string, assignmentId: string) {
+    this.logger.log(`Validating student ${emailOrPhone} for assignment ${assignmentId}`);
     const assignment = await this.getAssignmentById(assignmentId);
-    if (!assignment) throw new BadRequestException('Mission not found.');
+    if (!assignment) {
+      this.logger.warn(`Assignment not found: ${assignmentId}`);
+      throw new BadRequestException('Mission not found.');
+    }
 
-    // Find the workshop associated with this assignment
-    // Assuming assignment.workshopId is populated or is an ID. 
-    // If not populated, we need to fetch it.
+    // Date Validation
+    const now = new Date();
+    if (now > assignment.dueDate) {
+      this.logger.warn(`Validation failed: Assignment ${assignment.title} is past due.`);
+      throw new BadRequestException('The submission window for this assignment has closed.');
+    }
+
     const workshopId = (assignment.workshopId as any)._id || assignment.workshopId;
     
-    // Find a student that matches email or phone AND is in the workshop's registeredStudentIds
+    // Find a student that matches email or phone
     const student = await this.userModel.findOne({
       $or: [
         { email: emailOrPhone.toLowerCase() },
@@ -58,18 +69,28 @@ export class AssignmentsService {
       role: 'STUDENT'
     }).exec();
 
-    if (!student) throw new BadRequestException('Identity not found in our records.');
+    if (!student) {
+      this.logger.warn(`Identity not found: ${emailOrPhone}`);
+      throw new BadRequestException('Identity not found in our records.');
+    }
 
     // Fetch the workshop to check membership
     const workshop = await this.assignmentModel.db.model('Workshop').findById(workshopId).exec();
-    if (!workshop) throw new BadRequestException('Curriculum context missing.');
+    if (!workshop) {
+      this.logger.error(`Curriculum context missing for workshop ${workshopId}`);
+      throw new BadRequestException('Curriculum context missing.');
+    }
 
     const isRegistered = (workshop as any).registeredStudentIds.some(
       (id: Types.ObjectId) => id.toString() === student._id.toString()
     );
 
-    if (!isRegistered) throw new BadRequestException('You are not registered for this workshop.');
+    if (!isRegistered) {
+      this.logger.warn(`Student ${student.email} not registered for workshop ${workshopId}`);
+      throw new BadRequestException('You are not registered for this workshop.');
+    }
 
+    this.logger.log(`Validation successful for student: ${student.email}`);
     return { 
       success: true, 
       studentId: student._id, 
@@ -79,6 +100,7 @@ export class AssignmentsService {
   }
 
   async createSubmission(studentId: string, assignmentId: string, divisionId: string, payload: any) {
+    this.logger.log(`Creating submission for student ${studentId}, assignment ${assignmentId}`);
     const assignment = await this.assignmentModel.findById(assignmentId);
     if (!assignment) throw new NotFoundException('Assignment not found');
 
@@ -108,11 +130,22 @@ export class AssignmentsService {
     try {
       return this.jwtService.verify(token);
     } catch (e) {
+      this.logger.warn('Invalid or expired submission token provided.');
       throw new UnauthorizedException('Invalid or expired submission token');
     }
   }
 
   async submitAssignment(assignmentIdFromParams: string, payload: any) {
+    const assignment = await this.assignmentModel.findById(assignmentIdFromParams).populate('workshopId').exec();
+    if (!assignment) {
+      throw new NotFoundException('Assignment not found.');
+    }
+
+    // Check Due Date
+    if (new Date() > assignment.dueDate) {
+      throw new BadRequestException('Submission window has closed. The due date has passed.');
+    }
+
     let studentId: string;
     let aid: string;
 
@@ -122,6 +155,7 @@ export class AssignmentsService {
       aid = decoded.aid;
       
       if (aid !== assignmentIdFromParams) {
+        this.logger.warn(`Token assignment mismatch: token[${aid}] != param[${assignmentIdFromParams}]`);
         throw new UnauthorizedException('Token assignment mismatch');
       }
     } else if (payload.studentId) {
@@ -131,8 +165,8 @@ export class AssignmentsService {
       throw new UnauthorizedException('Identity verification required');
     }
 
-    const assignment = await this.getAssignmentById(aid);
-    if (!assignment) throw new NotFoundException('Assignment not found');
+    this.logger.log(`Submission attempt for student ${studentId}, assignment ${aid}`);
+    // Identity confirmed, proceed to submission 
 
     const submittedAt = new Date();
     const isLate = submittedAt > new Date(assignment.dueDate);
@@ -144,6 +178,7 @@ export class AssignmentsService {
     });
 
     if (existingSubmission) {
+      this.logger.log(`Updating existing submission ${existingSubmission._id}`);
       existingSubmission.submissionType = payload.submissionType;
       existingSubmission.link = payload.link;
       existingSubmission.fileUrl = payload.fileUrl;
@@ -162,6 +197,7 @@ export class AssignmentsService {
       status: isLate ? 'late' : 'submitted',
     });
 
+    this.logger.log(`Created new submission for student ${studentId}`);
     return submission.save();
   }
 
@@ -172,6 +208,7 @@ export class AssignmentsService {
   }
 
   async gradeSubmission(submissionId: string, data: any, teacherId: string) {
+    this.logger.log(`Grading submission ${submissionId} by teacher ${teacherId}`);
     return this.submissionModel.findByIdAndUpdate(submissionId, {
       marks: data.marks,
       feedback: data.feedback,

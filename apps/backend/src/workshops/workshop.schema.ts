@@ -50,6 +50,15 @@ export class Workshop {
   })
   schedule: { start: Date; end: Date };
 
+  @Prop({
+    type: {
+      start: { type: Date, required: true },
+      end: { type: Date, required: true },
+    },
+    required: true,
+  })
+  registrationPeriod: { start: Date; end: Date };
+
   @Prop({ 
     required: true, 
     enum: ['DRAFT', 'ONGOING', 'COMPLETED'],

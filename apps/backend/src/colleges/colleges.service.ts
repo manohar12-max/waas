@@ -1,4 +1,4 @@
-import { Injectable, ConflictException, NotFoundException } from '@nestjs/common';
+import { Injectable, ConflictException, NotFoundException, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { College, CollegeDocument } from './college.schema';
@@ -9,6 +9,8 @@ import { Attendance, AttendanceDocument } from '../workshops/attendance.schema';
 
 @Injectable()
 export class CollegesService {
+  private readonly logger = new Logger(CollegesService.name);
+
   constructor(
     @InjectModel(College.name) private collegeModel: Model<CollegeDocument>,
     @InjectModel(User.name) private userModel: Model<UserDocument>,
@@ -19,6 +21,7 @@ export class CollegesService {
 
   async create(createCollegeDto: any): Promise<CollegeDocument> {
     const { name, adminEmail, adminName, adminPassword, ...rest } = createCollegeDto;
+    this.logger.log(`Creating college: ${name}`);
     const college = new this.collegeModel({ name, ...rest });
     const savedCollege = await college.save();
     try {
@@ -31,7 +34,9 @@ export class CollegesService {
       });
       savedCollege.adminId = admin._id;
       await savedCollege.save();
+      this.logger.log(`College and admin created successfully: ${name}`);
     } catch (error) {
+      this.logger.error(`Failed to create admin for college ${name}. Rolling back college creation.`, error.stack);
       await this.collegeModel.findByIdAndDelete(savedCollege._id);
       throw error;
     }
@@ -44,13 +49,15 @@ export class CollegesService {
 
   async findOne(id: string): Promise<CollegeDocument> {
     const college = await this.collegeModel.findById(id).populate('adminId', 'name email').exec();
-    if (!college) throw new NotFoundException('College not found');
+    if (!college) {
+      this.logger.warn(`College not found: ${id}`);
+      throw new NotFoundException('College not found');
+    }
     return college;
   }
 
-
-
   async getPlatformStats() {
+    this.logger.log('Fetching platform-wide statistics');
     const [totalColleges, totalUsers, totalWorkshops, activeSessions] = await Promise.all([
       this.collegeModel.countDocuments(),
       this.userModel.countDocuments(),
@@ -61,8 +68,9 @@ export class CollegesService {
     return { totalColleges, totalUsers, totalWorkshops, activeSessions };
   }
 
-  async getCollegeStats(collegeId: any) {
+  async getCollegeStats(collegeId: string | Types.ObjectId) {
     const cId = collegeId instanceof Types.ObjectId ? collegeId : new Types.ObjectId(collegeId);
+    this.logger.log(`Fetching statistics for college: ${cId}`);
     const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
     
     const [totalStudents, totalWorkshops, liveWorkshops, activeStudents, workshops] = await Promise.all([
@@ -90,9 +98,10 @@ export class CollegesService {
     };
   }
 
-  async getInstructorStats(instructorId: any, collegeId: any) {
+  async getInstructorStats(instructorId: string, collegeId: string) {
     const iId = new Types.ObjectId(instructorId);
     const cId = new Types.ObjectId(collegeId);
+    this.logger.log(`Fetching instructor stats for: ${iId} in college: ${cId}`);
     
     const [myWorkshops, ongoingWorkshops] = await Promise.all([
       this.workshopModel.countDocuments({ instructorId: iId }),
@@ -102,7 +111,7 @@ export class CollegesService {
     return {
       totalWorkshops: myWorkshops,
       liveWorkshops: ongoingWorkshops,
-      averageParticipation: "88%", // Placeholder for next engagement patch
+      averageParticipation: "88%", // TODO: Implement actual participation calculation
     };
   }
 }

@@ -48,7 +48,8 @@ export default function WorkshopHubPage() {
     title: '',
     description: '',
     instructorId: '',
-    schedule: { start: '', end: '' }
+    schedule: { start: '', end: '' },
+    registrationPeriod: { start: '', end: '' }
   });
 
   const [instructors, setInstructors] = useState<any[]>([]);
@@ -112,7 +113,13 @@ export default function WorkshopHubPage() {
       });
       setShowModal(false);
       fetchData();
-      setNewWorkshop({ title: '', description: '', instructorId: '', schedule: { start: '', end: '' } });
+      setNewWorkshop({ 
+        title: '', 
+        description: '', 
+        instructorId: '', 
+        schedule: { start: '', end: '' },
+        registrationPeriod: { start: '', end: '' }
+      });
     } catch (err: any) {
       setError(err.response?.data?.message || "Failed to deploy curriculum. Check connectivity.");
     } finally {
@@ -238,11 +245,21 @@ export default function WorkshopHubPage() {
                   </div>
                 )}
 
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-4">Operational Windows</label>
-                  <div className="grid grid-cols-2 gap-4">
-                    <input required type="datetime-local" className="bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/5 rounded-3xl p-6 outline-none font-bold cursor-pointer text-slate-800 dark:text-white" value={newWorkshop.schedule.start} onChange={e => setNewWorkshop({ ...newWorkshop, schedule: { ...newWorkshop.schedule, start: e.target.value } })} />
-                    <input required type="datetime-local" className="bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/5 rounded-3xl p-6 outline-none font-bold cursor-pointer text-slate-800 dark:text-white" value={newWorkshop.schedule.end} onChange={e => setNewWorkshop({ ...newWorkshop, schedule: { ...newWorkshop.schedule, end: e.target.value } })} />
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-4">Registration Window (Access Period)</label>
+                    <div className="grid grid-cols-2 gap-4">
+                      <input required type="datetime-local" className="bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/5 rounded-3xl p-6 outline-none font-bold cursor-pointer text-slate-800 dark:text-white" value={newWorkshop.registrationPeriod.start} onChange={e => setNewWorkshop({ ...newWorkshop, registrationPeriod: { ...newWorkshop.registrationPeriod, start: e.target.value } })} />
+                      <input required type="datetime-local" className="bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/5 rounded-3xl p-6 outline-none font-bold cursor-pointer text-slate-800 dark:text-white" value={newWorkshop.registrationPeriod.end} onChange={e => setNewWorkshop({ ...newWorkshop, registrationPeriod: { ...newWorkshop.registrationPeriod, end: e.target.value } })} />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-4">Workshop Event (Schedule)</label>
+                    <div className="grid grid-cols-2 gap-4">
+                      <input required type="datetime-local" className="bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/5 rounded-3xl p-6 outline-none font-bold cursor-pointer text-slate-800 dark:text-white" value={newWorkshop.schedule.start} onChange={e => setNewWorkshop({ ...newWorkshop, schedule: { ...newWorkshop.schedule, start: e.target.value } })} />
+                      <input required type="datetime-local" className="bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/5 rounded-3xl p-6 outline-none font-bold cursor-pointer text-slate-800 dark:text-white" value={newWorkshop.schedule.end} onChange={e => setNewWorkshop({ ...newWorkshop, schedule: { ...newWorkshop.schedule, end: e.target.value } })} />
+                    </div>
                   </div>
                 </div>
 

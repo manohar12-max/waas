@@ -1,9 +1,10 @@
 import { NestFactory } from '@nestjs/core';
-import { ValidationPipe } from '@nestjs/common';
+import { ValidationPipe, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
+  const logger = new Logger('Bootstrap');
   const app = await NestFactory.create(AppModule);
   
   const configService = app.get(ConfigService);
@@ -16,6 +17,6 @@ async function bootstrap() {
   }));
 
   await app.listen(port);
-  console.log(`Backend is running on: http://localhost:${port}`);
+  logger.log(`🚀 Backend is running on: http://localhost:${port}`);
 }
 bootstrap();

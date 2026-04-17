@@ -16,12 +16,8 @@ export class DivisionsService {
   private toObjectId(id: any): Types.ObjectId | null {
     if (!id) return null;
     if (id instanceof Types.ObjectId) return id;
-    if (typeof id === 'string' && id.length === 24) {
-      try {
-        return new Types.ObjectId(id);
-      } catch (e) {
-        return null;
-      }
+    if (typeof id === 'string' && Types.ObjectId.isValid(id)) {
+      return new Types.ObjectId(id);
     }
     return null;
   }
@@ -31,15 +27,22 @@ export class DivisionsService {
     let tId = this.toObjectId(createDivisionDto.teacherId);
     let wId = this.toObjectId(createDivisionDto.workshopId);
 
+    this.logger.log(`Attempting to create division for workshop ${wId} in college ${cId}`);
+
     // Self-Healing Identity Check
     if (!cId && tId) {
+      this.logger.log(`CollegeID missing, attempting to resolve from teacher ${tId}`);
       const teacher = await this.userModel.findById(tId);
       if (teacher && teacher.collegeId) {
         cId = teacher.collegeId;
+        this.logger.log(`Resolved CollegeID: ${cId}`);
       }
     }
 
-    if (!cId) throw new BadRequestException('Institutional linkage failed. Please refresh your session.');
+    if (!cId) {
+      this.logger.error('Division creation failed: Missing college linkage.');
+      throw new BadRequestException('Institutional linkage failed. Please refresh your session.');
+    }
     if (!wId) throw new BadRequestException('A target Workshop/Curriculum must be assigned.');
     if (!tId) throw new BadRequestException('A primary Teacher must be assigned to the division.');
 
@@ -50,9 +53,11 @@ export class DivisionsService {
         teacherId: tId,
         workshopId: wId,
       });
-      return await division.save();
+      const saved = await division.save();
+      this.logger.log(`Division created successfully: ${saved._id}`);
+      return saved;
     } catch (err) {
-      this.logger.error(`Division creation failed: ${err.message}`);
+      this.logger.error(`Division creation failed: ${err.message}`, err.stack);
       throw new BadRequestException('Institutional database rejected the division record.');
     }
   }
@@ -62,12 +67,13 @@ export class DivisionsService {
       const cId = this.toObjectId(collegeId);
       if (!cId) return [];
 
+      this.logger.log(`Fetching all divisions for college ${cId}`);
       return this.divisionModel
         .find({ collegeId: cId })
         .populate('teacherId', 'name email')
         .exec();
     } catch (error) {
-      this.logger.error(`Failed to fetch divisions: ${error.message}`);
+      this.logger.error(`Failed to fetch divisions: ${error.message}`, error.stack);
       return [];
     }
   }
@@ -77,18 +83,20 @@ export class DivisionsService {
       const tId = this.toObjectId(teacherId);
       if (!tId) return [];
 
+      this.logger.log(`Fetching divisions for teacher ${tId}`);
       return this.divisionModel
         .find({ teacherId: tId })
         .populate('workshopId', 'title')
         .exec();
     } catch (error) {
-      this.logger.error(`Failed to fetch teacher divisions: ${error.message}`);
+      this.logger.error(`Failed to fetch teacher divisions: ${error.message}`, error.stack);
       return [];
     }
   }
 
   async getStats(divisionId: any) {
-    // Placeholder for real stats logic
+    this.logger.log(`Fetching statistics for division ${divisionId}`);
+    // TODO: Implement actual statistics logic based on assignments and attendance
     return {
       averageScore: 82,
       attendanceRate: '94%',
@@ -100,10 +108,12 @@ export class DivisionsService {
     const dId = this.toObjectId(id);
     let cId = this.toObjectId(collegeId);
 
-    // Self-healing: if collegeId is missing (e.g. from token issue), don't fail yet
-    // if we can find the division by ID and verify it later.
-    if (!dId) throw new NotFoundException('Division context lost.');
+    if (!dId) {
+      this.logger.error('Division lookup failed: Invalid ID provided.');
+      throw new NotFoundException('Division context lost.');
+    }
 
+    this.logger.log(`Fetching division ${dId} (CollegeContext: ${cId})`);
     const division = await this.divisionModel.findOne({
       _id: dId,
       ...(cId ? { collegeId: cId } : {})
@@ -116,7 +126,10 @@ export class DivisionsService {
         }
       }).exec();
 
-    if (!division) throw new NotFoundException('Division not found.');
+    if (!division) {
+      this.logger.warn(`Division not found: ${dId}`);
+      throw new NotFoundException('Division not found.');
+    }
     return division;
   }
 
@@ -125,6 +138,7 @@ export class DivisionsService {
     const cId = this.toObjectId(collegeId);
     if (!dId || !cId) throw new BadRequestException('Update failed: Institutional identity missing.');
 
+    this.logger.log(`Updating division ${dId}`);
     return this.divisionModel.findOneAndUpdate(
       { _id: dId, collegeId: cId },
       { $set: updateDto },
@@ -137,6 +151,7 @@ export class DivisionsService {
     const cId = this.toObjectId(collegeId);
     if (!dId || !cId) return null;
 
+    this.logger.log(`Deleting division ${dId}`);
     return this.divisionModel.findOneAndDelete({
       _id: dId,
       collegeId: cId,

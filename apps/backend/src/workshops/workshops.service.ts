@@ -28,53 +28,86 @@ export class WorkshopsService {
   }
 
   async enrollStudent(enrollDto: any) {
-    const { inviteToken, name, email, phone } = enrollDto;
+    const email = enrollDto.email?.trim()?.toLowerCase() || '';
+    const { inviteToken, name, phone } = enrollDto;
+    this.logger.log(`Enrollment attempt: ${email} for token ${inviteToken}`);
 
     // 1. Validate Invite
     const workshop = await this.workshopModel.findOne({ inviteToken });
-    if (!workshop) throw new NotFoundException('Invalid institutional link.');
+    if (!workshop) {
+      this.logger.warn(`Enrollment failed: Invalid token ${inviteToken}`);
+      throw new NotFoundException('Invalid institutional link.');
+    }
 
-    // 2. Check Existence
-    const existing = await this.userModel.findOne({ email });
-    if (existing) throw new ConflictException('Identity already registered.');
+    // Date Validation
+    const now = new Date();
+    if (workshop.registrationPeriod) {
+      if (now < workshop.registrationPeriod.start) {
+        this.logger.warn(`Enrollment attempt too early: ${email} for ${workshop.title}`);
+        throw new BadRequestException('Registration for this workshop has not started yet.');
+      }
+      if (now > workshop.registrationPeriod.end) {
+        this.logger.warn(`Enrollment attempt too late: ${email} for ${workshop.title}`);
+        throw new BadRequestException('Registration for this workshop has ended.');
+      }
+    }
 
-    // 3. Create Identity (Zero-Friction)
-    const randomPassword = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
-    const hashedPassword = await bcrypt.hash(randomPassword, 10);
-
-    const student = new this.userModel({
-      name,
-      email,
-      phone,
-      password: hashedPassword,
-      role: UserRole.STUDENT,
-      collegeId: workshop.collegeId,
-      active: true
+    // 2. Resolve Student Identity
+    let student = await this.userModel.findOne({ 
+      email: { $regex: new RegExp(`^${email}$`, 'i') } 
     });
 
-    const savedStudent = await student.save();
+    if (student) {
+      // Identity exists, check if already enrolled in THIS workshop
+      const isAlreadyEnrolled = workshop.registeredStudentIds.some(
+        (id: any) => id.toString() === student!._id.toString()
+      );
+
+      if (isAlreadyEnrolled) {
+        this.logger.warn(`Enrollment failed: Student ${email} already in workshop ${workshop.title}`);
+        throw new ConflictException('You are already registered for this workshop.');
+      }
+      
+      this.logger.log(`Existing student ${email} enrolling in new workshop: ${workshop.title}`);
+    } else {
+      // 3. Create Identity if not exists
+      this.logger.log(`Creating new identity for student: ${email}`);
+      const randomPassword = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+      const hashedPassword = await bcrypt.hash(randomPassword, 10);
+
+      student = new this.userModel({
+        name,
+        email,
+        phone,
+        password: hashedPassword,
+        role: UserRole.STUDENT,
+        collegeId: workshop.collegeId,
+        active: true
+      });
+
+      student = await student.save();
+      this.logger.log(`New student identity created: ${student.email} [ID: ${student._id}]`);
+    }
 
     // 4. Link to Workshop
     await this.workshopModel.findByIdAndUpdate(workshop._id, {
-      $addToSet: { registeredStudentIds: savedStudent._id }
+      $addToSet: { registeredStudentIds: student._id }
     });
+
+    this.logger.log(`Student ${student.email} enrolled in workshop: ${workshop.title}`);
 
     return {
       success: true,
       workshop: workshop.title,
-      student: savedStudent.name
+      student: student.name
     };
   }
 
   private toObjectId(id: any): Types.ObjectId | null {
     if (!id) return null;
     if (id instanceof Types.ObjectId) return id;
-    if (typeof id === 'string' && id.length === 24) {
-      try {
-        return new Types.ObjectId(id);
-      } catch (e) {
-        return null;
-      }
+    if (typeof id === 'string' && Types.ObjectId.isValid(id)) {
+      return new Types.ObjectId(id);
     }
     return null;
   }
@@ -107,6 +140,7 @@ export class WorkshopsService {
     // Role Validation: Ensure instructorId has INSTRUCTOR role
     const instructor = await this.userModel.findById(iId);
     if (!instructor || instructor.role !== UserRole.INSTRUCTOR) {
+      this.logger.warn(`Validation Failure: User ${iId} is not an instructor.`);
       throw new BadRequestException('The assigned user must have the Instructor role.');
     }
 
@@ -124,19 +158,32 @@ export class WorkshopsService {
       this.logger.log(`Workshop Deployed Successfully: ${saved._id} (Invite: ${inviteToken})`);
       return saved;
     } catch (err) {
-      this.logger.error(`Database Error during workshop deployment: ${err.message}`);
+      this.logger.error(`Database Error during workshop deployment: ${err.message}`, err.stack);
       throw new BadRequestException('Institutional database rejected the workshop record.');
     }
   }
 
   async validateInvite(token: string) {
+    this.logger.log(`Validating invite token: ${token}`);
     const workshop = await this.workshopModel.findOne({ inviteToken: token })
       .populate('collegeId', 'name')
       .populate('instructorId', 'name email')
       .exec();
 
     if (!workshop) {
+      this.logger.warn(`Invalid invite token: ${token}`);
       throw new NotFoundException('Invalid or expired invitation link.');
+    }
+
+    // Date Validation
+    const now = new Date();
+    if (workshop.registrationPeriod) {
+      if (now < workshop.registrationPeriod.start) {
+        throw new BadRequestException('Registration has not started yet.');
+      }
+      if (now > workshop.registrationPeriod.end) {
+        throw new BadRequestException('Registration window has closed.');
+      }
     }
 
     return workshop;
@@ -159,7 +206,7 @@ export class WorkshopsService {
         .sort({ 'schedule.start': 1 })
         .exec();
     } catch (error) {
-      this.logger.error(`Failed to fetch workshops: ${error.message}`);
+      this.logger.error(`Failed to fetch workshops: ${error.message}`, error.stack);
       return [];
     }
   }
@@ -174,7 +221,7 @@ export class WorkshopsService {
         .populate('instructorId', 'name email')
         .exec();
     } catch (error) {
-      this.logger.error(`Failed to fetch instructor workshops: ${error.message}`);
+      this.logger.error(`Failed to fetch instructor workshops: ${error.message}`, error.stack);
       return [];
     }
   }
@@ -183,6 +230,7 @@ export class WorkshopsService {
     const wId = this.toObjectId(id);
     if (!wId) throw new BadRequestException('Invalid Workshop ID.');
 
+    this.logger.log(`Updating workshop: ${wId}`);
     return this.workshopModel.findByIdAndUpdate(
       wId,
       { $set: updateDto },
@@ -203,7 +251,10 @@ export class WorkshopsService {
       .populate('registeredStudentIds', 'name email createdAt')
       .exec();
 
-    if (!workshop) throw new NotFoundException('Workshop resource deleted or moved.');
+    if (!workshop) {
+      this.logger.warn(`Workshop not found: ${wId} for college ${cId}`);
+      throw new NotFoundException('Workshop resource deleted or moved.');
+    }
     return workshop;
   }
 
@@ -211,6 +262,7 @@ export class WorkshopsService {
     const sId = this.toObjectId(studentId);
     if (!sId) return null;
 
+    this.logger.log(`Registering student ${sId} to workshop with token ${inviteToken}`);
     return this.workshopModel.findOneAndUpdate(
       { inviteToken },
       { $addToSet: { registeredStudentIds: sId } },
@@ -223,6 +275,7 @@ export class WorkshopsService {
     const cId = this.toObjectId(collegeId);
     if (!wId || !cId) return null;
 
+    this.logger.log(`Deleting workshop: ${wId} in college ${cId}`);
     return this.workshopModel.findOneAndDelete({
       _id: wId,
       collegeId: cId,
@@ -234,6 +287,7 @@ export class WorkshopsService {
     const cId = this.toObjectId(collegeId);
     if (!wId || !cId) throw new BadRequestException('Status update failed: Identity mismatch.');
 
+    this.logger.log(`Status update for workshop ${wId}: ${status}`);
     return this.workshopModel.findOneAndUpdate(
       { _id: wId, collegeId: cId },
       { $set: { status } },
@@ -246,8 +300,12 @@ export class WorkshopsService {
     const sId = this.toObjectId(studentId);
     const vId = this.toObjectId(verifiedBy);
 
-    if (!wId || !sId || !vId) throw new BadRequestException('Attendance recording failed: Reference ID corruption.');
+    if (!wId || !sId || !vId) {
+      this.logger.error(`Attendance recording failed: ID mismatch. Workshop: ${workshopId}, Student: ${studentId}, Verifier: ${verifiedBy}`);
+      throw new BadRequestException('Attendance recording failed: Reference ID corruption.');
+    }
 
+    this.logger.log(`Recording attendance: workshop ${wId}, student ${sId}, method ${method}`);
     return this.attendanceModel.findOneAndUpdate(
       { workshopId: wId, studentId: sId },
       {
@@ -266,20 +324,26 @@ export class WorkshopsService {
     const wId = this.toObjectId(workshopId);
     if (!wId) throw new BadRequestException('Invalid Workshop ID.');
 
+    this.logger.log(`Self-checkin attempt: ${email} for workshop ${wId}`);
+
     // 1. Find Student
     const student = await this.userModel.findOne({ email, role: UserRole.STUDENT });
-    if (!student) throw new NotFoundException('Student identity not found in institutional records.');
+    if (!student) {
+      this.logger.warn(`Self-checkin failed: Student ${email} not found.`);
+      throw new NotFoundException('Student identity not found in institutional records.');
+    }
 
     // 2. Verify Registration
     const isRegistered = await this.workshopModel.findOne({
       _id: wId,
       registeredStudentIds: student._id
     });
-    if (!isRegistered) throw new BadRequestException('You are not registered for this curriculum session.');
+    if (!isRegistered) {
+      this.logger.warn(`Self-checkin failed: Student ${email} not registered for workshop ${wId}`);
+      throw new BadRequestException('You are not registered for this curriculum session.');
+    }
 
     // 3. Mark Present (Self-Checkin)
-    // For self-checkin, verifiedBy can be the student themselves or a system ID. 
-    // We'll use the student identity as the verifier for self-checkin.
     return this.recordAttendance(wId, student._id, student._id, 'QR_SCAN');
   }
 
@@ -288,6 +352,7 @@ export class WorkshopsService {
     const sId = this.toObjectId(studentId);
     if (!wId || !sId) throw new BadRequestException('Reference ID mismatch.');
 
+    this.logger.log(`Unmarking attendance: workshop ${wId}, student ${sId}`);
     return this.attendanceModel.findOneAndDelete({ workshopId: wId, studentId: sId }).exec();
   }
 
@@ -297,6 +362,7 @@ export class WorkshopsService {
 
     if (!aId || !tId) throw new BadRequestException('Attendance override failed: Identity context missing.');
 
+    this.logger.log(`Attendance override: record ${aId}, new status ${status}, by teacher ${tId}`);
     return this.attendanceModel.findOneAndUpdate(
       { _id: aId },
       { $set: { status, verifiedBy: tId } },
@@ -310,15 +376,18 @@ export class WorkshopsService {
 
     return this.attendanceModel
       .find({ workshopId: wId })
-      .populate('studentId', 'name email phone') // Include phone for registration hall
+      .populate('studentId', 'name email phone')
       .exec();
   }
 
   // --- Media Feed Methods ---
   async createMediaPost(createDto: any, teacherId: string): Promise<WorkshopMediaPostDocument> {
+    const wId = this.toObjectId(createDto.workshopId);
+    this.logger.log(`Creating media post for workshop: ${wId} by teacher ${teacherId}`);
+    
     const post = new this.mediaPostModel({
       ...createDto,
-      workshopId: this.toObjectId(createDto.workshopId),
+      workshopId: wId,
       teacherId: this.toObjectId(teacherId),
     });
     return post.save();
@@ -343,6 +412,7 @@ export class WorkshopsService {
   // --- Teacher Content Methods ---
   async createTeacherContent(createDto: any, teacherId: string): Promise<TeacherContentDocument> {
     const { shareToMediaFeed, ...data } = createDto;
+    this.logger.log(`Creating teacher content for workshop: ${data.workshopId} by teacher ${teacherId}`);
     
     const content = new this.teacherContentModel({
       ...data,
@@ -355,6 +425,7 @@ export class WorkshopsService {
     // Mirror to Media Feed if requested and type is IMAGE or VIDEO
     if (shareToMediaFeed && (data.type === 'IMAGE' || data.type === 'VIDEO')) {
         try {
+            this.logger.log(`Mirroring content to Media Feed: ${savedContent._id}`);
             await this.createMediaPost({
                 workshopId: data.workshopId,
                 mediaType: data.type,
@@ -363,7 +434,7 @@ export class WorkshopsService {
                 description: data.description
             }, teacherId);
         } catch (err) {
-            console.error('Mirroring to Media Feed Failed', err);
+            this.logger.error('Mirroring to Media Feed Failed', err.stack);
         }
     }
 
@@ -395,7 +466,6 @@ export class WorkshopsService {
 
   // --- Deletion Methods ---
   private extractPublicId(url: string): string {
-    // Example: https://res.cloudinary.com/dbqxje2nu/image/upload/v1713330000/public_id.jpg
     const parts = url.split('/');
     const lastPart = parts[parts.length - 1]; // public_id.jpg
     return lastPart.split('.')[0]; // public_id
@@ -405,12 +475,13 @@ export class WorkshopsService {
     const post = await this.mediaPostModel.findById(id);
     if (!post) throw new NotFoundException('Post not found');
     
+    this.logger.log(`Deleting media post: ${id}`);
     try {
       const publicId = this.extractPublicId(post.mediaUrl);
       const resourceType = post.mediaUrl.match(/\.(mp4|webm|ogg|mov)$|^.*video\/upload.*$/) ? 'video' : 'image';
       await cloudinary.uploader.destroy(publicId, { resource_type: resourceType });
     } catch (err) {
-      console.error('Cloudinary Delete Failed', err);
+      this.logger.error(`Cloudinary Delete Failed: ${err.message}`, err.stack);
     }
     
     return this.mediaPostModel.findByIdAndDelete(id);
@@ -420,6 +491,7 @@ export class WorkshopsService {
     const content = await this.teacherContentModel.findById(id);
     if (!content) throw new NotFoundException('Content not found');
     
+    this.logger.log(`Deleting teacher content: ${id}`);
     try {
       if (content.type !== 'LINK') {
         const publicId = this.extractPublicId(content.url);
@@ -427,7 +499,7 @@ export class WorkshopsService {
         await cloudinary.uploader.destroy(publicId, { resource_type: resourceType });
       }
     } catch (err) {
-      console.error('Cloudinary Delete Failed', err);
+      this.logger.error(`Cloudinary Delete Failed: ${err.message}`, err.stack);
     }
     
     return this.teacherContentModel.findByIdAndDelete(id);
