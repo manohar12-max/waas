@@ -20,7 +20,8 @@ export default function LoginPage() {
 
   useEffect(() => {
     const token = localStorage.getItem('token');
-    if (token) {
+    const userStr = localStorage.getItem('user');
+    if (token && userStr) {
       navigate('/dashboard');
     }
   }, [navigate]);

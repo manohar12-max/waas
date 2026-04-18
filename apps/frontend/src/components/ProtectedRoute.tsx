@@ -11,6 +11,10 @@ export default function ProtectedRoute({ children, allowedRoles }: ProtectedRout
   const location = useLocation();
 
   if (!token || !userStr) {
+    // Prevent redirection loop if already on login page
+    if (location.pathname === '/login') {
+      return <>{children}</>;
+    }
     // Redirect to login but save the current location to redirect back after login
     return <Navigate to="/login" state={{ from: location }} replace />;
   }

@@ -31,6 +31,12 @@ export class DivisionsController {
     return this.divisionsService.findOne(id, collegeId);
   }
 
+  @Get('workshop/:workshopId')
+  @Roles(UserRole.COLLEGE_ADMIN, UserRole.INSTRUCTOR, UserRole.TEACHER)
+  findByWorkshop(@Param('workshopId') workshopId: string) {
+    return this.divisionsService.findByWorkshop(workshopId);
+  }
+
   @Delete(':id')
   @Roles(UserRole.COLLEGE_ADMIN, UserRole.INSTRUCTOR)
   remove(@Param('id') id: string, @GetUser('collegeId') collegeId: string) {

@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { 
   Users, Calendar, FileText, Activity, 
   ChevronRight, ArrowUpRight, GraduationCap,
-  Loader2, UserPlus
+  Loader2, UserPlus, Bell
 } from 'lucide-react';
 
 export default function TeacherDivisionHub() {
@@ -104,6 +104,17 @@ export default function TeacherDivisionHub() {
                   <div className="flex items-center gap-4">
                     <FileText className="w-5 h-5 opacity-40 group-hover/btn:text-primary-light transition-colors" />
                     <span className="font-bold text-sm tracking-tight text-slate-700 dark:text-white">Assignments Hub</span>
+                  </div>
+                  <ChevronRight className="w-4 h-4 opacity-20 group-hover/btn:opacity-100 transition-all text-slate-400 dark:text-white" />
+                </button>
+
+                <button 
+                  onClick={() => navigate(`/teacher/divisions/${div._id}/announcements`)} 
+                  className="w-full flex items-center justify-between bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 hover:border-primary-light/40 p-5 rounded-3xl transition-all group/btn cursor-pointer shadow-sm"
+                >
+                  <div className="flex items-center gap-4">
+                    <Bell className="w-5 h-5 opacity-40 group-hover/btn:text-primary-light transition-colors" />
+                    <span className="font-bold text-sm tracking-tight text-slate-700 dark:text-white">News & Announcements</span>
                   </div>
                   <ChevronRight className="w-4 h-4 opacity-20 group-hover/btn:opacity-100 transition-all text-slate-400 dark:text-white" />
                 </button>

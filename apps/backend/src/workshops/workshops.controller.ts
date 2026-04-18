@@ -41,6 +41,12 @@ export class WorkshopsController {
     return this.workshopsService.findAll(collegeId, instructorId);
   }
 
+  @Get('student')
+  @Roles(UserRole.STUDENT)
+  findStudentWorkshops(@GetUser('_id') userId: string) {
+    return this.workshopsService.getStudentWorkshops(userId);
+  }
+
   @Get(':id')
   @Roles(UserRole.COLLEGE_ADMIN, UserRole.TEACHER, UserRole.INSTRUCTOR)
   findOne(@Param('id') id: string, @GetUser('collegeId') collegeId: string) {

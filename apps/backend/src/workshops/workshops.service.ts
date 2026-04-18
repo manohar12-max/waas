@@ -189,6 +189,12 @@ export class WorkshopsService {
     return workshop;
   }
 
+  async getStudentWorkshops(studentId: string): Promise<WorkshopDocument[]> {
+    return this.workshopModel.find({
+      registeredStudentIds: this.toObjectId(studentId)
+    }).exec();
+  }
+
   async findAll(collegeId: any, instructorId?: any): Promise<WorkshopDocument[]> {
     try {
       const cId = this.toObjectId(collegeId);
@@ -410,12 +416,13 @@ export class WorkshopsService {
   }
 
   // --- Teacher Content Methods ---
-  async createTeacherContent(createDto: any, teacherId: string): Promise<TeacherContentDocument> {
+  async createTeacherContent(createDto: any, teacherId: string, filePath?: string): Promise<TeacherContentDocument> {
     const { shareToMediaFeed, ...data } = createDto;
     this.logger.log(`Creating teacher content for workshop: ${data.workshopId} by teacher ${teacherId}`);
     
     const content = new this.teacherContentModel({
       ...data,
+      url: filePath || data.url, // Prioritize local file path if uploaded
       workshopId: this.toObjectId(data.workshopId),
       divisionId: this.toObjectId(data.divisionId),
       teacherId: this.toObjectId(teacherId),
@@ -495,7 +502,7 @@ export class WorkshopsService {
     try {
       if (content.type !== 'LINK') {
         const publicId = this.extractPublicId(content.url);
-        const resourceType = content.type === 'VIDEO' ? 'video' : content.type === 'PDF' ? 'raw' : 'image';
+        const resourceType = content.type === 'VIDEO' ? 'video' : (content.type === 'PDF' || content.type === 'SLIDES') ? 'raw' : 'image';
         await cloudinary.uploader.destroy(publicId, { resource_type: resourceType });
       }
     } catch (err) {

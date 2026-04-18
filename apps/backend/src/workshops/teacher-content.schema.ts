@@ -14,7 +14,7 @@ export class TeacherContent {
   @Prop({ type: Types.ObjectId, ref: 'Workshop', required: true })
   workshopId: Types.ObjectId;
 
-  @Prop({ required: true, enum: ['PDF', 'VIDEO', 'IMAGE', 'LINK'] })
+  @Prop({ required: true, enum: ['PDF', 'VIDEO', 'IMAGE', 'LINK', 'SLIDES'] })
   type: string;
 
   @Prop({ required: true })

@@ -20,9 +20,11 @@ import TeacherRegistry from './modules/teacher/TeacherRegistry';
 import TeacherClassroom from './modules/teacher/TeacherClassroom';
 import MediaFeedPage from './modules/media/MediaFeedPage';
 import LearningCenterPage from './modules/learning/LearningCenterPage';
+import AnnouncementsPage from './modules/announcements/AnnouncementsPage';
 import InstructorPortal from './modules/instructor/InstructorPortal';
 import InstructorWorkshopManage from './modules/instructor/InstructorWorkshopManage';
 import AssignmentManagement from './modules/teacher/AssignmentManagement';
+import TeacherAnnouncements from './modules/teacher/TeacherAnnouncements';
 import DashboardLayout from './components/layouts/DashboardLayout';
 import ForumHubPage from './modules/forum/ForumHubPage';
 import ProjectLanding from './modules/sandbox/ProjectLanding';
@@ -110,6 +112,12 @@ function App() {
               </ProtectedRoute>
             } />
 
+            <Route path="/announcements" element={
+              <ProtectedRoute allowedRoles={['TEACHER', 'INSTRUCTOR', 'STUDENT']}>
+                <AnnouncementsPage />
+              </ProtectedRoute>
+            } />
+
             <Route path="/teacher/divisions" element={
               <ProtectedRoute allowedRoles={['TEACHER']}>
                 <TeacherDivisionHub />
@@ -131,6 +139,12 @@ function App() {
             <Route path="/teacher/assignments/:id" element={
               <ProtectedRoute allowedRoles={['TEACHER']}>
                 <AssignmentManagement />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/teacher/divisions/:divisionId/announcements" element={
+              <ProtectedRoute allowedRoles={['TEACHER']}>
+                <TeacherAnnouncements />
               </ProtectedRoute>
             } />
 

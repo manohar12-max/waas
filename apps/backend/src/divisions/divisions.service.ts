@@ -94,6 +94,22 @@ export class DivisionsService {
     }
   }
 
+  async findByWorkshop(workshopId: any): Promise<DivisionDocument[]> {
+    try {
+      const wId = this.toObjectId(workshopId);
+      if (!wId) return [];
+
+      this.logger.log(`Fetching divisions for workshop ${wId}`);
+      return this.divisionModel
+        .find({ workshopId: wId })
+        .populate('teacherId', 'name email')
+        .exec();
+    } catch (error) {
+      this.logger.error(`Failed to fetch workshop divisions: ${error.message}`, error.stack);
+      return [];
+    }
+  }
+
   async getStats(divisionId: any) {
     this.logger.log(`Fetching statistics for division ${divisionId}`);
     // TODO: Implement actual statistics logic based on assignments and attendance

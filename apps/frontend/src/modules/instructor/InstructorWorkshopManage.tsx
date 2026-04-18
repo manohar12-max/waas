@@ -19,13 +19,14 @@ import {
 } from 'lucide-react';
 import { QRCodeCanvas } from 'qrcode.react';
 import SessionContentGen from './SessionContentGen';
+import AnnouncementsCenter from '../shared/announcements/AnnouncementsCenter';
 
 export default function InstructorWorkshopManage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const [workshop, setWorkshop] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [viewMode, setViewMode] = useState<'REGISTRY' | 'INVITE' | 'PATH'>('REGISTRY');
+  const [viewMode, setViewMode] = useState<'REGISTRY' | 'INVITE' | 'PATH' | 'ANNOUNCEMENTS'>('REGISTRY');
   const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
@@ -76,10 +77,11 @@ export default function InstructorWorkshopManage() {
       </div>
 
       {/* Tab Switcher - Premium */}
-      <div className="flex gap-4 p-2 bg-slate-100 dark:bg-white/5 rounded-[32px] border border-slate-200 dark:border-white/5 max-w-md">
-         <button onClick={() => setViewMode('REGISTRY')} className={`flex-1 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all cursor-pointer ${viewMode === 'REGISTRY' ? 'bg-primary-light text-white shadow-xl' : 'opacity-60 dark:opacity-40 hover:opacity-100 text-slate-500 dark:text-white'}`}>Detailed Registry</button>
-         <button onClick={() => setViewMode('INVITE')} className={`flex-1 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all cursor-pointer ${viewMode === 'INVITE' ? 'bg-primary-light text-white shadow-xl' : 'opacity-60 dark:opacity-40 hover:opacity-100 text-slate-500 dark:text-white'}`}>Invitation Center</button>
-         <button onClick={() => setViewMode('PATH')} className={`flex-1 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all cursor-pointer ${viewMode === 'PATH' ? 'bg-primary-light text-white shadow-xl' : 'opacity-60 dark:opacity-40 hover:opacity-100 text-slate-500 dark:text-white'}`}>Learning Path</button>
+      <div className="flex flex-wrap gap-4 p-2 bg-slate-100 dark:bg-white/5 rounded-[32px] border border-slate-200 dark:border-white/5 max-w-2xl">
+         <button onClick={() => setViewMode('REGISTRY')} className={`px-6 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all cursor-pointer ${viewMode === 'REGISTRY' ? 'bg-primary-light text-white shadow-xl' : 'opacity-60 dark:opacity-40 hover:opacity-100 text-slate-500 dark:text-white'}`}>Detailed Registry</button>
+         <button onClick={() => setViewMode('INVITE')} className={`px-6 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all cursor-pointer ${viewMode === 'INVITE' ? 'bg-primary-light text-white shadow-xl' : 'opacity-60 dark:opacity-40 hover:opacity-100 text-slate-500 dark:text-white'}`}>Invitation Center</button>
+         <button onClick={() => setViewMode('PATH')} className={`px-6 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all cursor-pointer ${viewMode === 'PATH' ? 'bg-primary-light text-white shadow-xl' : 'opacity-60 dark:opacity-40 hover:opacity-100 text-slate-500 dark:text-white'}`}>Learning Path</button>
+         <button onClick={() => setViewMode('ANNOUNCEMENTS')} className={`px-6 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all cursor-pointer ${viewMode === 'ANNOUNCEMENTS' ? 'bg-primary-light text-white shadow-xl' : 'opacity-60 dark:opacity-40 hover:opacity-100 text-slate-500 dark:text-white'}`}>Announcements</button>
       </div>
 
       <AnimatePresence mode="wait">
@@ -140,8 +142,7 @@ export default function InstructorWorkshopManage() {
              </div>
           </motion.div>
         ) : viewMode === 'INVITE' ? (
-           <motion.div key="invite" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="grid grid-cols-1 md:grid-cols-2 gap-10">
-              {/* ... invitation content ... */}
+          <motion.div key="invite" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="grid grid-cols-1 md:grid-cols-2 gap-10">
               <div className="bg-card-light dark:bg-card-dark border border-slate-200 dark:border-white/5 p-12 rounded-[56px] space-y-10 shadow-2xl">
                  <div className="space-y-4 text-center">
                     <div className="w-20 h-20 bg-primary-light/10 text-primary-light rounded-[32px] flex items-center justify-center mx-auto"><QrCode className="w-10 h-10" /></div>
@@ -171,10 +172,14 @@ export default function InstructorWorkshopManage() {
                     <p className="opacity-40 text-sm font-medium leading-relaxed">Once registrations start coming in, you can activate the Live Session Hall to track attendance in real-time.</p>
                  </div>
               </div>
-           </motion.div>
-        ) : (
+          </motion.div>
+        ) : viewMode === 'PATH' ? (
           <motion.div key="path" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}>
             <SessionContentGen workshopId={id!} />
+          </motion.div>
+        ) : (
+          <motion.div key="announcements" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}>
+            <AnnouncementsCenter workshopId={id!} />
           </motion.div>
         )}
       </AnimatePresence>

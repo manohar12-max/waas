@@ -192,6 +192,9 @@ importers:
       react-router-dom:
         specifier: ^7.3.0
         version: 7.14.1(react-dom@19.2.4)(react@19.2.4)
+      react-slideshow-image:
+        specifier: ^4.4.0
+        version: 4.4.0(react@19.2.4)
       tailwind-merge:
         specifier: ^3.0.2
         version: 3.5.0
@@ -2431,6 +2434,10 @@ packages:
   /@tsconfig/node16@1.0.4:
     resolution: {integrity: sha512-vxhUy4J8lyeyinH7Azl1pdd43GJhZH/tP2weN8TntQblOY+A0XbT8DJk1/oCPuOOyg/Ja757rG0CgHcWC8OfMA==}
     dev: true
+
+  /@tweenjs/tween.js@18.6.4:
+    resolution: {integrity: sha512-lB9lMjuqjtuJrx7/kOkqQBtllspPIN+96OvTCeJ2j5FEzinoAXTdAMFnDAQT1KVPRlnYfBrqxtqP66vDM40xxQ==}
+    dev: false
 
   /@tybys/wasm-util@0.10.1:
     resolution: {integrity: sha512-9tTaPJLSiejZKx+Bmog4uSubteqTvFrVrURwkmHixBo0G4seD0zUxp98E1DzUBJxLQ3NPwXrGKDiVjwx/DpPsg==}
@@ -6464,6 +6471,16 @@ packages:
       set-cookie-parser: 2.7.2
     dev: false
 
+  /react-slideshow-image@4.4.0(react@19.2.4):
+    resolution: {integrity: sha512-0N34yP9XYDf3Ljg1bPk8jbEKwLLrGAST8x3N1syb4H/iyL2ijTp3SfCclr1bppnB/x0UkFswRf6rct8rfTHmkg==}
+    peerDependencies:
+      react: '>=15'
+    dependencies:
+      '@tweenjs/tween.js': 18.6.4
+      react: 19.2.4
+      resize-observer-polyfill: 1.5.1
+    dev: false
+
   /react@19.2.4:
     resolution: {integrity: sha512-9nfp2hYpCwOjAN+8TZFGhtWEwgvWHXqESH8qT89AT/lWklpLON22Lc8pEtnpsZz7VmawabSU0gCjnj8aC0euHQ==}
     engines: {node: '>=0.10.0'}
@@ -6506,6 +6523,10 @@ packages:
     resolution: {integrity: sha512-Xf0nWe6RseziFMu+Ap9biiUbmplq6S9/p+7w7YXP/JBHhrUDDUhwa+vANyubuqfZWTveU//DYVGsDG7RKL/vEw==}
     engines: {node: '>=0.10.0'}
     dev: true
+
+  /resize-observer-polyfill@1.5.1:
+    resolution: {integrity: sha512-LwZrotdHOo12nQuZlHEmtuXdqGoOD0OhaxopaNFxWzInpEgaLWoVuAMbTzixuosCx2nEG58ngzW3vxdWoxIgdg==}
+    dev: false
 
   /resolve-cwd@3.0.0:
     resolution: {integrity: sha512-OrZaX2Mb+rJCpH/6CpSqt9xFVpN++x01XnN2ie9g6P5/3xelLAkXWVADpdz1IHD/KFfEXyE6V0U01OQ3UO2rEg==}

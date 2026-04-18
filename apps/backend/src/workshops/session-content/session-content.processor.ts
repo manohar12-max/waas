@@ -19,8 +19,9 @@ export class SessionContentProcessor extends WorkerHost {
   }
 
   async process(job: Job<any, any, string>): Promise<any> {
-    const { sessionId, rawContentUrl, filePath } = job.data;
-    this.logger.log(`Processing content generation for session: ${sessionId}`);
+    const { sessionId, materialId, rawContentUrl } = job.data;
+    const filePath = rawContentUrl?.startsWith('uploads') ? rawContentUrl : null;
+    this.logger.log(`Processing content generation for session: ${sessionId}${materialId ? `, material: ${materialId}` : ''}`);
 
     try {
       let extractedText = "";
@@ -28,60 +29,68 @@ export class SessionContentProcessor extends WorkerHost {
       // PHASE 1: EXTRACTION (Only if filePath exists)
       if (filePath) {
         try {
-          await this.service.updateSessionStatus(sessionId, 'extracting');
+          await this.service.updateSessionStatus(sessionId, 'extracting', undefined, materialId);
           const buffer = await fs.readFile(filePath);
           extractedText = await this.pdfService.extractText(buffer);
           this.logger.log(`Extracted ${extractedText.length} characters for session ${sessionId}`);
         } catch (extError) {
           this.logger.error(`Extraction failed for session ${sessionId}: ${extError.message}`);
-          // Continue to generation even if extraction fails (fallback to title)
         }
       }
 
       // PHASE 2: GENERATION
-      await this.service.updateSessionStatus(sessionId, 'generating');
-      
+      await this.service.updateSessionStatus(sessionId, 'generating', undefined, materialId);
+
       let generatedData;
-      
+      let aiSessionId;
+
       try {
-        // In the future, pass extractedText to the senior API
-        generatedData = await this.callSeniorAIAPI(rawContentUrl || filePath);
+        const session = await this.service.getSessionById(sessionId);
+        const response = await this.callSeniorAIAPI(sessionId, extractedText || rawContentUrl, session?.title || "Workshop Session");
+        generatedData = response.data;
+        aiSessionId = response.session_id;
+
+        // Store AI Session ID in the database session
+        await this.service.updateAISessionInfo(sessionId, aiSessionId, 'stage1');
       } catch (apiError) {
-        this.logger.warn(`Senior API failed or not configured, falling back to mock: ${apiError.message}`);
+        this.logger.warn(`Senior AI API failed, falling back to mock: ${apiError.message}`);
         generatedData = await this.mockAIAPICall(extractedText || rawContentUrl || sessionId);
       }
 
       // Save content
-      await this.service.saveGeneratedContent(sessionId, generatedData.mcqs, generatedData.materials);
+      await this.service.saveGeneratedContent(sessionId, generatedData.mcqs, generatedData.materials || [], materialId);
 
-      // Update session status
-      await this.service.updateSessionStatus(sessionId, 'generated');
+      // Update status
+      await this.service.updateSessionStatus(sessionId, 'generated', undefined, materialId);
 
-      this.logger.log(`Successfully generated content for session: ${sessionId}`);
-      
-      // Cleanup file after processing
-      if (filePath) {
-        try {
-          await fs.unlink(filePath);
-          this.logger.log(`Deleted temporary file: ${filePath}`);
-        } catch (err) {
-          this.logger.warn(`Failed to delete temporary file: ${filePath}`);
-        }
-      }
+      this.logger.log(`Successfully generated content for session: ${sessionId}${materialId ? `, material: ${materialId}` : ''}`);
 
-      return generatedData;
+      return { ...generatedData, aiSessionId };
     } catch (error) {
       this.logger.error(`Failed to generate content for session: ${sessionId}`, error.stack);
-      
+
       if (job.attemptsMade + 1 >= (job.opts.attempts || 1)) {
-        await this.service.updateSessionStatus(sessionId, 'failed');
+        await this.service.updateSessionStatus(sessionId, 'failed', undefined, materialId);
       }
       throw error;
     }
   }
 
-  private async callSeniorAIAPI(input: string) {
-    throw new Error('Senior API not yet configured');
+  private async callSeniorAIAPI(sessionId: string, context: string, topic: string) {
+    const aiUrl = process.env.AI_SERVICE_URL || "http://59.90.46.174:4000";
+    this.logger.log(`Calling Senior AI API at ${aiUrl}/start-generation for topic: ${topic}`);
+
+    const payload = {
+      syllabus: context.substring(0, 7000), 
+      audience: "Engineering Students",
+      topic: topic
+    };
+
+    const response = await this.httpService.axiosRef.post(`${aiUrl}/start-generation`, payload, {
+      timeout: 60000, // LLMs can be slow
+    });
+
+    return response.data;
   }
 
   /**
@@ -89,7 +98,7 @@ export class SessionContentProcessor extends WorkerHost {
    */
   private async mockAIAPICall(context: string) {
     this.logger.log(`Calling dynamic mock AI for context length: ${context.length}`);
-    
+
     // Simulate thinking/generation time
     await new Promise(resolve => setTimeout(resolve, 4000));
 

@@ -44,13 +44,13 @@ export function ThemeProvider({
     root.style.colorScheme = activeTheme;
   }, [theme]);
 
-  const value = {
+  const value = React.useMemo(() => ({
     theme,
     setTheme: (theme: Theme) => {
       localStorage.setItem(storageKey, theme);
       setTheme(theme);
     },
-  };
+  }), [theme, storageKey]);
 
   return (
     <ThemeProviderContext.Provider {...props} value={value}>

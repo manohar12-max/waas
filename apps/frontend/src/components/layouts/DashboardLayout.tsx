@@ -17,7 +17,8 @@ import {
   Moon,
   Image,
   Library,
-  Terminal
+  Terminal,
+  Bell
 } from 'lucide-react';
 import { useTheme } from '../ThemeProvider';
 
@@ -67,6 +68,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     { icon: Image, label: 'Media Feed', path: '/media-feed', roles: ['TEACHER', 'INSTRUCTOR'] },
     { icon: Users, label: 'Community Forum', path: '/forum', roles: ['SUPER_ADMIN', 'COLLEGE_ADMIN', 'TEACHER', 'INSTRUCTOR', 'STUDENT'] },
     { icon: Library, label: 'Learning Center', path: '/learning-center', roles: ['TEACHER', 'INSTRUCTOR', 'STUDENT'] },
+    { icon: Bell, label: 'Announcements', path: '/announcements', roles: ['TEACHER', 'INSTRUCTOR', 'STUDENT'] },
     { icon: Terminal, label: 'Coding Sandbox', path: '/sandbox', roles: ['SUPER_ADMIN', 'COLLEGE_ADMIN', 'TEACHER', 'INSTRUCTOR', 'STUDENT'] },
     { icon: Layout, label: 'My Divisions', path: '/teacher/divisions', roles: ['TEACHER'] },
     { icon: Settings, label: 'Global Rules', path: '/dashboard/settings', roles: ['SUPER_ADMIN', 'COLLEGE_ADMIN'] },

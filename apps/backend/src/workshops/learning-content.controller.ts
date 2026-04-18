@@ -1,4 +1,7 @@
-import { Controller, Get, Post, Delete, Body, Param, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Delete, Body, Param, Query, UseGuards, UseInterceptors, UploadedFile } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { diskStorage } from 'multer';
+import { extname } from 'path';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
@@ -13,11 +16,25 @@ export class LearningContentController {
 
   @Post()
   @Roles(UserRole.TEACHER)
+  @UseInterceptors(FileInterceptor('file', {
+    storage: diskStorage({
+      destination: './uploads',
+      filename: (req, file, cb) => {
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+        cb(null, `${file.fieldname}-${uniqueSuffix}${extname(file.originalname)}`);
+      },
+    }),
+  }))
   async createContent(
     @Body() createDto: any,
     @GetUser('id') teacherId: string,
+    @UploadedFile() file?: Express.Multer.File,
   ) {
-    return this.workshopsService.createTeacherContent(createDto, teacherId);
+    return this.workshopsService.createTeacherContent(
+      createDto, 
+      teacherId, 
+      file?.path,
+    );
   }
 
   @Get('personal')
