@@ -27,7 +27,7 @@ export class LearningContentController {
   }
 
   @Get('aggregated/:workshopId')
-  @Roles(UserRole.TEACHER, UserRole.INSTRUCTOR)
+  @Roles(UserRole.TEACHER, UserRole.INSTRUCTOR, UserRole.STUDENT)
   async getAggregated(
     @Param('workshopId') workshopId: string,
     @Query('divisionId') divisionId?: string,

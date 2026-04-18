@@ -78,8 +78,12 @@ export default function LearningCenterPage() {
           }));
         }
       } else {
+        const workshopUrl = user.role === 'SUPER_ADMIN' 
+          ? `${import.meta.env.VITE_API_URL}/workshops` 
+          : `${import.meta.env.VITE_API_URL}/instructor/workshops`;
+          
         const [wRes, dRes] = await Promise.all([
-          axios.get(`${import.meta.env.VITE_API_URL}/instructor/workshops`, { headers: { Authorization: `Bearer ${token}` } }),
+          axios.get(workshopUrl, { headers: { Authorization: `Bearer ${token}` } }),
           axios.get(`${import.meta.env.VITE_API_URL}/divisions`, { headers: { Authorization: `Bearer ${token}` } })
         ]);
         setWorkshops(wRes.data);
@@ -232,7 +236,7 @@ export default function LearningCenterPage() {
           </div>
 
           <div className="flex items-center gap-6">
-            {user.role === 'TEACHER' && (
+            {['TEACHER', 'INSTRUCTOR', 'SUPER_ADMIN'].includes(user.role) && (
               <div className="flex items-center gap-3">
                 <button 
                   onClick={() => { setShowUpload(true); setNewContent(prev => ({ ...prev, type: 'IMAGE' })); }}
@@ -397,14 +401,14 @@ export default function LearningCenterPage() {
                       <p className="text-[10px] font-bold text-primary-light uppercase tracking-widest">Shared by <span className="text-white">{item.teacherId?.name || 'Faculty'}</span></p>
                       <p className="text-[8px] font-bold opacity-30 uppercase tracking-[0.2em]">{new Date(item.createdAt).toLocaleDateString()}</p>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex gap-2">
                       {user.role !== 'STUDENT' && (
                         <>
                           <button onClick={() => handleEditInit(item)} className="bg-indigo-500/10 text-indigo-500 p-3 rounded-xl hover:bg-indigo-500 hover:text-white transition-all cursor-pointer flex items-center justify-center"><Pencil className="w-4 h-4" /></button>
                           <button disabled={deletingId === item._id} onClick={() => handleDeleteContent(item._id)} className="bg-red-500/10 text-red-500 p-3 rounded-xl hover:bg-red-500 hover:text-white transition-all disabled:opacity-30 cursor-pointer flex items-center justify-center">{deletingId === item._id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}</button>
                         </>
                       )}
-                      <a href={item.url} target="_blank" className="bg-primary-light text-white text-[9px] font-black uppercase tracking-widest px-6 py-3 rounded-lg shadow-lg flex items-center gap-2 cursor-pointer transition-transform hover:scale-105 active:scale-95"><Download className="w-3.5 h-3.5" /> Get</a>
+                      <a href={item.url} target="_blank" className="flex-1 bg-[#2A2A4E] hover:bg-primary-light text-white font-black uppercase text-[10px] tracking-widest p-3 rounded-xl flex justify-center items-center gap-2 transition-all shadow-xl shadow-black/20"><Download className="w-4 h-4" /> Access {item.type}</a>
                     </div>
                 </div>
               )}

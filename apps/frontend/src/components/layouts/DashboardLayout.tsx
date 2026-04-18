@@ -58,19 +58,28 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const user = JSON.parse(localStorage.getItem('user') || '{}');
 
   const menuItems = [
-    { icon: LayoutDashboard, label: 'Overview', path: '/dashboard', roles: ['SUPER_ADMIN', 'COLLEGE_ADMIN', 'TEACHER', 'INSTRUCTOR'] },
+    { icon: LayoutDashboard, label: 'Overview', path: user.role === 'STUDENT' ? '/student/dashboard' : '/dashboard', roles: ['SUPER_ADMIN', 'COLLEGE_ADMIN', 'TEACHER', 'INSTRUCTOR', 'STUDENT'] },
     { icon: School, label: 'Partners', path: '/colleges', roles: ['SUPER_ADMIN'] },
     { icon: Users, label: 'Instructors', path: '/instructors', roles: ['COLLEGE_ADMIN'] },
     { icon: Users, label: 'Teachers', path: '/teachers', roles: ['COLLEGE_ADMIN', 'INSTRUCTOR'] },
     { icon: Layout, label: 'Division Hub', path: '/divisions', roles: ['INSTRUCTOR'] },
     { icon: BookOpen, label: 'Workshop Hub', path: '/workshops', roles: ['COLLEGE_ADMIN', 'INSTRUCTOR'] },
     { icon: Image, label: 'Media Feed', path: '/media-feed', roles: ['TEACHER', 'INSTRUCTOR'] },
-    { icon: Library, label: 'Learning Center', path: '/learning-center', roles: ['TEACHER', 'INSTRUCTOR'] },
+    { icon: Users, label: 'Community Forum', path: '/forum', roles: ['SUPER_ADMIN', 'COLLEGE_ADMIN', 'TEACHER', 'INSTRUCTOR', 'STUDENT'] },
+    { icon: Library, label: 'Learning Center', path: '/learning-center', roles: ['TEACHER', 'INSTRUCTOR', 'STUDENT'] },
     { icon: Layout, label: 'My Divisions', path: '/teacher/divisions', roles: ['TEACHER'] },
     { icon: Settings, label: 'Global Rules', path: '/dashboard/settings', roles: ['SUPER_ADMIN', 'COLLEGE_ADMIN'] },
   ];
 
-  const filteredMenuItems = menuItems.filter(item => item.roles.includes(user.role));
+  const impersonateCollegeId = localStorage.getItem('impersonate_college_id');
+  const isImpersonating = user.role === 'SUPER_ADMIN' && impersonateCollegeId;
+
+  const activeRoles = user.role ? [user.role] : [];
+  if (isImpersonating) {
+    activeRoles.push('COLLEGE_ADMIN', 'INSTRUCTOR', 'TEACHER'); // Grant full menu visibility
+  }
+
+  const filteredMenuItems = menuItems.filter(item => item.roles.some(role => activeRoles.includes(role)));
 
   const handleLogout = () => {
     localStorage.clear();
@@ -92,8 +101,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       >
         <div className="p-6 flex items-center justify-between overflow-hidden">
           <div className={`transition-all duration-300 flex items-center overflow-hidden ${collapsed ? 'w-0 opacity-0' : 'w-full opacity-100'}`}>
-              <div className="font-outfit font-bold text-xl tracking-tight text-primary-light whitespace-nowrap">
-                Pixaflip<span className="text-slate-900 dark:text-white">WaaS</span>
+              <div className="font-outfit font-black text-2xl tracking-tight text-primary-light whitespace-nowrap flex flex-col">
+                NEXUS<span className="text-[10px] font-black uppercase tracking-widest text-slate-500 mt-1">by Pixaflip</span>
               </div>
           </div>
           <button 
@@ -148,7 +157,25 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       {/* Main Content Area - Vantablack Canvas */}
       <main className="flex-1 flex flex-col h-screen overflow-hidden bg-white/40 dark:bg-transparent backdrop-blur-[1px]">
         {/* Header */}
-        {/* Redundant global header removed in favor of page-specific Command Bars */}
+        {isImpersonating && (
+           <div className="flex items-center justify-between bg-orange-500 dark:bg-orange-600 text-white p-4 font-bold text-sm tracking-wide shadow-lg z-40">
+             <div className="flex items-center gap-2">
+                <span className="animate-pulse w-2 h-2 rounded-full bg-white opacity-80" />
+                GOD MODE ACTIVE
+             </div>
+             <button 
+               onClick={() => { 
+                 localStorage.removeItem('impersonate_college_id'); 
+                 navigate('/colleges'); 
+                 window.location.reload(); 
+               }}
+               className="bg-white text-orange-600 px-4 py-1.5 rounded-full text-xs uppercase font-black tracking-widest cursor-pointer hover:scale-105 active:scale-95 transition-all shadow-md shadow-black/10"
+             >
+               Exit Identity
+             </button>
+           </div>
+        )}
+
 
         {/* Scrollable Area */}
         <div className="flex-1 overflow-y-auto p-4 md:p-8 custom-scrollbar">
@@ -180,9 +207,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               exit={{ x: '-100%' }}
               className="fixed inset-y-0 left-0 w-72 bg-white dark:bg-background-dark z-[101] md:hidden p-6 border-r border-slate-200 dark:border-white/10 shadow-2xl"
             >
-              {/* Mobile Sidebar Content (simplified for now) */}
               <div className="flex justify-between items-center mb-10">
-                <span className="font-outfit font-bold text-xl">Pixaflip WaaS</span>
+                <span className="font-outfit font-black text-xl">NEXUS <span className="text-[10px] uppercase font-bold text-slate-500">by Pixaflip</span></span>
                 <button onClick={() => setMobileOpen(false)}><X className="w-6 h-6" /></button>
               </div>
               <div className="space-y-4">

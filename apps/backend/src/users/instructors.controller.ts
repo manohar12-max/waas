@@ -13,6 +13,7 @@ export class InstructorsController {
   constructor(private readonly usersService: UsersService) {}
 
   @Post()
+  @Roles(UserRole.SUPER_ADMIN)
   async create(@Body() createDto: any, @GetUser('collegeId') collegeId: any) {
     if (!collegeId) {
       throw new ConflictException('Identity mismatch: Your account is not associated with an institution.');
@@ -31,6 +32,7 @@ export class InstructorsController {
   }
 
   @Delete(':id')
+  @Roles(UserRole.SUPER_ADMIN)
   remove(@Param('id') id: string, @GetUser('collegeId') collegeId: string) {
     return this.usersService.remove(id, collegeId);
   }

@@ -9,6 +9,7 @@ import { CollegesModule } from './colleges/colleges.module';
 import { DivisionsModule } from './divisions/divisions.module';
 import { WorkshopsModule } from './workshops/workshops.module';
 import { AssignmentsModule } from './assignments/assignments.module';
+import { ForumModule } from './forum/forum.module';
 
 import { BullModule } from '@nestjs/bullmq';
 import { SessionContentModule } from './workshops/session-content/session-content.module';
@@ -38,6 +39,7 @@ import { SessionContentModule } from './workshops/session-content/session-conten
     WorkshopsModule,
     AssignmentsModule,
     SessionContentModule,
+    ForumModule,
   ],
   controllers: [AppController],
   providers: [AppService],

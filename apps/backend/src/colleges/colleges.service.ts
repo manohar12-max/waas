@@ -20,7 +20,7 @@ export class CollegesService {
   ) {}
 
   async create(createCollegeDto: any): Promise<CollegeDocument> {
-    const { name, adminEmail, adminName, adminPassword, ...rest } = createCollegeDto;
+    const { name, adminEmail, adminName, adminPassword, adminPhone, ...rest } = createCollegeDto;
     this.logger.log(`Creating college: ${name}`);
     const college = new this.collegeModel({ name, ...rest });
     const savedCollege = await college.save();
@@ -29,6 +29,7 @@ export class CollegesService {
         name: adminName,
         email: adminEmail,
         password: adminPassword,
+        phone: adminPhone,
         role: UserRole.COLLEGE_ADMIN,
         collegeId: savedCollege._id,
       });
@@ -51,6 +52,19 @@ export class CollegesService {
     const college = await this.collegeModel.findById(id).populate('adminId', 'name email').exec();
     if (!college) {
       this.logger.warn(`College not found: ${id}`);
+      throw new NotFoundException('College not found');
+    }
+    return college;
+  }
+
+  async update(id: string, updateData: any): Promise<CollegeDocument | null> {
+    this.logger.log(`Updating college: ${id}`);
+    const college = await this.collegeModel.findByIdAndUpdate(
+      id,
+      { $set: updateData },
+      { new: true }
+    ).populate('adminId', 'name email').exec();
+    if (!college) {
       throw new NotFoundException('College not found');
     }
     return college;

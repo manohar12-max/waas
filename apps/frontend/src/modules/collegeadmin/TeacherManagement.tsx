@@ -8,6 +8,7 @@ interface Teacher {
   _id: string;
   name: string;
   email: string;
+  phone?: string;
   role: string;
   active: boolean;
 }
@@ -22,7 +23,9 @@ export default function TeacherManagement() {
   const [newTeacher, setNewTeacher] = useState({
     name: '',
     email: '',
+    phone: '',
     password: '',
+    confirmPassword: '',
   });
 
   useEffect(() => {
@@ -47,6 +50,12 @@ export default function TeacherManagement() {
     e.preventDefault();
     setSubmitting(true);
     setError("");
+    if (newTeacher.password !== newTeacher.confirmPassword) {
+      setError("Passwords do not match.");
+      setSubmitting(false);
+      return;
+    }
+    
     try {
       const token = localStorage.getItem('token');
       await axios.post(`${import.meta.env.VITE_API_URL}/teachers`, newTeacher, {
@@ -54,7 +63,8 @@ export default function TeacherManagement() {
       });
       setShowModal(false);
       fetchTeachers();
-      setNewTeacher({ name: '', email: '', password: '' });
+      fetchTeachers();
+      setNewTeacher({ name: '', email: '', phone: '', password: '', confirmPassword: '' });
     } catch (err: any) {
       setError(err.response?.data?.message || "Failed to onboard teacher");
     } finally {
@@ -136,6 +146,12 @@ export default function TeacherManagement() {
                         <Mail className="w-3.5 h-3.5" />
                         {teacher.email}
                       </div>
+                      {teacher.phone && (
+                        <div className="flex items-center gap-2 text-sm opacity-60 mt-1">
+                          <Phone className="w-3.5 h-3.5" />
+                          {teacher.phone}
+                        </div>
+                      )}
                     </div>
                   </td>
                   <td className="px-6 py-6">
@@ -197,11 +213,27 @@ export default function TeacherManagement() {
           />
           <input 
             required 
+            type="tel" 
+            className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/5 rounded-2xl p-4 outline-none focus:ring-2 focus:ring-primary-light transition-all text-slate-900 dark:text-white text-sm" 
+            placeholder="Contact Number" 
+            value={newTeacher.phone} 
+            onChange={e => setNewTeacher({...newTeacher, phone: e.target.value})} 
+          />
+          <input 
+            required 
             type="password" 
             className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/5 rounded-2xl p-4 outline-none focus:ring-2 focus:ring-primary-light transition-all text-slate-900 dark:text-white text-sm" 
             placeholder="Password" 
             value={newTeacher.password} 
             onChange={e => setNewTeacher({...newTeacher, password: e.target.value})} 
+          />
+          <input 
+            required 
+            type="password" 
+            className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/5 rounded-2xl p-4 outline-none focus:ring-2 focus:ring-primary-light transition-all text-slate-900 dark:text-white text-sm" 
+            placeholder="Confirm Password" 
+            value={newTeacher.confirmPassword} 
+            onChange={e => setNewTeacher({...newTeacher, confirmPassword: e.target.value})} 
           />
           <button 
             type="submit" 

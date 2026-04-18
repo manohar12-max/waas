@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
@@ -27,8 +28,21 @@ interface LiveWorkshop {
   };
 }
 
+interface Assignment {
+  _id: string;
+  title: string;
+  dueDate: string;
+  maxMarks: number;
+  status: string;
+  teacherId?: {
+    name: string;
+  };
+}
+
 export default function StudentDashboard() {
+  const navigate = useNavigate();
   const [liveWorkshops, setLiveWorkshops] = useState<LiveWorkshop[]>([]);
+  const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [loading, setLoading] = useState(true);
   const [otp, setOtp] = useState("");
   const [selectedWorkshop, setSelectedWorkshop] = useState<string | null>(null);
@@ -39,7 +53,20 @@ export default function StudentDashboard() {
 
   useEffect(() => {
     fetchLiveWorkshops();
+    fetchAssignments();
   }, []);
+
+  const fetchAssignments = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.get(`${import.meta.env.VITE_API_URL}/assignments/student/active`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setAssignments(response.data);
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
   const fetchLiveWorkshops = async () => {
     try {
@@ -131,7 +158,7 @@ export default function StudentDashboard() {
                       onClick={() => setSelectedWorkshop(workshop._id)}
                       className={`px-8 py-4 rounded-3xl font-black text-[10px] uppercase tracking-widest transition-all cursor-pointer ${selectedWorkshop === workshop._id ? 'bg-primary-light text-white' : 'bg-slate-100 dark:bg-transparent border border-slate-200 dark:border-white/10 hover:bg-slate-200 dark:hover:bg-white/5 opacity-60 dark:opacity-40 hover:opacity-100 text-slate-700 dark:text-white'}`}
                     >
-                       Joint Workshop
+                       Join Workshop
                     </button>
                   </div>
                 </motion.div>
@@ -140,6 +167,51 @@ export default function StudentDashboard() {
               <div className="bg-slate-50 dark:bg-white/5 border border-dashed border-slate-200 dark:border-white/10 rounded-[48px] p-20 text-center">
                 <BookOpen className="w-12 h-12 mx-auto opacity-10 mb-4" />
                 <p className="font-black uppercase tracking-widest opacity-20 text-sm">No Active Institutional Sessions</p>
+              </div>
+            )}
+          </div>
+
+          <h3 className="font-black text-2xl tracking-tight px-2 flex items-center gap-4 mt-8">
+             <BookOpen className="w-6 h-6 text-indigo-500" />
+             Active Assignments
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {assignments.length > 0 ? (
+              assignments.map((assignment) => {
+                const isPastDue = new Date() > new Date(assignment.dueDate);
+                return (
+                  <div key={assignment._id} className="bg-white/5 border border-slate-200 dark:border-white/10 rounded-[32px] p-6 flex flex-col justify-between space-y-4 hover:border-indigo-500/50 transition-colors shadow-lg">
+                    <div>
+                      <div className="flex justify-between items-start mb-4">
+                        <h4 className="font-black text-lg line-clamp-2">{assignment.title}</h4>
+                        <span className="px-3 py-1 bg-indigo-500/10 text-indigo-500 text-[10px] font-black uppercase tracking-widest rounded-lg">{assignment.maxMarks}pts</span>
+                      </div>
+                      <div className="text-[10px] font-bold uppercase opacity-50 space-y-1">
+                        <p>Due: {new Date(assignment.dueDate).toLocaleString()}</p>
+                        {assignment.teacherId && <p>Teacher: {assignment.teacherId.name}</p>}
+                      </div>
+                    </div>
+                    
+                    <div className="pt-2 border-t border-slate-200 dark:border-white/5 mt-auto">
+                      {isPastDue ? (
+                        <div className="w-full py-3 bg-red-500/10 text-red-500 rounded-xl font-black text-[10px] uppercase tracking-widest text-center flex justify-center items-center gap-2">
+                           <AlertCircle className="w-4 h-4" /> Time's Up
+                        </div>
+                      ) : (
+                        <button 
+                          onClick={() => navigate(`/submit/${assignment._id}?studentToken=${user.id}`)}
+                          className="w-full py-3 bg-indigo-500 hover:bg-indigo-600 text-white rounded-xl font-black text-[10px] uppercase tracking-widest transition-all cursor-pointer shadow-lg shadow-indigo-500/20"
+                        >
+                          Submit Project
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })
+            ) : (
+              <div className="col-span-1 md:col-span-2 p-10 text-center border border-dashed border-slate-200 dark:border-white/10 rounded-[32px]">
+                <p className="font-bold text-[10px] uppercase opacity-30">No active assignments</p>
               </div>
             )}
           </div>

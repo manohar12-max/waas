@@ -23,8 +23,12 @@ export default function InstructorManagement() {
   const [newInstructor, setNewInstructor] = useState({
     name: '',
     email: '',
+    phone: '',
     password: '',
+    confirmPassword: '',
   });
+
+  const user = JSON.parse(localStorage.getItem('user') || '{}');
 
   useEffect(() => {
     fetchInstructors();
@@ -48,6 +52,12 @@ export default function InstructorManagement() {
     e.preventDefault();
     setSubmitting(true);
     setError("");
+    if (newInstructor.password !== newInstructor.confirmPassword) {
+      setError("Passwords do not match.");
+      setSubmitting(false);
+      return;
+    }
+    
     try {
       const token = localStorage.getItem('token');
       const payload = {
@@ -59,7 +69,7 @@ export default function InstructorManagement() {
       });
       setShowModal(false);
       fetchInstructors();
-      setNewInstructor({ name: '', email: '', password: '' });
+      setNewInstructor({ name: '', email: '', phone: '', password: '', confirmPassword: '' });
     } catch (err: any) {
       setError(err.response?.data?.message || "Failed to onboard instructor");
     } finally {
@@ -88,15 +98,17 @@ export default function InstructorManagement() {
           <h1 className="text-4xl font-outfit font-black tracking-tight mb-2">Instructor Control</h1>
           <p className="opacity-40 font-medium">Manage and onboard instructors for your institution.</p>
         </motion.div>
-        <motion.button
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-          onClick={() => setShowModal(true)}
-          className="flex items-center justify-center gap-3 bg-primary-light hover:bg-primary-dark text-white px-8 py-4 rounded-[24px] font-bold shadow-2xl shadow-primary-light/30 transition-all cursor-pointer"
-        >
-          <Plus className="w-6 h-6" />
-          Onboard Instructor
-        </motion.button>
+        {user.role === 'SUPER_ADMIN' && (
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={() => setShowModal(true)}
+            className="flex items-center justify-center gap-3 bg-primary-light hover:bg-primary-dark text-white px-8 py-4 rounded-[24px] font-bold shadow-2xl shadow-primary-light/30 transition-all cursor-pointer"
+          >
+            <Plus className="w-6 h-6" />
+            Onboard Instructor
+          </motion.button>
+        )}
       </div>
 
       {/* Search & Filter */}
@@ -173,13 +185,15 @@ export default function InstructorManagement() {
                       </div>
                     </td>
                     <td className="px-6 py-6 text-right">
-                      <motion.button 
-                        whileHover={{ scale: 1.1, color: '#ef4444' }}
-                        onClick={() => handleDelete(instructor._id)}
-                        className="p-3 bg-red-500/5 hover:bg-red-500/10 text-red-500/40 rounded-xl transition-all cursor-pointer"
-                      >
-                        <Trash2 className="w-5 h-5" />
-                      </motion.button>
+                      {user.role === 'SUPER_ADMIN' && (
+                        <motion.button 
+                          whileHover={{ scale: 1.1, color: '#ef4444' }}
+                          onClick={() => handleDelete(instructor._id)}
+                          className="p-3 bg-red-500/5 hover:bg-red-500/10 text-red-500/40 rounded-xl transition-all cursor-pointer"
+                        >
+                          <Trash2 className="w-5 h-5" />
+                        </motion.button>
+                      )}
                     </td>
                   </tr>
                 ))
@@ -234,6 +248,18 @@ export default function InstructorManagement() {
             </div>
 
             <div className="space-y-1.5">
+              <label className="text-[10px] font-black uppercase tracking-[0.2em] ml-1 opacity-30">Contact Number</label>
+              <input
+                required
+                type="tel"
+                className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/5 rounded-2xl p-4 focus:ring-2 focus:ring-primary-light outline-none transition-all placeholder:opacity-20 text-slate-900 dark:text-white text-sm"
+                placeholder="+1 234 567 8900"
+                value={newInstructor.phone}
+                onChange={e => setNewInstructor({...newInstructor, phone: e.target.value})}
+              />
+            </div>
+
+            <div className="space-y-1.5">
               <label className="text-[10px] font-black uppercase tracking-[0.2em] ml-1 opacity-30">Initial Password</label>
               <input
                 required
@@ -242,6 +268,18 @@ export default function InstructorManagement() {
                 placeholder="Create secure password"
                 value={newInstructor.password}
                 onChange={e => setNewInstructor({...newInstructor, password: e.target.value})}
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black uppercase tracking-[0.2em] ml-1 opacity-30">Confirm Password</label>
+              <input
+                required
+                type="password"
+                className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/5 rounded-2xl p-4 focus:ring-2 focus:ring-primary-light outline-none transition-all placeholder:opacity-20 text-slate-900 dark:text-white text-sm"
+                placeholder="Confirm secure password"
+                value={newInstructor.confirmPassword}
+                onChange={e => setNewInstructor({...newInstructor, confirmPassword: e.target.value})}
               />
             </div>
           </div>

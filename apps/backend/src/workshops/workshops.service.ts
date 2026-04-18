@@ -29,7 +29,7 @@ export class WorkshopsService {
 
   async enrollStudent(enrollDto: any) {
     const email = enrollDto.email?.trim()?.toLowerCase() || '';
-    const { inviteToken, name, phone } = enrollDto;
+    const { inviteToken, name, phone, password } = enrollDto;
     this.logger.log(`Enrollment attempt: ${email} for token ${inviteToken}`);
 
     // 1. Validate Invite
@@ -72,8 +72,8 @@ export class WorkshopsService {
     } else {
       // 3. Create Identity if not exists
       this.logger.log(`Creating new identity for student: ${email}`);
-      const randomPassword = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
-      const hashedPassword = await bcrypt.hash(randomPassword, 10);
+      const finalPassword = password || (Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15));
+      const hashedPassword = await bcrypt.hash(finalPassword, 10);
 
       student = new this.userModel({
         name,

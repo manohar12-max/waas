@@ -17,6 +17,11 @@ export default function ProtectedRoute({ children, allowedRoles }: ProtectedRout
 
   const user = JSON.parse(userStr);
 
+  // God Mode: SuperAdmin inherently has access to everything
+  if (user.role === 'SUPER_ADMIN') {
+    return <>{children}</>;
+  }
+
   if (allowedRoles && !allowedRoles.includes(user.role)) {
     // Role not authorized, send to base dashboard
     return <Navigate to="/dashboard" replace />;

@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, School, Users, Activity, ExternalLink, MoreVertical, ShieldCheck, X } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Plus, School, Users, Activity, ExternalLink, Settings, ShieldCheck, X } from 'lucide-react';
 import UniversalModal from '../../components/UniversalModal';
 import { normalizeEmail } from '../../utils/normalization';
 
@@ -34,9 +35,13 @@ const StatCard = ({ icon: Icon, label, value, color }: any) => (
 );
 
 export default function SuperAdminDashboard() {
+  const navigate = useNavigate();
   const [colleges, setColleges] = useState<College[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingCollege, setEditingCollege] = useState<College | null>(null);
+
   const [stats, setStats] = useState({
     totalColleges: 0,
     totalUsers: 0,
@@ -48,7 +53,9 @@ export default function SuperAdminDashboard() {
     name: '',
     adminName: '',
     adminEmail: '',
+    adminPhone: '',
     adminPassword: '',
+    adminConfirmPassword: '',
   });
 
   useEffect(() => {
@@ -86,6 +93,12 @@ export default function SuperAdminDashboard() {
     e.preventDefault();
     setLoading(true);
     setError("");
+    if (newCollege.adminPassword !== newCollege.adminConfirmPassword) {
+      setError("Passwords do not match. Please try again.");
+      setLoading(false);
+      return;
+    }
+
     try {
       const token = localStorage.getItem('token');
       const payload = {
@@ -97,7 +110,7 @@ export default function SuperAdminDashboard() {
       });
       setShowModal(false);
       fetchColleges();
-      setNewCollege({ name: '', adminName: '', adminEmail: '', adminPassword: '' });
+      setNewCollege({ name: '', adminName: '', adminEmail: '', adminPhone: '', adminPassword: '', adminConfirmPassword: '' });
     } catch (err: any) {
       setError(err.response?.data?.message || 'Error occurred during institutional setup');
     } finally {
@@ -105,13 +118,41 @@ export default function SuperAdminDashboard() {
     }
   };
 
+  const handleEditSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingCollege) return;
+    setLoading(true);
+    setError("");
+    try {
+      const token = localStorage.getItem('token');
+      await axios.put(`${import.meta.env.VITE_API_URL}/colleges/${editingCollege._id}`, {
+        name: editingCollege.name,
+        status: editingCollege.status
+      }, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setShowEditModal(false);
+      fetchColleges();
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Error updating institution');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleImpersonate = (collegeId: string) => {
+    localStorage.setItem('impersonate_college_id', collegeId);
+    navigate('/dashboard');
+    window.location.reload();
+  };
+
   return (
     <div className="space-y-8">
       {/* Header Section */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-outfit font-bold tracking-tight">Platform Command Center</h1>
-          <p className="opacity-60 mt-1">Manage and onboard institutions to the Pixaflip WaaS Cloud.</p>
+        <div className="mb-8">
+          <h1 className="text-3xl font-outfit font-bold tracking-tight">Nexus Super Admin</h1>
+          <p className="opacity-60 mt-1">Manage and onboard institutions to the Nexus Cloud by Pixaflip.</p>
         </div>
         <motion.button
           whileHover={{ scale: 1.05 }}
@@ -140,7 +181,7 @@ export default function SuperAdminDashboard() {
             Live Sync
           </div>
         </div>
-        
+
         <div className="overflow-x-auto">
           <table className="w-full text-left">
             <thead>
@@ -160,7 +201,7 @@ export default function SuperAdminDashboard() {
                 ))
               ) : (
                 colleges.map((college) => (
-                  <motion.tr 
+                  <motion.tr
                     key={college._id}
                     whileHover={{ backgroundColor: 'rgba(129, 140, 248, 0.05)' }}
                     className="transition-colors group hover:bg-slate-50/50 dark:hover:bg-white/[0.02]"
@@ -183,21 +224,28 @@ export default function SuperAdminDashboard() {
                       </div>
                     </td>
                     <td className="px-6 py-5">
-                      <span className={`px-3 py-1 rounded-full text-[10px] font-bold tracking-wider ${
-                        college.status === 'ACTIVE' 
-                          ? 'bg-green-500/10 text-green-500' 
-                          : 'bg-yellow-500/10 text-yellow-500'
-                      }`}>
+                      <span className={`px-3 py-1 rounded-full text-[10px] font-bold tracking-wider ${college.status === 'ACTIVE'
+                        ? 'bg-green-500/10 text-green-500'
+                        : 'bg-yellow-500/10 text-yellow-500'
+                        }`}>
                         {college.status}
                       </span>
                     </td>
                     <td className="px-6 py-5 text-right">
                       <div className="flex items-center justify-end gap-2">
-                        <button className="p-2 hover:bg-white/10 rounded-lg transition-colors cursor-pointer">
-                          <ExternalLink className="w-4 h-4 opacity-40 hover:opacity-100" />
+                        <button
+                          onClick={() => handleImpersonate(college._id)}
+                          className="flex items-center gap-1.5 px-3 py-1.5 bg-orange-500/10 hover:bg-orange-500 hover:text-white text-orange-500 hover:shadow-lg hover:shadow-orange-500/20 rounded-lg transition-all cursor-pointer text-xs font-bold uppercase tracking-widest group"
+                        >
+                          <Activity className="w-3.5 h-3.5" />
+                          GOD MODE
                         </button>
-                        <button className="p-2 hover:bg-white/10 rounded-lg transition-colors cursor-pointer">
-                          <MoreVertical className="w-4 h-4 opacity-40 hover:opacity-100" />
+                        <button
+                          onClick={() => { setEditingCollege(college); setShowEditModal(true); }}
+                          className="p-2 hover:bg-white/10 rounded-lg transition-colors cursor-pointer group"
+                          title="Edit Configuration"
+                        >
+                          <Settings className="w-4 h-4 opacity-40 group-hover:opacity-100" />
                         </button>
                       </div>
                     </td>
@@ -236,7 +284,7 @@ export default function SuperAdminDashboard() {
               className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl p-3 focus:ring-2 focus:ring-primary-light outline-none transition-all cursor-pointer text-slate-900 dark:text-white text-sm"
               placeholder="Institution Name"
               value={newCollege.name}
-              onChange={e => setNewCollege({...newCollege, name: e.target.value})}
+              onChange={e => setNewCollege({ ...newCollege, name: e.target.value })}
             />
           </div>
 
@@ -251,7 +299,7 @@ export default function SuperAdminDashboard() {
                 className="w-full bg-white/5 border border-white/5 rounded-lg p-3 text-sm focus:ring-1 focus:ring-primary-light outline-none cursor-pointer text-slate-900 dark:text-white"
                 placeholder="Admin Full Name"
                 value={newCollege.adminName}
-                onChange={e => setNewCollege({...newCollege, adminName: e.target.value})}
+                onChange={e => setNewCollege({ ...newCollege, adminName: e.target.value })}
               />
               <input
                 required
@@ -259,7 +307,15 @@ export default function SuperAdminDashboard() {
                 className="w-full bg-white/5 border border-white/5 rounded-lg p-3 text-sm focus:ring-1 focus:ring-primary-light outline-none cursor-pointer text-slate-900 dark:text-white"
                 placeholder="admin@college.edu"
                 value={newCollege.adminEmail}
-                onChange={e => setNewCollege({...newCollege, adminEmail: e.target.value})}
+                onChange={e => setNewCollege({ ...newCollege, adminEmail: e.target.value })}
+              />
+              <input
+                required
+                type="tel"
+                className="w-full bg-white/5 border border-white/5 rounded-lg p-3 text-sm focus:ring-1 focus:ring-primary-light outline-none cursor-pointer text-slate-900 dark:text-white"
+                placeholder="Admin Contact Number"
+                value={newCollege.adminPhone}
+                onChange={e => setNewCollege({ ...newCollege, adminPhone: e.target.value })}
               />
               <input
                 required
@@ -267,7 +323,15 @@ export default function SuperAdminDashboard() {
                 className="w-full bg-white/5 border border-white/5 rounded-lg p-3 text-sm focus:ring-1 focus:ring-primary-light outline-none cursor-pointer text-slate-900 dark:text-white"
                 placeholder="Initial Secure Password"
                 value={newCollege.adminPassword}
-                onChange={e => setNewCollege({...newCollege, adminPassword: e.target.value})}
+                onChange={e => setNewCollege({ ...newCollege, adminPassword: e.target.value })}
+              />
+              <input
+                required
+                type="password"
+                className="w-full bg-white/5 border border-white/5 rounded-lg p-3 text-sm focus:ring-1 focus:ring-primary-light outline-none cursor-pointer text-slate-900 dark:text-white"
+                placeholder="Confirm Secure Password"
+                value={newCollege.adminConfirmPassword}
+                onChange={e => setNewCollege({ ...newCollege, adminConfirmPassword: e.target.value })}
               />
             </div>
           </div>
@@ -285,6 +349,73 @@ export default function SuperAdminDashboard() {
               className="flex-1 py-3 bg-primary-light hover:bg-primary-dark text-white rounded-xl font-bold text-xs shadow-lg shadow-primary-light/20 transition-all cursor-pointer"
             >
               Initialize
+            </button>
+          </div>
+        </form>
+      </UniversalModal>
+
+      <UniversalModal
+        isOpen={showEditModal}
+        onClose={() => setShowEditModal(false)}
+        title="Edit Institution"
+        description="Modify configuration settings"
+        maxWidth="max-w-md"
+        icon={<Settings className="text-white w-6 h-6" />}
+      >
+        {error && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="mb-6 p-4 bg-red-500/10 border border-red-500/20 text-red-500 rounded-2xl flex items-center gap-3 text-sm font-medium"
+          >
+            <Activity className="w-5 h-5 shrink-0" />
+            {error}
+          </motion.div>
+        )}
+
+        <form onSubmit={handleEditSubmit} className="space-y-4">
+          <div className="space-y-1">
+            <label className="text-[10px] font-bold ml-1 opacity-40 text-slate-900 dark:text-white uppercase tracking-wider">Institution Name</label>
+            <input
+              required
+              className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl p-3 focus:ring-2 focus:ring-primary-light outline-none transition-all cursor-pointer text-slate-900 dark:text-white text-sm"
+              value={editingCollege?.name || ''}
+              onChange={e => {
+                if (editingCollege) setEditingCollege({ ...editingCollege, name: e.target.value });
+              }}
+            />
+          </div>
+
+          <div className="space-y-1 border border-slate-200 dark:border-white/5 rounded-xl p-3 bg-white/5">
+            <label className="text-[10px] items-center flex justify-between font-bold opacity-40 uppercase mb-2">
+              Status
+              <span className={`px-2 py-0.5 rounded-full ${editingCollege?.status === 'ACTIVE' ? 'bg-green-500/20 text-green-500' : 'bg-yellow-500/20 text-yellow-500'}`}>{editingCollege?.status}</span>
+            </label>
+            <select
+              className="w-full bg-transparent border-none outline-none font-bold text-sm cursor-pointer"
+              value={editingCollege?.status || 'ACTIVE'}
+              onChange={e => {
+                if (editingCollege) setEditingCollege({ ...editingCollege, status: e.target.value });
+              }}
+            >
+              <option value="ACTIVE" className="bg-slate-800 text-white">ACTIVE (Operation Normal)</option>
+              <option value="INACTIVE" className="bg-slate-800 text-white">INACTIVE (Halted)</option>
+            </select>
+          </div>
+
+          <div className="flex gap-3 pt-4">
+            <button
+              type="button"
+              onClick={() => setShowEditModal(false)}
+              className="flex-1 py-3 border border-slate-200 dark:border-white/10 rounded-xl font-bold text-xs hover:bg-white/5 transition-all cursor-pointer text-slate-500 dark:text-white/40"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="flex-1 py-3 bg-primary-light hover:bg-primary-dark text-white rounded-xl font-bold text-xs shadow-lg shadow-primary-light/20 transition-all cursor-pointer"
+            >
+              Save Changes
             </button>
           </div>
         </form>

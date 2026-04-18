@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Param, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Put, Body, Param, UseGuards } from '@nestjs/common';
 import { CollegesService } from './colleges.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
@@ -27,4 +27,9 @@ export class CollegesController {
     return this.collegesService.findOne(id);
   }
 
+  @Put(':id')
+  @Roles(UserRole.SUPER_ADMIN)
+  async update(@Param('id') id: string, @Body() updateDto: any) {
+    return this.collegesService.update(id, updateDto);
+  }
 }

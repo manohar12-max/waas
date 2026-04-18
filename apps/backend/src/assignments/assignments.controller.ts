@@ -27,6 +27,13 @@ export class AssignmentsController {
      return this.assignmentsService.findAllAssignments();
   }
 
+  @Get('student/active')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.STUDENT)
+  getForStudent(@Request() req: any) {
+    return this.assignmentsService.getAssignmentsForStudent(req.user.id);
+  }
+
   @Get(':id')
   getById(@Param('id') id: string) {
     return this.assignmentsService.getAssignmentById(id);

@@ -86,7 +86,7 @@ export default function DivisionManagementPage() {
           <h1 className="text-4xl font-black tracking-tighter mb-2">Division Control</h1>
           <p className="opacity-40 font-medium">Manage institutional batches and student clusters.</p>
         </motion.div>
-        {(user.role === 'COLLEGE_ADMIN' || user.role === 'INSTRUCTOR') && (
+        {(user.role === 'COLLEGE_ADMIN' || user.role === 'INSTRUCTOR' || user.role === 'SUPER_ADMIN') && (
           <motion.button whileHover={{ scale: 1.05 }} onClick={() => setShowModal(true)} className="flex items-center gap-3 bg-primary-light text-white px-8 py-4 rounded-[32px] font-bold shadow-2xl shadow-primary-light/40 transition-all cursor-pointer">
             <Plus className="w-6 h-6" /> Initialize Division
           </motion.button>

@@ -57,7 +57,7 @@ export default function WorkshopHubPage() {
 
   useEffect(() => {
     fetchData();
-    if (user.role === 'COLLEGE_ADMIN') {
+    if (user.role === 'COLLEGE_ADMIN' || user.role === 'SUPER_ADMIN') {
       fetchInstructors();
     }
   }, []);
@@ -142,7 +142,7 @@ export default function WorkshopHubPage() {
           <h1 className="text-5xl font-black tracking-tighter mb-3">Workshop Command</h1>
           <p className="opacity-40 font-medium max-w-lg text-lg leading-relaxed">The operational command center for workshop delivery and content management.</p>
         </motion.div>
-        {user.role === 'COLLEGE_ADMIN' && (
+        {(user.role === 'COLLEGE_ADMIN' || user.role === 'SUPER_ADMIN') && (
           <motion.button onClick={() => setShowModal(true)} className="flex items-center justify-center gap-4 bg-primary-light hover:bg-primary-dark text-white px-10 py-5 rounded-[32px] font-black text-sm uppercase tracking-widest shadow-2xl transition-all cursor-pointer">
             <Plus className="w-6 h-6" /> Create Workshop
           </motion.button>
@@ -189,7 +189,7 @@ export default function WorkshopHubPage() {
                       <button onClick={() => navigate(`/workshops/${workshop._id}/live`)} className="p-4 bg-primary-light text-white rounded-3xl shadow-xl hover:scale-105 transition-all cursor-pointer"><ChevronRight className="w-6 h-6" /></button>
                     </div>
                   )}
-                  {user.role === 'COLLEGE_ADMIN' && (
+                  {(user.role === 'COLLEGE_ADMIN' || user.role === 'SUPER_ADMIN') && (
                     <div className="flex items-center gap-3 opacity-60">
                       <div className="text-[10px] font-black uppercase tracking-widest text-primary-light px-4 py-2 bg-primary-light/10 rounded-xl">Managed by Instructor</div>
                     </div>
@@ -235,7 +235,7 @@ export default function WorkshopHubPage() {
                   <input required className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/5 rounded-3xl p-6 outline-none font-bold text-slate-800 dark:text-white placeholder:opacity-40" placeholder="Workshop Title" value={newWorkshop.title} onChange={e => setNewWorkshop({ ...newWorkshop, title: e.target.value })} />
                 </div>
 
-                {user.role === 'COLLEGE_ADMIN' && (
+                {(user.role === 'COLLEGE_ADMIN' || user.role === 'SUPER_ADMIN') && (
                   <div className="space-y-2">
                     <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-4">Technical Instructor Lead</label>
                     <select required className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/5 rounded-3xl p-6 outline-none font-bold cursor-pointer text-slate-800 dark:text-white appearance-none" value={newWorkshop.instructorId} onChange={e => setNewWorkshop({ ...newWorkshop, instructorId: e.target.value })}>

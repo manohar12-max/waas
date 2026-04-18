@@ -31,8 +31,39 @@ export default function AssignmentSubmissionPage() {
 
   useEffect(() => {
     fetchAssignment();
-    if (token) validateToken();
+    if (token) {
+      validateToken();
+    } else {
+      const userStr = localStorage.getItem('user');
+      if (userStr) {
+        try {
+          const userObj = JSON.parse(userStr);
+          if (userObj.role === 'STUDENT') {
+            // Auto bypass verification if logged in
+            setEmailOrPhone(userObj.email);
+            autoVerify(userObj.email);
+          }
+        } catch(e) {}
+      }
+    }
   }, [token, assignmentId]);
+
+  const autoVerify = async (email: string) => {
+    setIsVerifying(true);
+    try {
+      const res = await axios.post(`${import.meta.env.VITE_API_URL}/submissions/validate-student`, {
+        emailOrPhone: email,
+        assignmentId
+      });
+      setStudentId(res.data.studentId);
+      setStudentName(res.data.studentName || 'Authenticated Scholar');
+      setCurrentStep(2);
+    } catch (err) {
+      console.error("Auto verify failed", err);
+    } finally {
+      setIsVerifying(false);
+    }
+  };
 
   const fetchAssignment = async () => {
     try {
@@ -127,7 +158,7 @@ export default function AssignmentSubmissionPage() {
           {/* Header */}
           <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="text-center space-y-4">
              <div className="mb-6 font-outfit font-black text-2xl tracking-tighter text-primary-light">
-                Pixaflip<span className="text-white opacity-60">WaaS</span>
+                NEXUS<div className="text-[10px] font-black uppercase tracking-widest text-slate-500 opacity-60 mt-1 block">by Pixaflip</div>
              </div>
              <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-white/5 border border-white/10 rounded-full">
                 <Sparkles className="w-3.5 h-3.5 text-primary-light" />
@@ -247,7 +278,7 @@ export default function AssignmentSubmissionPage() {
       <div className="fixed bottom-8 left-8 hidden lg:block opacity-20">
          <div className="flex items-center gap-3">
             <div className="w-8 h-[1px] bg-white" />
-            <span className="text-[10px] font-black uppercase tracking-widest">Pixaflip Command Registry</span>
+            <span className="text-[10px] font-black uppercase tracking-widest">NEXUS Command Registry</span>
          </div>
       </div>
 

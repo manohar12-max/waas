@@ -11,7 +11,8 @@ import {
   AlertCircle,
   Loader2,
   CheckCircle2,
-  ArrowRight
+  ArrowRight,
+  Lock
 } from 'lucide-react';
 import { normalizeEmail, normalizePhone } from '../../utils/normalization';
 
@@ -29,7 +30,9 @@ export default function StudentRegistrationPage() {
   const [formData, setFormData] = useState({
     name: "",
     email: "",
-    phone: ""
+    phone: "",
+    password: "",
+    confirmPassword: ""
   });
 
   useEffect(() => {
@@ -57,11 +60,19 @@ export default function StudentRegistrationPage() {
     setSubmitting(true);
     setError("");
 
+    if (formData.password !== formData.confirmPassword) {
+      setError("Passwords do not match. Please try again.");
+      setSubmitting(false);
+      return;
+    }
+
+
     try {
       await axios.post(`${import.meta.env.VITE_API_URL}/workshops/enroll`, {
         ...formData,
         email: normalizeEmail(formData.email),
         phone: normalizePhone(formData.phone),
+        password: formData.password,
         inviteToken
       });
       setIsSuccess(true);
@@ -115,7 +126,8 @@ export default function StudentRegistrationPage() {
         {/* Branding */}
         <div className="text-center -mb-4">
           <div className="font-outfit font-black text-2xl tracking-tighter text-primary-light">
-             Pixaflip<span className="text-slate-900 dark:text-white opacity-60">WaaS</span>
+             NEXUS
+             <div className="text-[10px] font-black uppercase tracking-widest text-slate-500 opacity-60 mt-1 block">by Pixaflip</div>
           </div>
         </div>
 
@@ -183,6 +195,38 @@ export default function StudentRegistrationPage() {
                   onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                   className="w-full bg-white/5 border border-white/5 rounded-[24px] py-6 pl-14 pr-6 outline-none focus:ring-2 focus:ring-primary-light/20 transition-all font-bold group-hover:bg-white/10 cursor-pointer text-slate-900 dark:text-white"
                   placeholder="WhatsApp/Phone"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-[10px] font-black uppercase tracking-[0.2em] opacity-40 ml-4">Password</label>
+              <div className="relative group">
+                <Lock className="absolute left-6 top-1/2 -translate-y-1/2 w-4 h-4 opacity-30 group-focus-within:opacity-100 group-focus-within:text-primary-light transition-all" />
+                <input
+                  type="password"
+                  required
+                  value={formData.password}
+                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                  className="w-full bg-white/5 border border-white/5 rounded-[24px] py-6 pl-14 pr-6 outline-none focus:ring-2 focus:ring-primary-light/20 transition-all font-bold group-hover:bg-white/10 cursor-pointer text-slate-900 dark:text-white"
+                  placeholder="Create a strong password"
+                  autoComplete="new-password"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-[10px] font-black uppercase tracking-[0.2em] opacity-40 ml-4">Confirm Password</label>
+              <div className="relative group">
+                <Lock className="absolute left-6 top-1/2 -translate-y-1/2 w-4 h-4 opacity-30 group-focus-within:opacity-100 group-focus-within:text-primary-light transition-all" />
+                <input
+                  type="password"
+                  required
+                  value={formData.confirmPassword}
+                  onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
+                  className="w-full bg-white/5 border border-white/5 rounded-[24px] py-6 pl-14 pr-6 outline-none focus:ring-2 focus:ring-primary-light/20 transition-all font-bold group-hover:bg-white/10 cursor-pointer text-slate-900 dark:text-white"
+                  placeholder="Enter your password again"
+                  autoComplete="new-password"
                 />
               </div>
             </div>
