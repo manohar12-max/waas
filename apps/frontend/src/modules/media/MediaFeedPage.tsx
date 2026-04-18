@@ -56,17 +56,17 @@ export default function MediaFeedPage() {
   const fetchWorkshops = async () => {
     try {
       const token = localStorage.getItem('token');
-      const url = user.role === 'INSTRUCTOR' 
-        ? `${import.meta.env.VITE_API_URL}/instructor/workshops`
-        : `${import.meta.env.VITE_API_URL}/teacher/divisions`;
+      let url = `${import.meta.env.VITE_API_URL}/workshops`;
+      if (user.role === 'INSTRUCTOR') url = `${import.meta.env.VITE_API_URL}/instructor/workshops`;
+      if (user.role === 'TEACHER') url = `${import.meta.env.VITE_API_URL}/teacher/divisions`;
       
       const response = await axios.get(url, {
         headers: { Authorization: `Bearer ${token}` }
       });
       
-      const workshopData = user.role === 'INSTRUCTOR' 
-        ? response.data 
-        : response.data.map((d: any) => d.workshopId).filter(Boolean);
+      const workshopData = user.role === 'TEACHER' 
+        ? response.data.map((d: any) => d.workshopId).filter(Boolean)
+        : response.data;
 
       const uniqueWorkshops = Array.from(new Set(workshopData.map((w: any) => w._id)))
         .map(id => workshopData.find((w: any) => w._id === id));
@@ -209,7 +209,7 @@ export default function MediaFeedPage() {
           </div>
 
           <div className="flex items-center gap-6">
-            {user.role === 'TEACHER' && (
+            {['TEACHER', 'INSTRUCTOR', 'SUPER_ADMIN'].includes(user.role) && (
               <div className="flex items-center gap-3">
                 <button 
                   onClick={() => { setShowUpload(true); setNewPost(prev => ({ ...prev, mediaType: 'IMAGE' })); }}

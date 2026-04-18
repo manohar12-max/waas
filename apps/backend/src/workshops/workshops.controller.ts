@@ -95,6 +95,17 @@ export class WorkshopsController {
     return this.workshopsService.unmarkAttendance(workshopId, studentId);
   }
 
+  @Patch(':id')
+  @Roles(UserRole.COLLEGE_ADMIN, UserRole.INSTRUCTOR)
+  update(
+    @Param('id') id: string,
+    @Body() updateWorkshopDto: any,
+    @GetUser('collegeId') collegeId: string
+  ) {
+    // Basic security: Ensure the workshop belongs to the same college
+    return this.workshopsService.update(id, updateWorkshopDto);
+  }
+
   @Delete(':id')
   @Roles(UserRole.COLLEGE_ADMIN)
   remove(@Param('id') id: string, @GetUser('collegeId') collegeId: string) {

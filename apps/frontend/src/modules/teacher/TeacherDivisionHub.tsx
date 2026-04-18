@@ -13,6 +13,8 @@ export default function TeacherDivisionHub() {
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
+  const user = JSON.parse(localStorage.getItem('user') || '{}');
+
   useEffect(() => {
     fetchDivisions();
   }, []);
@@ -20,7 +22,10 @@ export default function TeacherDivisionHub() {
   const fetchDivisions = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await axios.get(`${import.meta.env.VITE_API_URL}/teacher/divisions`, {
+      const endpoint = user.role === 'SUPER_ADMIN' 
+        ? `${import.meta.env.VITE_API_URL}/divisions` 
+        : `${import.meta.env.VITE_API_URL}/teacher/divisions`;
+      const response = await axios.get(endpoint, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setDivisions(response.data);

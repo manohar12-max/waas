@@ -72,8 +72,9 @@ export default function LoginPage() {
           <h1 className="text-4xl font-black tracking-tighter uppercase">
              {isLogin ? (
                <div className="flex flex-col items-center">
-                 <span className="text-primary-light text-xl tracking-[0.3em] mb-2">Pixaflip</span>
-                 <span className="text-slate-900 dark:text-white">WaaS Portal</span>
+                 <span className="text-primary-light text-xl tracking-[0.3em] mb-2">NEXUS</span>
+                 <span className="text-[10px] text-slate-500 uppercase tracking-[0.3em] font-normal block mb-4">by Pixaflip</span>
+                 <span className="text-slate-900 dark:text-white">Portal</span>
                </div>
              ) : "Join Network"}
           </h1>

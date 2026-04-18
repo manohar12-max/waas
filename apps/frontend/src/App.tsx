@@ -24,6 +24,7 @@ import InstructorPortal from './modules/instructor/InstructorPortal';
 import InstructorWorkshopManage from './modules/instructor/InstructorWorkshopManage';
 import AssignmentManagement from './modules/teacher/AssignmentManagement';
 import DashboardLayout from './components/layouts/DashboardLayout';
+import ForumHubPage from './modules/forum/ForumHubPage';
 
 function App() {
   return (
@@ -88,8 +89,14 @@ function App() {
               </ProtectedRoute>
             } />
 
+            <Route path="/forum" element={
+              <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'COLLEGE_ADMIN', 'TEACHER', 'INSTRUCTOR', 'STUDENT']}>
+                <ForumHubPage />
+              </ProtectedRoute>
+            } />
+
             <Route path="/learning-center" element={
-              <ProtectedRoute allowedRoles={['TEACHER', 'INSTRUCTOR']}>
+              <ProtectedRoute allowedRoles={['TEACHER', 'INSTRUCTOR', 'STUDENT']}>
                 <LearningCenterPage />
               </ProtectedRoute>
             } />

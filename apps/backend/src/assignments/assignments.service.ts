@@ -39,6 +39,27 @@ export class AssignmentsService {
      return this.assignmentModel.find({}).exec();
   }
 
+  async getAssignmentsForStudent(studentId: string) {
+    this.logger.log(`Fetching active assignments for student: ${studentId}`);
+    
+    // 1. Find workshops student is registered in
+    const workshops = await this.assignmentModel.db.model('Workshop').find({
+      registeredStudentIds: new Types.ObjectId(studentId)
+    }).select('_id').exec();
+
+    const workshopIds = workshops.map((w: any) => w._id);
+
+    // 2. Fetch active assignments for these workshops
+    return this.assignmentModel.find({
+      workshopId: { $in: workshopIds },
+      status: 'ACTIVE'
+    })
+      .populate('workshopId', 'title')
+      .populate('teacherId', 'name')
+      .sort({ dueDate: 1 })
+      .exec();
+  }
+
   async getAssignmentById(id: string) {
     return this.assignmentModel.findById(id).populate('workshopId').exec();
   }

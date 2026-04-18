@@ -8,7 +8,7 @@ import { UserRole } from '../users/user.schema';
 @Controller('colleges')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class CollegesController {
-  constructor(private readonly collegesService: CollegesService) {}
+  constructor(private readonly collegesService: CollegesService) { }
 
   @Post()
   @Roles(UserRole.SUPER_ADMIN)

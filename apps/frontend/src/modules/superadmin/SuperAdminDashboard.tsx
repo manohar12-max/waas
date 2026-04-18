@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, School, Users, Activity, ExternalLink, MoreVertical, ShieldCheck, X, Edit3, Trash2 } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
+import { Plus, School, Users, Activity, ShieldCheck, Edit3, Trash2, Settings } from 'lucide-react';
 import UniversalModal from '../../components/UniversalModal';
 import { normalizeEmail } from '../../utils/normalization';
 
@@ -12,6 +13,7 @@ interface College {
   adminId?: {
     name: string;
     email: string;
+    phone?: string;
   };
 }
 
@@ -34,22 +36,29 @@ const StatCard = ({ icon: Icon, label, value, color }: any) => (
 );
 
 export default function SuperAdminDashboard() {
+  const navigate = useNavigate();
   const [colleges, setColleges] = useState<College[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [collegeToDelete, setCollegeToDelete] = useState<{id: string, name: string} | null>(null);
+  const [editingCollege, setEditingCollege] = useState<College | null>(null);
+
   const [stats, setStats] = useState({
     totalColleges: 0,
     totalUsers: 0,
     totalWorkshops: 0,
     activeSessions: 0
   });
+  
   const [error, setError] = useState("");
-  const [editingCollege, setEditingCollege] = useState<College | null>(null);
   const [newCollege, setNewCollege] = useState({
     name: '',
     adminName: '',
     adminEmail: '',
+    adminPhone: '',
     adminPassword: '',
+    adminConfirmPassword: '',
     status: 'ACTIVE'
   });
 
@@ -88,6 +97,13 @@ export default function SuperAdminDashboard() {
     e.preventDefault();
     setLoading(true);
     setError("");
+
+    if (!editingCollege && newCollege.adminPassword !== newCollege.adminConfirmPassword) {
+      setError("Passwords do not match. Please try again.");
+      setLoading(false);
+      return;
+    }
+
     try {
       const token = localStorage.getItem('token');
       if (editingCollege) {
@@ -97,6 +113,7 @@ export default function SuperAdminDashboard() {
           status: newCollege.status,
           adminName: newCollege.adminName,
           adminEmail: newCollege.adminEmail,
+          adminPhone: newCollege.adminPhone,
           adminPassword: newCollege.adminPassword || undefined
         }, {
           headers: { Authorization: `Bearer ${token}` }
@@ -114,7 +131,15 @@ export default function SuperAdminDashboard() {
       setShowModal(false);
       setEditingCollege(null);
       fetchColleges();
-      setNewCollege({ name: '', adminName: '', adminEmail: '', adminPassword: '', status: 'ACTIVE' });
+      setNewCollege({ 
+        name: '', 
+        adminName: '', 
+        adminEmail: '', 
+        adminPhone: '', 
+        adminPassword: '', 
+        adminConfirmPassword: '', 
+        status: 'ACTIVE' 
+      });
     } catch (err: any) {
       setError(err.response?.data?.message || 'Error occurred during institutional setup');
     } finally {
@@ -122,21 +147,29 @@ export default function SuperAdminDashboard() {
     }
   };
 
-  const handleDelete = async (id: string, name: string) => {
-    if (!window.confirm(`Are you sure you want to permanently delete ${name}? This action cannot be undone.`)) return;
-    
+  const handleDelete = async () => {
+    if (!collegeToDelete) return;
+
     setLoading(true);
     try {
       const token = localStorage.getItem('token');
-      await axios.delete(`${import.meta.env.VITE_API_URL}/colleges/${id}`, {
+      await axios.delete(`${import.meta.env.VITE_API_URL}/colleges/${collegeToDelete.id}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
+      setShowDeleteModal(false);
+      setCollegeToDelete(null);
       fetchColleges();
     } catch (err) {
-      alert("Failed to delete college");
+      setError("Failed to delete college");
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleImpersonate = (collegeId: string) => {
+    localStorage.setItem('impersonate_college_id', collegeId);
+    navigate('/dashboard');
+    window.location.reload();
   };
 
   const openEditModal = (college: College) => {
@@ -145,26 +178,36 @@ export default function SuperAdminDashboard() {
       name: college.name,
       adminName: college.adminId?.name || '',
       adminEmail: college.adminId?.email || '',
+      adminPhone: college.adminId?.phone || '',
       adminPassword: '',
+      adminConfirmPassword: '',
       status: college.status
     });
     setShowModal(true);
   };
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 p-6 lg:p-10">
       {/* Header Section */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-outfit font-bold tracking-tight">Platform Command Center</h1>
-          <p className="opacity-60 mt-1">Manage and onboard institutions to the Pixaflip WaaS Cloud.</p>
+          <h1 className="text-3xl font-outfit font-bold tracking-tight">Nexus Super Admin</h1>
+          <p className="opacity-60 mt-1">Manage and onboard institutions to the Nexus Cloud by Pixaflip.</p>
         </div>
         <motion.button
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
           onClick={() => {
             setEditingCollege(null);
-            setNewCollege({ name: '', adminName: '', adminEmail: '', adminPassword: '', status: 'ACTIVE' });
+            setNewCollege({ 
+              name: '', 
+              adminName: '', 
+              adminEmail: '', 
+              adminPhone: '', 
+              adminPassword: '', 
+              adminConfirmPassword: '', 
+              status: 'ACTIVE' 
+            });
             setShowModal(true);
           }}
           className="flex items-center justify-center gap-2 bg-primary-light hover:bg-primary-dark text-white px-6 py-3 rounded-2xl font-bold shadow-lg shadow-primary-light/30 transition-all cursor-pointer"
@@ -190,15 +233,15 @@ export default function SuperAdminDashboard() {
             Live Sync
           </div>
         </div>
-        
+
         <div className="overflow-x-auto">
           <table className="w-full text-left">
             <thead>
               <tr className="text-sm font-medium opacity-50 border-b border-slate-100 dark:border-white/10">
-                <th className="px-6 py-4">Institution Name</th>
+                <th className="px-6 py-4 text-slate-700 dark:text-white">Institution Name</th>
                 <th className="px-6 py-4 text-slate-700 dark:text-white">Administrative Owner</th>
-                <th className="px-6 py-4">Status</th>
-                <th className="px-6 py-4 text-right">Actions</th>
+                <th className="px-6 py-4 text-slate-700 dark:text-white">Status</th>
+                <th className="px-6 py-4 text-right text-slate-700 dark:text-white">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-white/5">
@@ -210,7 +253,7 @@ export default function SuperAdminDashboard() {
                 ))
               ) : (
                 colleges.map((college) => (
-                  <motion.tr 
+                  <motion.tr
                     key={college._id}
                     whileHover={{ backgroundColor: 'rgba(129, 140, 248, 0.05)' }}
                     className="transition-colors group hover:bg-slate-50/50 dark:hover:bg-white/[0.02]"
@@ -233,25 +276,34 @@ export default function SuperAdminDashboard() {
                       </div>
                     </td>
                     <td className="px-6 py-5">
-                      <span className={`px-3 py-1 rounded-full text-[10px] font-bold tracking-wider ${
-                        college.status === 'ACTIVE' 
-                          ? 'bg-green-500/10 text-green-500' 
-                          : 'bg-yellow-500/10 text-yellow-500'
-                      }`}>
+                      <span className={`px-3 py-1 rounded-full text-[10px] font-bold tracking-wider ${college.status === 'ACTIVE'
+                        ? 'bg-green-500/10 text-green-500'
+                        : 'bg-yellow-500/10 text-yellow-500'
+                        }`}>
                         {college.status}
                       </span>
                     </td>
-                    <td className="px-6 py-5 text-right">
-                      <div className="flex items-center justify-end gap-1">
-                        <button 
+                    <td className="px-6 py-5">
+                      <div className="flex items-center justify-end gap-2">
+                        <button
+                          onClick={() => handleImpersonate(college._id)}
+                          className="flex items-center gap-1.5 px-3 py-1.5 bg-orange-500/10 hover:bg-orange-500 hover:text-white text-orange-500 hover:shadow-lg hover:shadow-orange-500/20 rounded-lg transition-all cursor-pointer text-[10px] font-bold uppercase tracking-widest group"
+                        >
+                          <Activity className="w-3 h-3" />
+                          GOD MODE
+                        </button>
+                        <button
                           onClick={() => openEditModal(college)}
-                          className="p-2.5 hover:bg-primary-light/10 text-primary-light rounded-xl transition-all cursor-pointer" 
+                          className="p-2.5 hover:bg-primary-light/10 text-primary-light rounded-xl transition-all cursor-pointer"
                           title="Edit Institution"
                         >
                           <Edit3 className="w-4 h-4" />
                         </button>
-                        <button 
-                          onClick={() => handleDelete(college._id, college.name)}
+                        <button
+                          onClick={() => {
+                            setCollegeToDelete({ id: college._id, name: college.name });
+                            setShowDeleteModal(true);
+                          }}
                           className="p-2.5 hover:bg-red-500/10 text-red-500 rounded-xl transition-all cursor-pointer"
                           title="Delete Institution"
                         >
@@ -276,7 +328,7 @@ export default function SuperAdminDashboard() {
         title={editingCollege ? "Update Institution" : "Onboard Institution"}
         description={editingCollege ? `Modify details for ${editingCollege.name}` : "Setup a new managed college"}
         maxWidth="max-w-lg"
-        icon={editingCollege ? <Edit3 className="text-white w-6 h-6" /> : <School className="text-white w-6 h-6" />}
+        icon={editingCollege ? <Settings className="text-white w-6 h-6" /> : <School className="text-white w-6 h-6" />}
       >
         {error && (
           <motion.div
@@ -297,20 +349,23 @@ export default function SuperAdminDashboard() {
               className="w-full bg-slate-50 dark:bg-white/5 border border-slate-300 dark:border-white/10 rounded-xl p-3 focus:ring-2 focus:ring-primary-light outline-none transition-all cursor-pointer text-slate-900 dark:text-white text-sm"
               placeholder="e.g. Stanford University"
               value={newCollege.name}
-              onChange={e => setNewCollege({...newCollege, name: e.target.value})}
+              onChange={e => setNewCollege({ ...newCollege, name: e.target.value })}
             />
           </div>
 
-          <div className="space-y-1">
-            <label className="text-[10px] font-bold ml-1 opacity-40 text-slate-900 dark:text-white uppercase tracking-wider">Institution Status</label>
+          <div className="space-y-1 border border-slate-200 dark:border-white/5 rounded-xl p-3 bg-white/5">
+            <label className="text-[10px] items-center flex justify-between font-bold opacity-40 uppercase mb-2">
+              Status
+              <span className={`px-2 py-0.5 rounded-full ${newCollege.status === 'ACTIVE' ? 'bg-green-500/20 text-green-500' : 'bg-yellow-500/20 text-yellow-500'}`}>{newCollege.status}</span>
+            </label>
             <select
-              className="w-full bg-slate-50 dark:bg-white/5 border border-slate-300 dark:border-white/10 rounded-xl p-3 focus:ring-2 focus:ring-primary-light outline-none transition-all cursor-pointer text-slate-900 dark:text-white text-sm font-bold"
+              className="w-full bg-transparent border-none outline-none font-bold text-sm cursor-pointer dark:text-white"
               value={newCollege.status}
               onChange={e => setNewCollege({...newCollege, status: e.target.value})}
             >
-              <option value="ACTIVE">ACTIVE</option>
-              <option value="INACTIVE">INACTIVE</option>
-              <option value="SUSPENDED">SUSPENDED</option>
+              <option value="ACTIVE" className="bg-slate-800 text-white">ACTIVE</option>
+              <option value="INACTIVE" className="bg-slate-800 text-white">INACTIVE</option>
+              <option value="SUSPENDED" className="bg-slate-800 text-white">SUSPENDED</option>
             </select>
           </div>
 
@@ -325,7 +380,7 @@ export default function SuperAdminDashboard() {
                 className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg p-3 text-sm focus:ring-1 focus:ring-primary-light outline-none cursor-pointer text-slate-900 dark:text-white transition-all"
                 placeholder="Admin Full Name"
                 value={newCollege.adminName}
-                onChange={e => setNewCollege({...newCollege, adminName: e.target.value})}
+                onChange={e => setNewCollege({ ...newCollege, adminName: e.target.value })}
               />
               <input
                 required
@@ -333,7 +388,15 @@ export default function SuperAdminDashboard() {
                 className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg p-3 text-sm focus:ring-1 focus:ring-primary-light outline-none cursor-pointer text-slate-900 dark:text-white transition-all"
                 placeholder="admin@college.edu"
                 value={newCollege.adminEmail}
-                onChange={e => setNewCollege({...newCollege, adminEmail: e.target.value})}
+                onChange={e => setNewCollege({ ...newCollege, adminEmail: e.target.value })}
+              />
+              <input
+                required
+                type="tel"
+                className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg p-3 text-sm focus:ring-1 focus:ring-primary-light outline-none cursor-pointer text-slate-900 dark:text-white transition-all"
+                placeholder="Admin Contact Number"
+                value={newCollege.adminPhone}
+                onChange={e => setNewCollege({ ...newCollege, adminPhone: e.target.value })}
               />
               <input
                 required={!editingCollege}
@@ -341,27 +404,75 @@ export default function SuperAdminDashboard() {
                 className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg p-3 text-sm focus:ring-1 focus:ring-primary-light outline-none cursor-pointer text-slate-900 dark:text-white transition-all"
                 placeholder={editingCollege ? "Enter new password to reset" : "Initial Secure Password"}
                 value={newCollege.adminPassword}
-                onChange={e => setNewCollege({...newCollege, adminPassword: e.target.value})}
+                onChange={e => setNewCollege({ ...newCollege, adminPassword: e.target.value })}
               />
+              {!editingCollege && (
+                <input
+                  required
+                  type="password"
+                  className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg p-3 text-sm focus:ring-1 focus:ring-primary-light outline-none cursor-pointer text-slate-900 dark:text-white transition-all"
+                  placeholder="Confirm Secure Password"
+                  value={newCollege.adminConfirmPassword}
+                  onChange={e => setNewCollege({ ...newCollege, adminConfirmPassword: e.target.value })}
+                />
+              )}
             </div>
           </div>
 
           <div className="flex gap-3 pt-2">
             <button
               type="button"
-              onClick={() => setShowModal(false)}
+              onClick={() => {
+                setShowModal(false);
+                setEditingCollege(null);
+              }}
               className="flex-1 py-3 border border-slate-200 dark:border-white/10 rounded-xl font-bold text-xs hover:bg-white/5 transition-all cursor-pointer text-slate-500 dark:text-white/40"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="flex-1 py-3 bg-primary-light hover:bg-primary-dark text-white rounded-xl font-bold text-xs shadow-lg shadow-primary-light/20 transition-all cursor-pointer"
+              disabled={loading}
+              className="flex-1 py-3 bg-primary-light hover:bg-primary-dark text-white rounded-xl font-bold text-xs shadow-lg shadow-primary-light/20 transition-all cursor-pointer disabled:opacity-50"
             >
-              {editingCollege ? "Save Changes" : "Initialize"}
+              {loading ? "Processing..." : (editingCollege ? "Save Changes" : "Initialize Institution")}
             </button>
           </div>
         </form>
+      </UniversalModal>
+
+      <UniversalModal
+        isOpen={showDeleteModal}
+        onClose={() => setShowDeleteModal(false)}
+        title="Confirm Deletion"
+        description="This action is irreversible"
+        maxWidth="max-w-md"
+        icon={<Trash2 className="text-white w-6 h-6" />}
+      >
+        <div className="space-y-6">
+          <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-2xl">
+            <p className="text-sm text-center">
+              Are you sure you want to permanently delete <span className="font-bold text-red-500">{collegeToDelete?.name}</span>? 
+              All associated data, users, and configurations will be lost.
+            </p>
+          </div>
+
+          <div className="flex gap-3">
+            <button
+              onClick={() => setShowDeleteModal(false)}
+              className="flex-1 py-3 border border-slate-200 dark:border-white/10 rounded-xl font-bold text-xs hover:bg-white/5 transition-all cursor-pointer text-slate-500 dark:text-white/40"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleDelete}
+              disabled={loading}
+              className="flex-1 py-3 bg-red-500 hover:bg-red-600 text-white rounded-xl font-bold text-xs shadow-lg shadow-red-500/20 transition-all cursor-pointer disabled:opacity-50"
+            >
+              {loading ? "Deleting..." : "Confirm Delete"}
+            </button>
+          </div>
+        </div>
       </UniversalModal>
     </div>
   );
