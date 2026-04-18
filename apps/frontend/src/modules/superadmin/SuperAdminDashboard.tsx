@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, School, Users, Activity, ExternalLink, MoreVertical, ShieldCheck, X } from 'lucide-react';
+import { Plus, School, Users, Activity, ExternalLink, MoreVertical, ShieldCheck, X, Edit3, Trash2 } from 'lucide-react';
 import UniversalModal from '../../components/UniversalModal';
 import { normalizeEmail } from '../../utils/normalization';
 
@@ -44,11 +44,13 @@ export default function SuperAdminDashboard() {
     activeSessions: 0
   });
   const [error, setError] = useState("");
+  const [editingCollege, setEditingCollege] = useState<College | null>(null);
   const [newCollege, setNewCollege] = useState({
     name: '',
     adminName: '',
     adminEmail: '',
     adminPassword: '',
+    status: 'ACTIVE'
   });
 
   useEffect(() => {
@@ -82,27 +84,71 @@ export default function SuperAdminDashboard() {
     }
   };
 
-  const handleOnboard = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError("");
     try {
       const token = localStorage.getItem('token');
-      const payload = {
-        ...newCollege,
-        adminEmail: normalizeEmail(newCollege.adminEmail)
-      };
-      await axios.post(`${import.meta.env.VITE_API_URL}/colleges`, payload, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      if (editingCollege) {
+        // Update Logic
+        await axios.patch(`${import.meta.env.VITE_API_URL}/colleges/${editingCollege._id}`, {
+          name: newCollege.name,
+          status: newCollege.status,
+          adminName: newCollege.adminName,
+          adminEmail: newCollege.adminEmail,
+          adminPassword: newCollege.adminPassword || undefined
+        }, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+      } else {
+        // Create Logic
+        const payload = {
+          ...newCollege,
+          adminEmail: normalizeEmail(newCollege.adminEmail)
+        };
+        await axios.post(`${import.meta.env.VITE_API_URL}/colleges`, payload, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+      }
       setShowModal(false);
+      setEditingCollege(null);
       fetchColleges();
-      setNewCollege({ name: '', adminName: '', adminEmail: '', adminPassword: '' });
+      setNewCollege({ name: '', adminName: '', adminEmail: '', adminPassword: '', status: 'ACTIVE' });
     } catch (err: any) {
       setError(err.response?.data?.message || 'Error occurred during institutional setup');
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleDelete = async (id: string, name: string) => {
+    if (!window.confirm(`Are you sure you want to permanently delete ${name}? This action cannot be undone.`)) return;
+    
+    setLoading(true);
+    try {
+      const token = localStorage.getItem('token');
+      await axios.delete(`${import.meta.env.VITE_API_URL}/colleges/${id}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      fetchColleges();
+    } catch (err) {
+      alert("Failed to delete college");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const openEditModal = (college: College) => {
+    setEditingCollege(college);
+    setNewCollege({
+      name: college.name,
+      adminName: college.adminId?.name || '',
+      adminEmail: college.adminId?.email || '',
+      adminPassword: '',
+      status: college.status
+    });
+    setShowModal(true);
   };
 
   return (
@@ -116,7 +162,11 @@ export default function SuperAdminDashboard() {
         <motion.button
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
-          onClick={() => setShowModal(true)}
+          onClick={() => {
+            setEditingCollege(null);
+            setNewCollege({ name: '', adminName: '', adminEmail: '', adminPassword: '', status: 'ACTIVE' });
+            setShowModal(true);
+          }}
           className="flex items-center justify-center gap-2 bg-primary-light hover:bg-primary-dark text-white px-6 py-3 rounded-2xl font-bold shadow-lg shadow-primary-light/30 transition-all cursor-pointer"
         >
           <Plus className="w-5 h-5" />
@@ -192,12 +242,20 @@ export default function SuperAdminDashboard() {
                       </span>
                     </td>
                     <td className="px-6 py-5 text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <button className="p-2 hover:bg-white/10 rounded-lg transition-colors cursor-pointer">
-                          <ExternalLink className="w-4 h-4 opacity-40 hover:opacity-100" />
+                      <div className="flex items-center justify-end gap-1">
+                        <button 
+                          onClick={() => openEditModal(college)}
+                          className="p-2.5 hover:bg-primary-light/10 text-primary-light rounded-xl transition-all cursor-pointer" 
+                          title="Edit Institution"
+                        >
+                          <Edit3 className="w-4 h-4" />
                         </button>
-                        <button className="p-2 hover:bg-white/10 rounded-lg transition-colors cursor-pointer">
-                          <MoreVertical className="w-4 h-4 opacity-40 hover:opacity-100" />
+                        <button 
+                          onClick={() => handleDelete(college._id, college.name)}
+                          className="p-2.5 hover:bg-red-500/10 text-red-500 rounded-xl transition-all cursor-pointer"
+                          title="Delete Institution"
+                        >
+                          <Trash2 className="w-4 h-4" />
                         </button>
                       </div>
                     </td>
@@ -211,11 +269,14 @@ export default function SuperAdminDashboard() {
 
       <UniversalModal
         isOpen={showModal}
-        onClose={() => setShowModal(false)}
-        title="Onboard Institution"
-        description="Setup a new managed college"
+        onClose={() => {
+          setShowModal(false);
+          setEditingCollege(null);
+        }}
+        title={editingCollege ? "Update Institution" : "Onboard Institution"}
+        description={editingCollege ? `Modify details for ${editingCollege.name}` : "Setup a new managed college"}
         maxWidth="max-w-lg"
-        icon={<School className="text-white w-6 h-6" />}
+        icon={editingCollege ? <Edit3 className="text-white w-6 h-6" /> : <School className="text-white w-6 h-6" />}
       >
         {error && (
           <motion.div
@@ -228,22 +289,35 @@ export default function SuperAdminDashboard() {
           </motion.div>
         )}
 
-        <form onSubmit={handleOnboard} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-1">
-            <label className="text-[10px] font-bold ml-1 opacity-40 text-slate-900 dark:text-white uppercase tracking-wider">College Name</label>
+            <label className="text-[10px] font-bold ml-1 opacity-40 text-slate-900 dark:text-white uppercase tracking-wider">Institution Name</label>
             <input
               required
               className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl p-3 focus:ring-2 focus:ring-primary-light outline-none transition-all cursor-pointer text-slate-900 dark:text-white text-sm"
-              placeholder="Institution Name"
+              placeholder="e.g. Stanford University"
               value={newCollege.name}
               onChange={e => setNewCollege({...newCollege, name: e.target.value})}
             />
           </div>
 
+          <div className="space-y-1">
+            <label className="text-[10px] font-bold ml-1 opacity-40 text-slate-900 dark:text-white uppercase tracking-wider">Institution Status</label>
+            <select
+              className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl p-3 focus:ring-2 focus:ring-primary-light outline-none transition-all cursor-pointer text-slate-900 dark:text-white text-sm"
+              value={newCollege.status}
+              onChange={e => setNewCollege({...newCollege, status: e.target.value})}
+            >
+              <option value="ACTIVE">ACTIVE</option>
+              <option value="INACTIVE">INACTIVE</option>
+              <option value="SUSPENDED">SUSPENDED</option>
+            </select>
+          </div>
+
           <div className="p-5 bg-primary-light/5 rounded-2xl border border-primary-light/10 space-y-3">
             <div className="flex items-center gap-2 text-primary-light font-bold text-[10px] uppercase tracking-widest mb-1">
               <ShieldCheck className="w-3.5 h-3.5" />
-              Administrative Credentials
+              Administrative Credentials {editingCollege && "(Optional Update)"}
             </div>
             <div className="space-y-3">
               <input
@@ -262,10 +336,10 @@ export default function SuperAdminDashboard() {
                 onChange={e => setNewCollege({...newCollege, adminEmail: e.target.value})}
               />
               <input
-                required
+                required={!editingCollege}
                 type="password"
                 className="w-full bg-white/5 border border-white/5 rounded-lg p-3 text-sm focus:ring-1 focus:ring-primary-light outline-none cursor-pointer text-slate-900 dark:text-white"
-                placeholder="Initial Secure Password"
+                placeholder={editingCollege ? "Enter new password to reset" : "Initial Secure Password"}
                 value={newCollege.adminPassword}
                 onChange={e => setNewCollege({...newCollege, adminPassword: e.target.value})}
               />
@@ -284,7 +358,7 @@ export default function SuperAdminDashboard() {
               type="submit"
               className="flex-1 py-3 bg-primary-light hover:bg-primary-dark text-white rounded-xl font-bold text-xs shadow-lg shadow-primary-light/20 transition-all cursor-pointer"
             >
-              Initialize
+              {editingCollege ? "Save Changes" : "Initialize"}
             </button>
           </div>
         </form>

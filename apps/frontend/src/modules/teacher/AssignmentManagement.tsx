@@ -4,7 +4,7 @@ import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   FileText, Plus, Users, Clock, CheckCircle2, 
-  ExternalLink, Loader2, Copy, Send, GraduationCap,
+  ExternalLink, Loader2, Send, GraduationCap,
   MessageSquare, Award, ArrowLeft, MoreHorizontal,
   ChevronRight, Trash2, Calendar, Globe, FileArchive
 } from 'lucide-react';
@@ -95,18 +95,7 @@ export default function AssignmentManagement() {
     } catch (err) { alert("Synchronization failed."); }
   };
 
-  const copySubmissionLink = async (studentId: string, assignmentId: string) => {
-    try {
-      const token = localStorage.getItem('token');
-      const res = await axios.post(`${import.meta.env.VITE_API_URL}/assignments/${assignmentId}/token/${studentId}`, {
-        divisionId
-      }, { headers: { Authorization: `Bearer ${token}` } });
-      
-      const link = `${window.location.origin}/submit/${assignmentId}?token=${res.data.token}`;
-      await navigator.clipboard.writeText(link);
-      alert("Mission Link copied to clipboard!");
-    } catch (err) { alert("Token generation failed."); }
-  };
+
 
   if (loading) return <div className="flex items-center justify-center py-40"><Loader2 className="w-12 h-12 animate-spin text-primary-light" /></div>;
 
@@ -194,9 +183,9 @@ export default function AssignmentManagement() {
                   navigator.clipboard.writeText(link);
                   alert("General Mission Link copied! Students will identify via Email/Phone.");
                 }}
-                className="px-6 py-3 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 hover:bg-slate-50 transition-all cursor-pointer"
+                className="px-6 py-3 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 hover:bg-slate-50 dark:hover:bg-white/10 transition-all cursor-pointer"
               >
-                <Globe className="w-4 h-4 text-primary-light" /> Copy Common Link
+                <Globe className="w-4 h-4 text-primary-light" /> Copy Submission Link
               </button>
            </div>
 
@@ -246,11 +235,13 @@ export default function AssignmentManagement() {
                               <p className="font-black text-sm">{sub?.gradedAt ? `${sub.marks}/${selectedAssignment.maxMarks}` : 'Not Graded'}</p>
                            </td>
                            <td className="p-8 flex items-center gap-3">
-                              {sub ? (
-                                <button onClick={() => setGrading({...sub, marks: sub.marks || 0, feedback: sub.feedback || ''})} className="p-4 bg-primary-light/10 text-primary-light rounded-2xl hover:bg-primary-light hover:text-white transition-all cursor-pointer"><MessageSquare className="w-4 h-4" /></button>
-                              ) : (
-                                <button onClick={() => copySubmissionLink(student._id, selectedAssignment._id)} title="Copy Secure Mission Link" className="p-4 bg-slate-100 dark:bg-white/5 text-slate-500 hover:text-primary-light rounded-2xl transition-all cursor-pointer"><Copy className="w-4 h-4" /></button>
-                              )}
+                               {sub ? (
+                                 <button onClick={() => setGrading({...sub, marks: sub.marks || 0, feedback: sub.feedback || ''})} className="p-4 bg-primary-light/10 text-primary-light rounded-2xl hover:bg-primary-light hover:text-white transition-all cursor-pointer"><MessageSquare className="w-4 h-4" /></button>
+                               ) : (
+                                 <div className="p-4 bg-slate-100 dark:bg-white/5 text-slate-500/20 rounded-2xl">
+                                   <Clock className="w-4 h-4" />
+                                 </div>
+                               )}
                            </td>
                         </tr>
                       )

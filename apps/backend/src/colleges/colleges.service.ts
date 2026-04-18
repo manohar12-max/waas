@@ -6,6 +6,10 @@ import { UsersService } from '../users/users.service';
 import { User, UserDocument, UserRole } from '../users/user.schema';
 import { Workshop, WorkshopDocument } from '../workshops/workshop.schema';
 import { Attendance, AttendanceDocument } from '../workshops/attendance.schema';
+import { Division, DivisionDocument } from '../divisions/division.schema';
+import { Assignment, AssignmentDocument } from '../assignments/assignment.schema';
+import { Submission, SubmissionDocument } from '../assignments/submission.schema';
+import { Classroom, ClassroomDocument } from '../classrooms/classroom.schema';
 
 @Injectable()
 export class CollegesService {
@@ -16,6 +20,10 @@ export class CollegesService {
     @InjectModel(User.name) private userModel: Model<UserDocument>,
     @InjectModel(Workshop.name) private workshopModel: Model<WorkshopDocument>,
     @InjectModel(Attendance.name) private attendanceModel: Model<AttendanceDocument>,
+    @InjectModel(Division.name) private divisionModel: Model<DivisionDocument>,
+    @InjectModel(Assignment.name) private assignmentModel: Model<AssignmentDocument>,
+    @InjectModel(Submission.name) private submissionModel: Model<SubmissionDocument>,
+    @InjectModel(Classroom.name) private classroomModel: Model<ClassroomDocument>,
     private usersService: UsersService,
   ) {}
 
@@ -113,5 +121,75 @@ export class CollegesService {
       liveWorkshops: ongoingWorkshops,
       averageParticipation: "88%", // TODO: Implement actual participation calculation
     };
+  }
+
+  async update(id: string, updateCollegeDto: any): Promise<CollegeDocument> {
+    const { adminName, adminEmail, adminPassword, name, status } = updateCollegeDto;
+    this.logger.log(`Updating college: ${id}`);
+    
+    const college = await this.collegeModel.findById(id).exec();
+    if (!college) {
+      throw new NotFoundException(`College with ID ${id} not found`);
+    }
+
+    // Update college fields
+    if (name) college.name = name;
+    if (status) college.status = status;
+    await college.save();
+
+    // Update admin if fields provided
+    if (college.adminId && (adminName || adminEmail || adminPassword)) {
+      const updateData: any = {};
+      if (adminName) updateData.name = adminName;
+      if (adminEmail) updateData.email = adminEmail;
+      if (adminPassword) updateData.password = adminPassword;
+      await this.usersService.update(college.adminId, updateData);
+    }
+
+    return college.populate('adminId', 'name email');
+  }
+
+  async remove(id: string): Promise<any> {
+    const cId = new Types.ObjectId(id);
+    this.logger.log(`INITIATING CASCADING DELETE for college: ${cId}`);
+    
+    const college = await this.collegeModel.findById(cId).exec();
+    if (!college) {
+      throw new NotFoundException(`College with ID ${id} not found`);
+    }
+
+    // 1. Find all identifiers for cascading
+    const [userIds, workshopIds] = await Promise.all([
+      this.userModel.find({ collegeId: cId }).distinct('_id'),
+      this.workshopModel.find({ collegeId: cId }).distinct('_id'),
+    ]);
+
+    this.logger.log(`Cleaning up ${userIds.length} users and ${workshopIds.length} workshops...`);
+
+    // 2. Perform parallel deletions of dependent data
+    await Promise.all([
+      // Cleanup by student IDs
+      this.submissionModel.deleteMany({ studentId: { $in: userIds } }),
+      
+      // Cleanup by workshop IDs
+      this.assignmentModel.deleteMany({ workshopId: { $in: workshopIds } }),
+      this.attendanceModel.deleteMany({ workshopId: { $in: workshopIds } }),
+      this.classroomModel.deleteMany({ workshopId: { $in: workshopIds } }),
+      
+      // Cleanup by college ID directly
+      this.divisionModel.deleteMany({ collegeId: cId }),
+    ]);
+
+    // 3. Final cleanup of core entities
+    await Promise.all([
+      this.workshopModel.deleteMany({ collegeId: cId }),
+      this.userModel.deleteMany({ collegeId: cId }),
+    ]);
+
+    // 4. Delete the college itself
+    await this.collegeModel.findByIdAndDelete(cId).exec();
+
+    this.logger.log(`Successfully purged all data for institution: ${college.name}`);
+    return { message: 'Institutional data purged successfully' };
   }
 }
