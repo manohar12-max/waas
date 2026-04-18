@@ -92,4 +92,20 @@ export class UsersService {
     }
     return result;
   }
+
+  async update(id: any, updateDto: any): Promise<UserDocument> {
+    const uId = this.toObjectId(id);
+    this.logger.log(`Updating user: ${uId}`);
+    
+    const data = { ...updateDto };
+    if (data.password) {
+      data.password = await bcrypt.hash(data.password, 10);
+    }
+
+    const updated = await this.userModel.findByIdAndUpdate(uId, data, { new: true }).exec();
+    if (!updated) {
+      throw new BadRequestException('User not found');
+    }
+    return updated;
+  }
 }

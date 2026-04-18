@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Body, Param, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, UseGuards, Patch, Delete } from '@nestjs/common';
 import { CollegesService } from './colleges.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
@@ -8,7 +8,7 @@ import { UserRole } from '../users/user.schema';
 @Controller('colleges')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class CollegesController {
-  constructor(private readonly collegesService: CollegesService) {}
+  constructor(private readonly collegesService: CollegesService) { }
 
   @Post()
   @Roles(UserRole.SUPER_ADMIN)
@@ -27,9 +27,15 @@ export class CollegesController {
     return this.collegesService.findOne(id);
   }
 
-  @Put(':id')
+  @Patch(':id')
   @Roles(UserRole.SUPER_ADMIN)
-  async update(@Param('id') id: string, @Body() updateDto: any) {
-    return this.collegesService.update(id, updateDto);
+  async update(@Param('id') id: string, @Body() updateCollegeDto: any) {
+    return this.collegesService.update(id, updateCollegeDto);
+  }
+
+  @Delete(':id')
+  @Roles(UserRole.SUPER_ADMIN)
+  async remove(@Param('id') id: string) {
+    return this.collegesService.remove(id);
   }
 }

@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { 
-  LayoutDashboard, 
-  School, 
-  Users, 
-  Settings, 
-  LogOut, 
-  Menu, 
+import {
+  LayoutDashboard,
+  School,
+  Users,
+  Settings,
+  LogOut,
+  Menu,
   X,
   ChevronRight,
   UserCircle,
@@ -32,19 +32,18 @@ interface SidebarItemProps {
 const SidebarItem = ({ icon: Icon, label, active, collapsed, onClick }: Omit<SidebarItemProps, 'path'>) => (
   <button
     onClick={onClick}
-    className={`w-full flex items-center gap-3 px-4 py-4 rounded-2xl cursor-pointer transition-all duration-300 group ${
-      active 
-        ? 'bg-primary-light text-white shadow-lg shadow-primary-light/30' 
+    className={`w-full flex items-center gap-3 px-4 py-4 rounded-2xl cursor-pointer transition-all duration-300 group ${active
+        ? 'bg-primary-light text-white shadow-lg shadow-primary-light/30'
         : 'hover:bg-primary-light/10 text-slate-500 dark:text-slate-400 hover:text-primary-light'
-    }`}
+      }`}
   >
     <div className={`transition-transform duration-300 shrink-0 ${active ? 'scale-110' : 'group-hover:scale-110'}`}>
       <Icon className="w-5 h-5" />
     </div>
     <div className={`overflow-hidden transition-all duration-300 flex items-center ${collapsed ? 'w-0 opacity-0' : 'w-full opacity-100'}`}>
-        <span className="font-semibold tracking-tight whitespace-nowrap ml-1">
-          {label}
-        </span>
+      <span className="font-semibold tracking-tight whitespace-nowrap ml-1">
+        {label}
+      </span>
     </div>
   </button>
 );
@@ -99,21 +98,21 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         transition={{ type: "spring", stiffness: 300, damping: 30 }}
         className="hidden md:flex flex-col bg-surface-light dark:bg-card-dark border-r border-slate-200 dark:border-white/10 h-screen sticky top-0 z-50 shadow-[20px_0_50px_rgba(0,0,0,0.1)] dark:shadow-[20px_0_80px_rgba(0,0,0,0.4)]"
       >
-        <div className="p-6 flex items-center justify-between overflow-hidden">
+        <div className="p-6 flex items-center justify-between overflow-hidden border-b-2 border-slate-200/60 dark:border-white/10 bg-white/50 dark:bg-black/20 backdrop-blur-sm mb-4">
           <div className={`transition-all duration-300 flex items-center overflow-hidden ${collapsed ? 'w-0 opacity-0' : 'w-full opacity-100'}`}>
-              <div className="font-outfit font-black text-2xl tracking-tight text-primary-light whitespace-nowrap flex flex-col">
-                NEXUS<span className="text-[10px] font-black uppercase tracking-widest text-slate-500 mt-1">by Pixaflip</span>
-              </div>
+            <div className="font-outfit font-black text-2xl tracking-tight text-primary-light whitespace-nowrap flex flex-col">
+              NEXUS<span className="text-[10px] font-black uppercase tracking-widest text-slate-500 mt-1">by Pixaflip</span>
+            </div>
           </div>
-          <button 
+          <button
             onClick={() => setCollapsed(!collapsed)}
-            className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors text-slate-500 dark:text-slate-400 shrink-0"
+            className="p-2.5 bg-white dark:bg-white/5 hover:bg-slate-50 dark:hover:bg-white/10 rounded-xl transition-all text-slate-500 dark:text-slate-400 shrink-0 shadow-sm border border-slate-200 dark:border-white/10 hover:border-primary-light/30"
           >
             {collapsed ? <ChevronRight className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
           </button>
         </div>
 
-        <div className="px-4 py-8 flex-1 space-y-2 overflow-y-auto no-scrollbar">
+        <div className="px-4 py-4 flex-1 space-y-2 overflow-y-auto no-scrollbar">
           {filteredMenuItems.map((item) => (
             <SidebarItem
               key={item.path}
@@ -134,21 +133,21 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               {theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
             </div>
             <div className={`overflow-hidden transition-all duration-300 flex items-center ${collapsed ? 'w-0 opacity-0' : 'w-full opacity-100'}`}>
-                <span className="font-medium group-hover:text-primary-light transition-colors whitespace-nowrap ml-1">
-                  {theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
-                </span>
+              <span className="font-medium group-hover:text-primary-light transition-colors whitespace-nowrap ml-1">
+                {theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
+              </span>
             </div>
           </button>
-          
+
           <button
             onClick={handleLogout}
             className="w-full flex items-center gap-3 px-4 py-3 rounded-xl cursor-pointer transition-all hover:bg-red-500/10 text-red-500 group relative overflow-hidden"
           >
             <LogOut className="w-5 h-5 group-hover:translate-x-1 transition-transform shrink-0" />
             <div className={`overflow-hidden transition-all duration-300 flex items-center ${collapsed ? 'w-0 opacity-0' : 'w-full opacity-100'}`}>
-                <span className="font-medium whitespace-nowrap ml-1">
-                  Logout
-                </span>
+              <span className="font-medium whitespace-nowrap ml-1">
+                Logout
+              </span>
             </div>
           </button>
         </div>
@@ -158,22 +157,22 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       <main className="flex-1 flex flex-col h-screen overflow-hidden bg-white/40 dark:bg-transparent backdrop-blur-[1px]">
         {/* Header */}
         {isImpersonating && (
-           <div className="flex items-center justify-between bg-orange-500 dark:bg-orange-600 text-white p-4 font-bold text-sm tracking-wide shadow-lg z-40">
-             <div className="flex items-center gap-2">
-                <span className="animate-pulse w-2 h-2 rounded-full bg-white opacity-80" />
-                GOD MODE ACTIVE
-             </div>
-             <button 
-               onClick={() => { 
-                 localStorage.removeItem('impersonate_college_id'); 
-                 navigate('/colleges'); 
-                 window.location.reload(); 
-               }}
-               className="bg-white text-orange-600 px-4 py-1.5 rounded-full text-xs uppercase font-black tracking-widest cursor-pointer hover:scale-105 active:scale-95 transition-all shadow-md shadow-black/10"
-             >
-               Exit Identity
-             </button>
-           </div>
+          <div className="flex items-center justify-between bg-orange-500 dark:bg-orange-600 text-white p-4 font-bold text-sm tracking-wide shadow-lg z-40">
+            <div className="flex items-center gap-2">
+              <span className="animate-pulse w-2 h-2 rounded-full bg-white opacity-80" />
+              GOD MODE ACTIVE
+            </div>
+            <button
+              onClick={() => {
+                localStorage.removeItem('impersonate_college_id');
+                navigate('/colleges');
+                window.location.reload();
+              }}
+              className="bg-white text-orange-600 px-4 py-1.5 rounded-full text-xs uppercase font-black tracking-widest cursor-pointer hover:scale-105 active:scale-95 transition-all shadow-md shadow-black/10"
+            >
+              Exit Identity
+            </button>
+          </div>
         )}
 
 
@@ -216,11 +215,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   <button
                     key={item.path}
                     onClick={() => { navigate(item.path); setMobileOpen(false); }}
-                    className={`w-full flex items-center gap-3 p-4 rounded-2xl transition-all cursor-pointer ${
-                      location.pathname === item.path 
-                        ? 'bg-primary-light text-white shadow-lg' 
+                    className={`w-full flex items-center gap-3 p-4 rounded-2xl transition-all cursor-pointer ${location.pathname === item.path
+                        ? 'bg-primary-light text-white shadow-lg'
                         : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/5'
-                    }`}
+                      }`}
                   >
                     <item.icon className="w-5 h-5" />
                     <span className="font-bold">{item.label}</span>
