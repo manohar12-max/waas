@@ -214,7 +214,7 @@ export default function InstructorManagement() {
               <label className="text-[10px] font-black uppercase tracking-[0.2em] ml-1 opacity-30">Full Name</label>
               <input
                 required
-                className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/5 rounded-2xl p-4 focus:ring-2 focus:ring-primary-light outline-none transition-all placeholder:opacity-20 text-slate-900 dark:text-white text-sm"
+                className="w-full bg-slate-50 dark:bg-white/5 border border-slate-300 dark:border-white/10 rounded-2xl p-4 focus:ring-2 focus:ring-primary-light outline-none transition-all placeholder:opacity-20 text-slate-900 dark:text-white text-sm font-bold"
                 placeholder="Dr. John Doe"
                 value={newInstructor.name}
                 onChange={e => setNewInstructor({...newInstructor, name: e.target.value})}
@@ -226,7 +226,7 @@ export default function InstructorManagement() {
               <input
                 required
                 type="email"
-                className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/5 rounded-2xl p-4 focus:ring-2 focus:ring-primary-light outline-none transition-all placeholder:opacity-20 text-slate-900 dark:text-white text-sm"
+                className="w-full bg-slate-50 dark:bg-white/5 border border-slate-300 dark:border-white/10 rounded-2xl p-4 focus:ring-2 focus:ring-primary-light outline-none transition-all placeholder:opacity-20 text-slate-900 dark:text-white text-sm font-bold"
                 placeholder="john.doe@college.edu"
                 value={newInstructor.email}
                 onChange={e => setNewInstructor({...newInstructor, email: e.target.value})}
@@ -238,7 +238,7 @@ export default function InstructorManagement() {
               <input
                 required
                 type="password"
-                className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/5 rounded-2xl p-4 focus:ring-2 focus:ring-primary-light outline-none transition-all placeholder:opacity-20 text-slate-900 dark:text-white text-sm"
+                className="w-full bg-slate-50 dark:bg-white/5 border border-slate-300 dark:border-white/10 rounded-2xl p-4 focus:ring-2 focus:ring-primary-light outline-none transition-all placeholder:opacity-20 text-slate-900 dark:text-white text-sm font-bold"
                 placeholder="Create secure password"
                 value={newInstructor.password}
                 onChange={e => setNewInstructor({...newInstructor, password: e.target.value})}

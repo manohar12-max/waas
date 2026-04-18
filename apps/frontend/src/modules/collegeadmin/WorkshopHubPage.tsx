@@ -1,22 +1,19 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import {
   Plus,
   BookOpen,
   ChevronRight,
-  X,
   Loader2,
-  AlertCircle,
-  Trash2,
   Calendar,
   Layers,
   ShieldAlert,
   Edit3,
-  Activity,
   User
 } from 'lucide-react';
+import UniversalModal from '../../components/UniversalModal';
 
 interface Workshop {
   _id: string;
@@ -211,64 +208,71 @@ export default function WorkshopHubPage() {
         </div>
       </div>
 
-      <AnimatePresence>
-        {showModal && (
-          <div className="fixed inset-0 flex items-center justify-center z-[100] px-4">
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setShowModal(false)} className="absolute inset-0 bg-slate-900/60 dark:bg-background-dark/95 backdrop-blur-3xl cursor-pointer" />
-            <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="w-full max-w-xl bg-card-light dark:bg-card-dark border border-slate-200 dark:border-white/10 p-12 rounded-[64px] z-10 shadow-2xl relative">
-              <div className="flex justify-between items-center mb-10">
-                <h2 className="text-3xl font-black tracking-tight text-slate-900 dark:text-white">Deploy Workshop</h2>
-                <button onClick={() => setShowModal(false)} className="p-3 bg-slate-100 dark:bg-white/5 rounded-full transition-all cursor-pointer text-slate-400 hover:text-slate-600 dark:hover:text-white">
-                  <X className="w-7 h-7" />
-                </button>
-              </div>
-
-              {error && (
-                <div className="mb-6 p-4 bg-red-500/10 border border-red-500/20 text-red-500 rounded-2xl flex items-center gap-3 text-sm font-bold">
-                  <ShieldAlert className="w-5 h-5" /> {error}
-                </div>
-              )}
-
-              <form onSubmit={handleCreate} className="space-y-6">
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-4">Curriculum Identity</label>
-                  <input required className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/5 rounded-3xl p-6 outline-none font-bold text-slate-800 dark:text-white placeholder:opacity-40" placeholder="Workshop Title" value={newWorkshop.title} onChange={e => setNewWorkshop({ ...newWorkshop, title: e.target.value })} />
-                </div>
-
-                {user.role === 'COLLEGE_ADMIN' && (
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-4">Technical Instructor Lead</label>
-                    <select required className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/5 rounded-3xl p-6 outline-none font-bold cursor-pointer text-slate-800 dark:text-white appearance-none" value={newWorkshop.instructorId} onChange={e => setNewWorkshop({ ...newWorkshop, instructorId: e.target.value })}>
-                      <option value="" className="bg-white dark:bg-[#1A1A2E]">Select Instructor...</option>
-                      {instructors.map(inst => <option key={inst._id} value={inst._id} className="bg-white dark:bg-[#1A1A2E]">{inst.name} ({inst.email})</option>)}
-                    </select>
-                  </div>
-                )}
-
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-4">Registration Window (Access Period)</label>
-                    <div className="grid grid-cols-2 gap-4">
-                      <input required type="datetime-local" className="bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/5 rounded-3xl p-6 outline-none font-bold cursor-pointer text-slate-800 dark:text-white" value={newWorkshop.registrationPeriod.start} onChange={e => setNewWorkshop({ ...newWorkshop, registrationPeriod: { ...newWorkshop.registrationPeriod, start: e.target.value } })} />
-                      <input required type="datetime-local" className="bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/5 rounded-3xl p-6 outline-none font-bold cursor-pointer text-slate-800 dark:text-white" value={newWorkshop.registrationPeriod.end} onChange={e => setNewWorkshop({ ...newWorkshop, registrationPeriod: { ...newWorkshop.registrationPeriod, end: e.target.value } })} />
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-4">Workshop Event (Schedule)</label>
-                    <div className="grid grid-cols-2 gap-4">
-                      <input required type="datetime-local" className="bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/5 rounded-3xl p-6 outline-none font-bold cursor-pointer text-slate-800 dark:text-white" value={newWorkshop.schedule.start} onChange={e => setNewWorkshop({ ...newWorkshop, schedule: { ...newWorkshop.schedule, start: e.target.value } })} />
-                      <input required type="datetime-local" className="bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/5 rounded-3xl p-6 outline-none font-bold cursor-pointer text-slate-800 dark:text-white" value={newWorkshop.schedule.end} onChange={e => setNewWorkshop({ ...newWorkshop, schedule: { ...newWorkshop.schedule, end: e.target.value } })} />
-                    </div>
-                  </div>
-                </div>
-
-                <button type="submit" className="w-full py-6 bg-primary-light text-white rounded-[32px] font-black uppercase tracking-widest transition-all hover:bg-primary-dark shadow-2xl shadow-primary-light/20 cursor-pointer">{submitting ? <Loader2 className="animate-spin mx-auto" /> : "Deploy Curriculum"}</button>
-              </form>
-            </motion.div>
+      <UniversalModal
+        isOpen={showModal}
+        onClose={() => setShowModal(false)}
+        title="Deploy Workshop"
+        description="Initialize a new curriculum delivery instance"
+        maxWidth="max-w-2xl"
+        icon={<BookOpen className="text-white w-8 h-8" />}
+      >
+        {error && (
+          <div className="mb-6 p-4 bg-red-500/10 border border-red-500/20 text-red-500 rounded-2xl flex items-center gap-3 text-sm font-bold">
+            <ShieldAlert className="w-5 h-5" /> {error}
           </div>
         )}
-      </AnimatePresence>
+
+        <form onSubmit={handleCreate} className="space-y-6">
+          <div className="space-y-2">
+            <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-4">Curriculum Identity</label>
+            <input 
+              required 
+              className="w-full bg-slate-50 dark:bg-white/5 border border-slate-300 dark:border-white/10 rounded-3xl p-6 outline-none font-bold text-slate-800 dark:text-white placeholder:opacity-40 focus:ring-2 focus:ring-primary-light transition-all" 
+              placeholder="Workshop Title" 
+              value={newWorkshop.title} 
+              onChange={e => setNewWorkshop({ ...newWorkshop, title: e.target.value })} 
+            />
+          </div>
+
+          {user.role === 'COLLEGE_ADMIN' && (
+            <div className="space-y-2">
+              <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-4">Technical Instructor Lead</label>
+              <select 
+                required 
+                className="w-full bg-slate-50 dark:bg-white/5 border border-slate-300 dark:border-white/10 rounded-3xl p-6 outline-none font-bold cursor-pointer text-slate-800 dark:text-white appearance-none focus:ring-2 focus:ring-primary-light transition-all" 
+                value={newWorkshop.instructorId} 
+                onChange={e => setNewWorkshop({ ...newWorkshop, instructorId: e.target.value })}
+              >
+                <option value="" className="bg-white dark:bg-[#1A1A2E]">Select Instructor...</option>
+                {instructors.map(inst => <option key={inst._id} value={inst._id} className="bg-white dark:bg-[#1A1A2E]">{inst.name} ({inst.email})</option>)}
+              </select>
+            </div>
+          )}
+
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-4">Registration Window (Access Period)</label>
+              <div className="grid grid-cols-2 gap-4">
+                <input required type="datetime-local" className="bg-slate-50 dark:bg-white/5 border border-slate-300 dark:border-white/10 rounded-3xl p-6 outline-none font-bold cursor-pointer text-slate-800 dark:text-white focus:ring-2 focus:ring-primary-light transition-all" value={newWorkshop.registrationPeriod.start} onChange={e => setNewWorkshop({ ...newWorkshop, registrationPeriod: { ...newWorkshop.registrationPeriod, start: e.target.value } })} />
+                <input required type="datetime-local" className="bg-slate-50 dark:bg-white/5 border border-slate-300 dark:border-white/10 rounded-3xl p-6 outline-none font-bold cursor-pointer text-slate-800 dark:text-white focus:ring-2 focus:ring-primary-light transition-all" value={newWorkshop.registrationPeriod.end} onChange={e => setNewWorkshop({ ...newWorkshop, registrationPeriod: { ...newWorkshop.registrationPeriod, end: e.target.value } })} />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-4">Workshop Event (Schedule)</label>
+              <div className="grid grid-cols-2 gap-4">
+                <input required type="datetime-local" className="bg-slate-50 dark:bg-white/5 border border-slate-300 dark:border-white/10 rounded-3xl p-6 outline-none font-bold cursor-pointer text-slate-800 dark:text-white focus:ring-2 focus:ring-primary-light transition-all" value={newWorkshop.schedule.start} onChange={e => setNewWorkshop({ ...newWorkshop, schedule: { ...newWorkshop.schedule, start: e.target.value } })} />
+                <input required type="datetime-local" className="bg-slate-50 dark:bg-white/5 border border-slate-300 dark:border-white/10 rounded-3xl p-6 outline-none font-bold cursor-pointer text-slate-800 dark:text-white focus:ring-2 focus:ring-primary-light transition-all" value={newWorkshop.schedule.end} onChange={e => setNewWorkshop({ ...newWorkshop, schedule: { ...newWorkshop.schedule, end: e.target.value } })} />
+              </div>
+            </div>
+          </div>
+
+          <div className="flex gap-4 pt-4">
+            <button type="button" onClick={() => setShowModal(false)} className="flex-1 py-5 border border-slate-200 dark:border-white/10 rounded-[32px] font-black uppercase tracking-widest text-[10px] hover:bg-slate-50 dark:hover:bg-white/5 transition-all text-slate-500 dark:text-white/40 cursor-pointer">Discard</button>
+            <button type="submit" disabled={submitting} className="flex-2 py-5 bg-primary-light hover:bg-primary-dark text-white rounded-[32px] font-black uppercase tracking-widest text-xs shadow-2xl shadow-primary-light/20 cursor-pointer disabled:opacity-50 transition-all">{submitting ? <Loader2 className="animate-spin mx-auto w-5 h-5" /> : "Deploy Curriculum"}</button>
+          </div>
+        </form>
+      </UniversalModal>
     </div>
   );
 }

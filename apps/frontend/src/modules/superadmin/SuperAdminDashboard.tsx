@@ -294,7 +294,7 @@ export default function SuperAdminDashboard() {
             <label className="text-[10px] font-bold ml-1 opacity-40 text-slate-900 dark:text-white uppercase tracking-wider">Institution Name</label>
             <input
               required
-              className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl p-3 focus:ring-2 focus:ring-primary-light outline-none transition-all cursor-pointer text-slate-900 dark:text-white text-sm"
+              className="w-full bg-slate-50 dark:bg-white/5 border border-slate-300 dark:border-white/10 rounded-xl p-3 focus:ring-2 focus:ring-primary-light outline-none transition-all cursor-pointer text-slate-900 dark:text-white text-sm"
               placeholder="e.g. Stanford University"
               value={newCollege.name}
               onChange={e => setNewCollege({...newCollege, name: e.target.value})}
@@ -304,7 +304,7 @@ export default function SuperAdminDashboard() {
           <div className="space-y-1">
             <label className="text-[10px] font-bold ml-1 opacity-40 text-slate-900 dark:text-white uppercase tracking-wider">Institution Status</label>
             <select
-              className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl p-3 focus:ring-2 focus:ring-primary-light outline-none transition-all cursor-pointer text-slate-900 dark:text-white text-sm"
+              className="w-full bg-slate-50 dark:bg-white/5 border border-slate-300 dark:border-white/10 rounded-xl p-3 focus:ring-2 focus:ring-primary-light outline-none transition-all cursor-pointer text-slate-900 dark:text-white text-sm font-bold"
               value={newCollege.status}
               onChange={e => setNewCollege({...newCollege, status: e.target.value})}
             >
@@ -322,7 +322,7 @@ export default function SuperAdminDashboard() {
             <div className="space-y-3">
               <input
                 required
-                className="w-full bg-white/5 border border-white/5 rounded-lg p-3 text-sm focus:ring-1 focus:ring-primary-light outline-none cursor-pointer text-slate-900 dark:text-white"
+                className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg p-3 text-sm focus:ring-1 focus:ring-primary-light outline-none cursor-pointer text-slate-900 dark:text-white transition-all"
                 placeholder="Admin Full Name"
                 value={newCollege.adminName}
                 onChange={e => setNewCollege({...newCollege, adminName: e.target.value})}
@@ -330,7 +330,7 @@ export default function SuperAdminDashboard() {
               <input
                 required
                 type="email"
-                className="w-full bg-white/5 border border-white/5 rounded-lg p-3 text-sm focus:ring-1 focus:ring-primary-light outline-none cursor-pointer text-slate-900 dark:text-white"
+                className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg p-3 text-sm focus:ring-1 focus:ring-primary-light outline-none cursor-pointer text-slate-900 dark:text-white transition-all"
                 placeholder="admin@college.edu"
                 value={newCollege.adminEmail}
                 onChange={e => setNewCollege({...newCollege, adminEmail: e.target.value})}
@@ -338,7 +338,7 @@ export default function SuperAdminDashboard() {
               <input
                 required={!editingCollege}
                 type="password"
-                className="w-full bg-white/5 border border-white/5 rounded-lg p-3 text-sm focus:ring-1 focus:ring-primary-light outline-none cursor-pointer text-slate-900 dark:text-white"
+                className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg p-3 text-sm focus:ring-1 focus:ring-primary-light outline-none cursor-pointer text-slate-900 dark:text-white transition-all"
                 placeholder={editingCollege ? "Enter new password to reset" : "Initial Secure Password"}
                 value={newCollege.adminPassword}
                 onChange={e => setNewCollege({...newCollege, adminPassword: e.target.value})}

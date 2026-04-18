@@ -182,7 +182,7 @@ export default function TeacherManagement() {
         <form onSubmit={handleAddTeacher} className="space-y-4">
           <input 
             required 
-            className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/5 rounded-2xl p-4 outline-none focus:ring-2 focus:ring-primary-light transition-all text-slate-900 dark:text-white text-sm" 
+            className="w-full bg-slate-50 dark:bg-white/5 border border-slate-300 dark:border-white/10 rounded-2xl p-4 outline-none focus:ring-2 focus:ring-primary-light transition-all text-slate-900 dark:text-white text-sm font-bold placeholder:opacity-40" 
             placeholder="Full Name" 
             value={newTeacher.name} 
             onChange={e => setNewTeacher({...newTeacher, name: e.target.value})} 
@@ -190,7 +190,7 @@ export default function TeacherManagement() {
           <input 
             required 
             type="email" 
-            className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/5 rounded-2xl p-4 outline-none focus:ring-2 focus:ring-primary-light transition-all text-slate-900 dark:text-white text-sm" 
+            className="w-full bg-slate-50 dark:bg-white/5 border border-slate-300 dark:border-white/10 rounded-2xl p-4 outline-none focus:ring-2 focus:ring-primary-light transition-all text-slate-900 dark:text-white text-sm font-bold placeholder:opacity-40" 
             placeholder="Email Address" 
             value={newTeacher.email} 
             onChange={e => setNewTeacher({...newTeacher, email: e.target.value})} 
@@ -198,7 +198,7 @@ export default function TeacherManagement() {
           <input 
             required 
             type="password" 
-            className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/5 rounded-2xl p-4 outline-none focus:ring-2 focus:ring-primary-light transition-all text-slate-900 dark:text-white text-sm" 
+            className="w-full bg-slate-50 dark:bg-white/5 border border-slate-300 dark:border-white/10 rounded-2xl p-4 outline-none focus:ring-2 focus:ring-primary-light transition-all text-slate-900 dark:text-white text-sm font-bold placeholder:opacity-40" 
             placeholder="Password" 
             value={newTeacher.password} 
             onChange={e => setNewTeacher({...newTeacher, password: e.target.value})} 

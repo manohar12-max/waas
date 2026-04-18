@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, Users, Layout, ExternalLink, X, Loader2, AlertCircle, Trash2, User, MoreVertical } from 'lucide-react';
+import { Plus, Users, Layout, X, Loader2, AlertCircle, Trash2, User } from 'lucide-react';
+import UniversalModal from '../../components/UniversalModal';
 
 interface Division {
   _id: string;
@@ -117,38 +118,78 @@ export default function DivisionManagementPage() {
         </div>
       )}
 
-      <AnimatePresence>
-        {showModal && (
-          <div className="fixed inset-0 flex items-center justify-center z-[100] px-4">
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setShowModal(false)} className="absolute inset-0 bg-background-dark/95 backdrop-blur-3xl cursor-pointer" />
-            <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="w-full max-w-xl bg-card-dark border border-white/10 p-12 rounded-[64px] z-10 shadow-2xl relative">
-              <button 
-                onClick={() => setShowModal(false)}
-                className="absolute top-10 right-10 p-2 rounded-xl bg-white/5 hover:bg-white/10 transition-colors cursor-pointer text-slate-400 hover:text-white"
-              >
-                <X className="w-6 h-6" />
-              </button>
-              <h2 className="text-3xl font-black tracking-tight mb-10">Init Division</h2>
-              <form onSubmit={handleCreate} className="space-y-6">
-                <input required className="w-full bg-white/5 border border-white/5 rounded-3xl p-6 outline-none" placeholder="Division Name (e.g. 10th-A)" value={newDivision.name} onChange={e => setNewDivision({...newDivision, name: e.target.value})} />
-                
-                <select required className="w-full bg-white/5 border border-white/5 rounded-3xl p-6 outline-none cursor-pointer" value={newDivision.workshopId} onChange={e => setNewDivision({...newDivision, workshopId: e.target.value})}>
-                  <option value="">Select Target Workshop</option>
-                  {workshops.map(w => <option key={w._id} value={w._id}>{w.title}</option>)}
-                </select>
-
-                <select required className="w-full bg-white/5 border border-white/5 rounded-3xl p-6 outline-none cursor-pointer" value={newDivision.teacherId} onChange={e => setNewDivision({...newDivision, teacherId: e.target.value})}>
-                  <option value="">Select Faculty Lead</option>
-                  {teachers.map(t => (
-                    <option key={t._id} value={t._id}>{t.name} ({t.role})</option>
-                  ))}
-                </select>
-                <button type="submit" className="w-full py-6 bg-primary-light text-white rounded-[32px] font-black uppercase tracking-widest cursor-pointer shadow-2xl shadow-primary-light/30 transition-all hover:bg-primary-dark active:scale-95">{submitting ? <Loader2 className="animate-spin mx-auto" /> : "Deploy Batch"}</button>
-              </form>
-            </motion.div>
+      <UniversalModal
+        isOpen={showModal}
+        onClose={() => setShowModal(false)}
+        title="Initialize Division"
+        description="Deploy a new institutional batch and student cluster"
+        maxWidth="max-w-xl"
+        icon={<Layout className="text-white w-8 h-8" />}
+      >
+        {error && (
+          <div className="mb-6 p-4 bg-red-500/10 border border-red-500/20 text-red-500 rounded-2xl flex items-center gap-3 text-sm font-bold">
+            <AlertCircle className="w-5 h-5" /> {error}
           </div>
         )}
-      </AnimatePresence>
+
+        <form onSubmit={handleCreate} className="space-y-6 pt-2">
+          <div className="space-y-2">
+            <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-4">Batch Identity</label>
+            <input 
+              required 
+              className="w-full bg-slate-50 dark:bg-white/5 border border-slate-300 dark:border-white/10 rounded-3xl p-6 outline-none font-bold text-slate-800 dark:text-white transition-all focus:ring-2 focus:ring-primary-light" 
+              placeholder="e.g. 10th-A" 
+              value={newDivision.name} 
+              onChange={e => setNewDivision({...newDivision, name: e.target.value})} 
+            />
+          </div>
+          
+          <div className="space-y-2">
+            <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-4">Curriculum Enrollment</label>
+            <select 
+              required 
+              className="w-full bg-slate-50 dark:bg-white/5 border border-slate-300 dark:border-white/10 rounded-3xl p-6 outline-none cursor-pointer font-bold text-slate-800 dark:text-white appearance-none transition-all focus:ring-2 focus:ring-primary-light" 
+              value={newDivision.workshopId} 
+              onChange={e => setNewDivision({...newDivision, workshopId: e.target.value})}
+            >
+              <option value="" className="bg-white dark:bg-card-dark">Select Target Workshop...</option>
+              {workshops.map(w => <option key={w._id} value={w._id} className="bg-white dark:bg-card-dark">{w.title}</option>)}
+            </select>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-4">Operational Lead</label>
+            <select 
+              required 
+              className="w-full bg-slate-50 dark:bg-white/5 border border-slate-300 dark:border-white/10 rounded-3xl p-6 outline-none cursor-pointer font-bold text-slate-800 dark:text-white appearance-none transition-all focus:ring-2 focus:ring-primary-light" 
+              value={newDivision.teacherId} 
+              onChange={e => setNewDivision({...newDivision, teacherId: e.target.value})}
+            >
+              <option value="" className="bg-white dark:bg-card-dark">Select Faculty Lead...</option>
+              {teachers.map(t => (
+                <option key={t._id} value={t._id} className="bg-white dark:bg-card-dark">{t.name} ({t.role})</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="flex gap-4 pt-4">
+            <button 
+              type="button" 
+              onClick={() => setShowModal(false)} 
+              className="flex-1 py-5 border border-slate-200 dark:border-white/10 rounded-[32px] font-black uppercase tracking-widest text-[10px] text-slate-500 dark:text-white/30 hover:bg-slate-50 dark:hover:bg-white/5 transition-all cursor-pointer"
+            >
+              Discard
+            </button>
+            <button 
+              type="submit" 
+              disabled={submitting}
+              className="flex-2 py-5 bg-primary-light hover:bg-primary-dark text-white rounded-[32px] font-black uppercase tracking-widest text-xs shadow-2xl shadow-primary-light/30 transition-all cursor-pointer disabled:opacity-50"
+            >
+              {submitting ? <Loader2 className="animate-spin mx-auto w-5 h-5" /> : "Deploy Batch"}
+            </button>
+          </div>
+        </form>
+      </UniversalModal>
     </div>
   );
 }
