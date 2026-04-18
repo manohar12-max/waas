@@ -65,19 +65,6 @@ export class CollegesService {
     return college;
   }
 
-  async update(id: string, updateData: any): Promise<CollegeDocument | null> {
-    this.logger.log(`Updating college: ${id}`);
-    const college = await this.collegeModel.findByIdAndUpdate(
-      id,
-      { $set: updateData },
-      { new: true }
-    ).populate('adminId', 'name email').exec();
-    if (!college) {
-      throw new NotFoundException('College not found');
-    }
-    return college;
-  }
-
   async getPlatformStats() {
     this.logger.log('Fetching platform-wide statistics');
     const [totalColleges, totalUsers, totalWorkshops, activeSessions] = await Promise.all([
@@ -138,7 +125,7 @@ export class CollegesService {
   }
 
   async update(id: string, updateCollegeDto: any): Promise<CollegeDocument> {
-    const { adminName, adminEmail, adminPassword, name, status } = updateCollegeDto;
+    const { adminName, adminEmail, adminPassword, adminPhone, name, status } = updateCollegeDto;
     this.logger.log(`Updating college: ${id}`);
     
     const college = await this.collegeModel.findById(id).exec();
@@ -152,15 +139,16 @@ export class CollegesService {
     await college.save();
 
     // Update admin if fields provided
-    if (college.adminId && (adminName || adminEmail || adminPassword)) {
+    if (college.adminId && (adminName || adminEmail || adminPassword || adminPhone)) {
       const updateData: any = {};
       if (adminName) updateData.name = adminName;
       if (adminEmail) updateData.email = adminEmail;
       if (adminPassword) updateData.password = adminPassword;
+      if (adminPhone) updateData.phone = adminPhone;
       await this.usersService.update(college.adminId, updateData);
     }
 
-    return college.populate('adminId', 'name email');
+    return college.populate('adminId', 'name email phone');
   }
 
   async remove(id: string): Promise<any> {
