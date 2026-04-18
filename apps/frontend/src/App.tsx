@@ -25,6 +25,8 @@ import InstructorWorkshopManage from './modules/instructor/InstructorWorkshopMan
 import AssignmentManagement from './modules/teacher/AssignmentManagement';
 import DashboardLayout from './components/layouts/DashboardLayout';
 import ForumHubPage from './modules/forum/ForumHubPage';
+import ProjectLanding from './modules/sandbox/ProjectLanding';
+import ProjectEditor from './modules/sandbox/ProjectEditor';
 
 function App() {
   return (
@@ -36,6 +38,13 @@ function App() {
           <Route path="/check-in/:id" element={<AttendanceCheckinPage />} />
           <Route path="/submit/:id" element={<AssignmentSubmissionPage />} />
           <Route path="/" element={<Navigate to="/login" replace />} />
+
+          {/* Standalone Fullscreen Sandbox */}
+          <Route path="/sandbox/fullscreen/:id" element={
+            <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'COLLEGE_ADMIN', 'TEACHER', 'INSTRUCTOR', 'STUDENT']}>
+              <ProjectEditor isFullscreen={true} />
+            </ProtectedRoute>
+          } />
 
           {/* Persistent Layout Wrapper */}
           <Route element={
@@ -156,6 +165,19 @@ function App() {
                 <StudentProgressPage />
               </ProtectedRoute>
             } />
+
+            <Route path="/sandbox" element={
+              <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'COLLEGE_ADMIN', 'TEACHER', 'INSTRUCTOR', 'STUDENT']}>
+                <ProjectLanding />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/sandbox/projects/:id" element={
+              <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'COLLEGE_ADMIN', 'TEACHER', 'INSTRUCTOR', 'STUDENT']}>
+                <ProjectEditor />
+              </ProtectedRoute>
+            } />
+
 
             <Route path="/dashboard/settings" element={
               <div className="p-8 font-outfit text-2xl font-bold opacity-20">Settings Module: Coming Soon</div>

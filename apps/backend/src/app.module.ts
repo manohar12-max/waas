@@ -13,6 +13,7 @@ import { ForumModule } from './forum/forum.module';
 
 import { BullModule } from '@nestjs/bullmq';
 import { SessionContentModule } from './workshops/session-content/session-content.module';
+import { SandboxModule } from './sandbox/sandbox.module';
 
 @Module({
   imports: [
@@ -40,6 +41,7 @@ import { SessionContentModule } from './workshops/session-content/session-conten
     AssignmentsModule,
     SessionContentModule,
     ForumModule,
+    SandboxModule,
   ],
   controllers: [AppController],
   providers: [AppService],
