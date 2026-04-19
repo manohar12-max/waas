@@ -41,6 +41,13 @@ export class WorkshopsController {
     return this.workshopsService.findAll(collegeId, instructorId);
   }
 
+  /** Super Admin: get all workshops for a specific college */
+  @Get('by-college/:collegeId')
+  @Roles(UserRole.SUPER_ADMIN)
+  findByCollege(@Param('collegeId') collegeId: string) {
+    return this.workshopsService.findAllByCollegeId(collegeId);
+  }
+
   @Get(':id')
   @Roles(UserRole.COLLEGE_ADMIN, UserRole.TEACHER, UserRole.INSTRUCTOR)
   findOne(@Param('id') id: string, @GetUser('collegeId') collegeId: string) {

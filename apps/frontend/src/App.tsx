@@ -27,6 +27,10 @@ import DashboardLayout from './components/layouts/DashboardLayout';
 import ForumHubPage from './modules/forum/ForumHubPage';
 import ProjectLanding from './modules/sandbox/ProjectLanding';
 import ProjectEditor from './modules/sandbox/ProjectEditor';
+import ExpiredPage from './modules/shared/ExpiredPage';
+import NaacReportManager from './modules/naac/NaacReportManager';
+import CollegeNaacReports from './modules/naac/CollegeNaacReports';
+import GlobalRules from './modules/shared/GlobalRules';
 
 function App() {
   return (
@@ -37,6 +41,7 @@ function App() {
           <Route path="/register" element={<StudentRegistrationPage />} />
           <Route path="/check-in/:id" element={<AttendanceCheckinPage />} />
           <Route path="/submit/:id" element={<AssignmentSubmissionPage />} />
+          <Route path="/expired" element={<ExpiredPage />} />
           <Route path="/" element={<Navigate to="/login" replace />} />
 
           {/* Standalone Fullscreen Sandbox */}
@@ -180,8 +185,24 @@ function App() {
 
 
             <Route path="/dashboard/settings" element={
-              <div className="p-8 font-outfit text-2xl font-bold opacity-20">Settings Module: Coming Soon</div>
+              <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'COLLEGE_ADMIN']}>
+                <GlobalRules />
+              </ProtectedRoute>
             } />
+
+            {/* NAAC Reports — both SA and CA can generate */}
+            <Route path="/naac-reports" element={
+              <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'COLLEGE_ADMIN']}>
+                <NaacReportManager />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/naac-reports/view" element={
+              <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'COLLEGE_ADMIN']}>
+                <CollegeNaacReports />
+              </ProtectedRoute>
+            } />
+
           </Route>
 
           <Route path="*" element={<Navigate to="/login" replace />} />

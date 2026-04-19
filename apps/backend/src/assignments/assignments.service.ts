@@ -1,10 +1,11 @@
-import { Injectable, UnauthorizedException, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
+import { Injectable, UnauthorizedException, NotFoundException, BadRequestException, ForbiddenException, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { JwtService } from '@nestjs/jwt';
 import { Assignment, AssignmentDocument } from './assignment.schema';
 import { Submission, SubmissionDocument } from './submission.schema';
 import { User, UserDocument } from '../users/user.schema';
+import { GlobalRulesService } from '../global-rules/global-rules.service';
 
 @Injectable()
 export class AssignmentsService {
@@ -15,6 +16,7 @@ export class AssignmentsService {
     @InjectModel(Submission.name) private submissionModel: Model<SubmissionDocument>,
     @InjectModel(User.name) private userModel: Model<UserDocument>,
     private jwtService: JwtService,
+    private globalRules: GlobalRulesService,
   ) {}
 
   async createAssignment(data: any, teacherId: string) {
@@ -39,9 +41,10 @@ export class AssignmentsService {
      return this.assignmentModel.find({}).exec();
   }
 
-  async getAssignmentsForStudent(studentId: string) {
-    this.logger.log(`Fetching active assignments for student: ${studentId}`);
-    
+  async getStudentAssignmentStats(studentId: string) {
+    this.logger.log(`Fetching assignment stats for student: ${studentId}`);
+    const now = new Date();
+
     // 1. Find workshops student is registered in
     const workshops = await this.assignmentModel.db.model('Workshop').find({
       registeredStudentIds: new Types.ObjectId(studentId)
@@ -49,8 +52,8 @@ export class AssignmentsService {
 
     const workshopIds = workshops.map((w: any) => w._id);
 
-    // 2. Fetch active assignments for these workshops
-    return this.assignmentModel.find({
+    // 2. Fetch ALL active assignments for these workshops
+    const allAssignments = await this.assignmentModel.find({
       workshopId: { $in: workshopIds },
       status: 'ACTIVE'
     })
@@ -58,6 +61,47 @@ export class AssignmentsService {
       .populate('teacherId', 'name')
       .sort({ dueDate: 1 })
       .exec();
+
+    // 3. Fetch this student's submissions
+    const submissionIds = allAssignments.map((a: any) => a._id);
+    const submissions = await this.submissionModel.find({
+      assignmentId: { $in: submissionIds },
+      studentId: new Types.ObjectId(studentId)
+    }).exec();
+
+    const submittedAssignmentIds = new Set(submissions.map((s: any) => s.assignmentId.toString()));
+
+    // 4. Categorize
+    const pending: any[] = [];   // Not due yet, not submitted
+    const pastDue: any[] = [];   // Overdue and NOT submitted
+    const submitted: any[] = []; // Already submitted (on time or late)
+
+    for (const assignment of allAssignments) {
+      const id = (assignment as any)._id.toString();
+      const isSubmitted = submittedAssignmentIds.has(id);
+      const isPastDue = now > new Date(assignment.dueDate);
+
+      if (isSubmitted) {
+        const sub = submissions.find((s: any) => s.assignmentId.toString() === id);
+        submitted.push({ ...assignment.toObject(), submission: sub });
+      } else if (isPastDue) {
+        pastDue.push(assignment.toObject());
+      } else {
+        pending.push(assignment.toObject());
+      }
+    }
+
+    return {
+      pending,
+      pastDue,
+      submitted,
+      counts: {
+        total: allAssignments.length,
+        pending: pending.length,
+        pastDue: pastDue.length,
+        submitted: submitted.length,
+      }
+    };
   }
 
   async getAssignmentById(id: string) {
@@ -72,11 +116,15 @@ export class AssignmentsService {
       throw new BadRequestException('Mission not found.');
     }
 
-    // Date Validation
+    // Date Validation — respect allow_late_submissions rule
     const now = new Date();
     if (now > assignment.dueDate) {
-      this.logger.warn(`Validation failed: Assignment ${assignment.title} is past due.`);
-      throw new BadRequestException('The submission window for this assignment has closed.');
+      const rules = await this.globalRules.get();
+      if (!rules.allow_late_submissions) {
+        this.logger.warn(`Validation failed: Assignment ${assignment.title} is past due and late submissions are disabled.`);
+        throw new BadRequestException('The submission window for this assignment has closed. Late submissions are not accepted.');
+      }
+      this.logger.log(`Late submission allowed for assignment ${assignment.title}`);
     }
 
     const workshopId = (assignment.workshopId as any)._id || assignment.workshopId;
@@ -127,6 +175,14 @@ export class AssignmentsService {
 
     const submittedAt = new Date();
     const isLate = submittedAt > new Date(assignment.dueDate);
+
+    // Enforce allow_late_submissions globally
+    if (isLate) {
+      const rules = await this.globalRules.get();
+      if (!rules.allow_late_submissions) {
+        throw new ForbiddenException('Late submissions are not accepted. The deadline has passed.');
+      }
+    }
 
     const submission = new this.submissionModel({
       assignmentId: new Types.ObjectId(assignmentId),

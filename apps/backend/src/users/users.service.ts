@@ -96,16 +96,18 @@ export class UsersService {
   async update(id: any, updateDto: any): Promise<UserDocument> {
     const uId = this.toObjectId(id);
     this.logger.log(`Updating user: ${uId}`);
-    
     const data = { ...updateDto };
     if (data.password) {
       data.password = await bcrypt.hash(data.password, 10);
     }
-
     const updated = await this.userModel.findByIdAndUpdate(uId, data, { new: true }).exec();
-    if (!updated) {
-      throw new BadRequestException('User not found');
-    }
+    if (!updated) throw new BadRequestException('User not found');
     return updated;
   }
+
+  /** Raw update — skips password hashing, used for system fields like failedLoginAttempts */
+  async updateById(id: string, fields: Record<string, any>): Promise<void> {
+    await this.userModel.findByIdAndUpdate(id, { $set: fields }).exec();
+  }
 }
+

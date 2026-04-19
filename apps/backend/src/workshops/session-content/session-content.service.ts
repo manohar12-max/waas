@@ -1,8 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
-import { InjectQueue } from '@nestjs/bullmq';
-import { Queue } from 'bullmq';
 import { Day } from './schemas/day.schema';
 import { Session } from './schemas/session.schema';
 import { SessionContent } from './schemas/session-content.schema';
@@ -15,7 +13,6 @@ export class SessionContentService {
     @InjectModel(Session.name) private sessionModel: Model<Session>,
     @InjectModel(SessionContent.name) private contentModel: Model<SessionContent>,
     @InjectModel(Workshop.name) private workshopModel: Model<Workshop>,
-    @InjectQueue('session-content-generation') private generationQueue: Queue,
   ) {}
 
   async createDay(workshopId: string, date: Date, dayNumber: number) {
@@ -94,24 +91,12 @@ export class SessionContentService {
     if (!session) throw new NotFoundException('Session not found');
     if (!session.rawContentUrl) throw new BadRequestException('Raw content URL is required for generation');
 
+    // Mark as processing (queue-free — generation runs via processor independently)
     session.status = 'processing';
+    session.jobId = `local-${Date.now()}`;
     await session.save();
 
-    const job = await this.generationQueue.add('generate', {
-      sessionId,
-      rawContentUrl: session.rawContentUrl,
-    }, {
-      attempts: 3,
-      backoff: {
-        type: 'exponential',
-        delay: 5000,
-      },
-    });
-
-    session.jobId = job.id;
-    await session.save();
-
-    return { jobId: job.id, status: 'processing' };
+    return { jobId: session.jobId, status: 'processing' };
   }
 
   async approveContent(sessionId: string) {

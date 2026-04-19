@@ -1,4 +1,4 @@
-import { Injectable, Logger, BadRequestException, NotFoundException, ConflictException } from '@nestjs/common';
+import { Injectable, Logger, BadRequestException, ForbiddenException, NotFoundException, ConflictException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import * as bcrypt from 'bcrypt';
@@ -8,6 +8,7 @@ import { Attendance, AttendanceDocument } from './attendance.schema';
 import { User, UserDocument, UserRole } from '../users/user.schema';
 import { WorkshopMediaPost, WorkshopMediaPostDocument } from './media-post.schema';
 import { TeacherContent, TeacherContentDocument } from './teacher-content.schema';
+import { GlobalRulesService } from '../global-rules/global-rules.service';
 
 @Injectable()
 export class WorkshopsService {
@@ -19,6 +20,7 @@ export class WorkshopsService {
     @InjectModel(User.name) private userModel: Model<UserDocument>,
     @InjectModel(WorkshopMediaPost.name) private mediaPostModel: Model<WorkshopMediaPostDocument>,
     @InjectModel(TeacherContent.name) private teacherContentModel: Model<TeacherContentDocument>,
+    private globalRules: GlobalRulesService,
   ) {
     cloudinary.config({
       cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -32,11 +34,28 @@ export class WorkshopsService {
     const { inviteToken, name, phone, password } = enrollDto;
     this.logger.log(`Enrollment attempt: ${email} for token ${inviteToken}`);
 
+    const rules = await this.globalRules.get();
+
+    // ── Global Rule: Self-enrollment disabled ──────────────────────
+    if (!rules.allow_self_enrollment) {
+      throw new ForbiddenException(
+        'Self-enrollment via invite link is currently disabled by the platform administrator.'
+      );
+    }
+
     // 1. Validate Invite
     const workshop = await this.workshopModel.findOne({ inviteToken });
     if (!workshop) {
       this.logger.warn(`Enrollment failed: Invalid token ${inviteToken}`);
       throw new NotFoundException('Invalid institutional link.');
+    }
+
+    // ── Global Rule: Max students per workshop ─────────────────────
+    const maxStudents = rules.max_students_per_workshop || 0;
+    if (maxStudents > 0 && workshop.registeredStudentIds.length >= maxStudents) {
+      throw new BadRequestException(
+        `This workshop has reached its maximum capacity of ${maxStudents} students.`
+      );
     }
 
     // Date Validation
@@ -175,19 +194,17 @@ export class WorkshopsService {
       throw new NotFoundException('Invalid or expired invitation link.');
     }
 
-    // Date Validation
+    // Informational only — does NOT block the link from loading
     const now = new Date();
+    let registrationStatus: 'open' | 'not_started' | 'closed' = 'open';
     if (workshop.registrationPeriod) {
-      if (now < workshop.registrationPeriod.start) {
-        throw new BadRequestException('Registration has not started yet.');
-      }
-      if (now > workshop.registrationPeriod.end) {
-        throw new BadRequestException('Registration window has closed.');
-      }
+      if (now < workshop.registrationPeriod.start) registrationStatus = 'not_started';
+      else if (now > workshop.registrationPeriod.end) registrationStatus = 'closed';
     }
 
-    return workshop;
+    return { ...workshop.toObject(), registrationStatus };
   }
+
 
   async findAll(collegeId: any, instructorId?: any): Promise<WorkshopDocument[]> {
     try {
@@ -207,6 +224,23 @@ export class WorkshopsService {
         .exec();
     } catch (error) {
       this.logger.error(`Failed to fetch workshops: ${error.message}`, error.stack);
+      return [];
+    }
+  }
+
+  /** Super Admin: get all workshops for a specific college by raw string ID */
+  async findAllByCollegeId(collegeId: string): Promise<WorkshopDocument[]> {
+    try {
+      const cId = this.toObjectId(collegeId);
+      if (!cId) return [];
+      return this.workshopModel
+        .find({ collegeId: cId })
+        .populate('instructorId', 'name email')
+        .populate('collegeId', 'name')
+        .sort({ 'schedule.start': -1 })
+        .exec();
+    } catch (err) {
+      this.logger.error(`findAllByCollegeId failed: ${err.message}`);
       return [];
     }
   }

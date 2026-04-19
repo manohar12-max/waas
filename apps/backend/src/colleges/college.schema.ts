@@ -20,7 +20,7 @@ export class College {
   @Prop({ type: Types.ObjectId, ref: 'User' })
   adminId: Types.ObjectId;
 
-  @Prop({ default: 'ACTIVE' })
+  @Prop({ default: 'ACTIVE', enum: ['ACTIVE', 'INACTIVE', 'EXPIRED'] })
   status: string;
 }
 

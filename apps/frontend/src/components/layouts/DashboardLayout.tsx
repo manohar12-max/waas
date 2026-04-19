@@ -17,9 +17,13 @@ import {
   Moon,
   Image,
   Library,
-  Terminal
+  Terminal,
+  ClipboardList
 } from 'lucide-react';
 import { useTheme } from '../ThemeProvider';
+import ProfilePanel from '../ProfilePanel';
+import { useGlobalRules } from '../../context/GlobalRulesContext';
+import MaintenancePage from '../../modules/shared/MaintenancePage';
 
 interface SidebarItemProps {
   icon: React.ElementType;
@@ -56,6 +60,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const location = useLocation();
   const { theme, setTheme } = useTheme();
   const user = JSON.parse(localStorage.getItem('user') || '{}');
+  const { rules } = useGlobalRules();
+
+  // Maintenance mode — block non-SA users
+  if (rules.maintenance_mode && user.role !== 'SUPER_ADMIN') {
+    return <MaintenancePage />;
+  }
 
   const menuItems = [
     { icon: LayoutDashboard, label: 'Overview', path: user.role === 'STUDENT' ? '/student/dashboard' : '/dashboard', roles: ['SUPER_ADMIN', 'COLLEGE_ADMIN', 'TEACHER', 'INSTRUCTOR', 'STUDENT'] },
@@ -65,10 +75,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     { icon: Layout, label: 'Division Hub', path: '/divisions', roles: ['INSTRUCTOR'] },
     { icon: BookOpen, label: 'Workshop Hub', path: '/workshops', roles: ['COLLEGE_ADMIN', 'INSTRUCTOR'] },
     { icon: Image, label: 'Media Feed', path: '/media-feed', roles: ['TEACHER', 'INSTRUCTOR'] },
-    { icon: Users, label: 'Community Forum', path: '/forum', roles: ['SUPER_ADMIN', 'COLLEGE_ADMIN', 'TEACHER', 'INSTRUCTOR', 'STUDENT'] },
+    // Community Forum — hidden when forum_enabled = false
+    ...(rules.forum_enabled ? [{ icon: Users, label: 'Community Forum', path: '/forum', roles: ['SUPER_ADMIN', 'COLLEGE_ADMIN', 'TEACHER', 'INSTRUCTOR', 'STUDENT'] }] : []),
     { icon: Library, label: 'Learning Center', path: '/learning-center', roles: ['TEACHER', 'INSTRUCTOR', 'STUDENT'] },
-    { icon: Terminal, label: 'Coding Sandbox', path: '/sandbox', roles: ['SUPER_ADMIN', 'COLLEGE_ADMIN', 'TEACHER', 'INSTRUCTOR', 'STUDENT'] },
+    // Coding Sandbox — hidden when sandbox_enabled = false
+    ...(rules.sandbox_enabled ? [{ icon: Terminal, label: 'Coding Sandbox', path: '/sandbox', roles: ['SUPER_ADMIN', 'COLLEGE_ADMIN', 'TEACHER', 'INSTRUCTOR', 'STUDENT'] }] : []),
     { icon: Layout, label: 'My Divisions', path: '/teacher/divisions', roles: ['TEACHER'] },
+    { icon: ClipboardList, label: 'NAAC Reports', path: '/naac-reports', roles: ['SUPER_ADMIN', 'COLLEGE_ADMIN'] },
     { icon: Settings, label: 'Global Rules', path: '/dashboard/settings', roles: ['SUPER_ADMIN', 'COLLEGE_ADMIN'] },
   ];
 
@@ -77,7 +90,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   const activeRoles = user.role ? [user.role] : [];
   if (isImpersonating) {
-    activeRoles.push('COLLEGE_ADMIN', 'INSTRUCTOR', 'TEACHER'); // Grant full menu visibility
+    activeRoles.push('COLLEGE_ADMIN', 'INSTRUCTOR', 'TEACHER');
   }
 
   const filteredMenuItems = menuItems.filter(item => item.roles.some(role => activeRoles.includes(role)));
@@ -155,9 +168,37 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </div>
       </motion.aside>
 
-      {/* Main Content Area - Vantablack Canvas */}
+      {/* Main Content Area */}
       <main className="flex-1 flex flex-col h-screen overflow-hidden bg-white/40 dark:bg-transparent backdrop-blur-[1px]">
-        {/* Header */}
+        {/* Top Header Bar */}
+        <div className="flex items-center justify-between px-6 py-3 border-b border-slate-200 dark:border-white/10 bg-white/80 dark:bg-black/20 backdrop-blur-sm sticky top-0 z-30 shrink-0">
+          <div className="flex items-center gap-3">
+            {/* Mobile menu toggle */}
+            <button
+              onClick={() => setMobileOpen(true)}
+              className="md:hidden p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-white/10 transition-colors cursor-pointer"
+            >
+              <Menu className="w-5 h-5" />
+            </button>
+            <div className="text-sm font-bold opacity-40 uppercase tracking-widest hidden md:block">
+              {filteredMenuItems.find(m => m.path === location.pathname)?.label || 'Dashboard'}
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            {/* Theme toggle */}
+            <button
+              onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+              className="p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-white/10 transition-colors cursor-pointer text-slate-500"
+              title={theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
+            >
+              {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+            </button>
+            {/* Profile Dropdown */}
+            <ProfilePanel onLogout={handleLogout} />
+          </div>
+        </div>
+
+        {/* GOD MODE Banner */}
         {isImpersonating && (
           <div className="flex items-center justify-between bg-orange-500 dark:bg-orange-600 text-white p-4 font-bold text-sm tracking-wide shadow-lg z-40">
             <div className="flex items-center gap-2">

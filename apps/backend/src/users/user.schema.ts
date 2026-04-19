@@ -40,6 +40,12 @@ export class User {
 
   @Prop()
   profileImage?: string;
+
+  @Prop({ default: 0 })
+  failedLoginAttempts: number;
+
+  @Prop({ default: null })
+  lockedUntil?: Date;
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);

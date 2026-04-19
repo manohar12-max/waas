@@ -10,28 +10,21 @@ import { DivisionsModule } from './divisions/divisions.module';
 import { WorkshopsModule } from './workshops/workshops.module';
 import { AssignmentsModule } from './assignments/assignments.module';
 import { ForumModule } from './forum/forum.module';
-
-import { BullModule } from '@nestjs/bullmq';
+import { AnnouncementsModule } from './announcements/announcements.module';
+import { NaacReportsModule } from './naac-reports/naac-reports.module';
+import { GlobalRulesModule } from './global-rules/global-rules.module';
 import { SessionContentModule } from './workshops/session-content/session-content.module';
 import { SandboxModule } from './sandbox/sandbox.module';
 
 @Module({
   imports: [
-    ConfigModule.forRoot({
-      isGlobal: true,
-    }),
+    ConfigModule.forRoot({ isGlobal: true }),
     MongooseModule.forRootAsync({
       imports: [ConfigModule],
       useFactory: async (configService: ConfigService) => ({
         uri: configService.get<string>('MONGODB_URI'),
       }),
       inject: [ConfigService],
-    }),
-    BullModule.forRoot({
-      connection: {
-        host: 'localhost',
-        port: 6379,
-      },
     }),
     UsersModule,
     AuthModule,
@@ -42,8 +35,12 @@ import { SandboxModule } from './sandbox/sandbox.module';
     SessionContentModule,
     ForumModule,
     SandboxModule,
+    AnnouncementsModule,
+    NaacReportsModule,
+    GlobalRulesModule,
   ],
   controllers: [AppController],
   providers: [AppService],
 })
 export class AppModule {}
+

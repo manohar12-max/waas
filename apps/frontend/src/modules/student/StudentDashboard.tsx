@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import AnnouncementsWidget from '../../components/AnnouncementsWidget';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   BookOpen, 
@@ -12,7 +13,9 @@ import {
   Loader2, 
   ArrowRight,
   Award,
-  Zap
+  Zap,
+  FileCheck,
+  XCircle
 } from 'lucide-react';
 
 interface LiveWorkshop {
@@ -34,15 +37,23 @@ interface Assignment {
   dueDate: string;
   maxMarks: number;
   status: string;
-  teacherId?: {
-    name: string;
-  };
+  teacherId?: { name: string };
+  workshopId?: { title: string };
+  submission?: { submittedAt: string; status: string; marks?: number };
+}
+
+interface AssignmentStats {
+  pending: Assignment[];
+  pastDue: Assignment[];
+  submitted: Assignment[];
+  counts: { total: number; pending: number; pastDue: number; submitted: number };
 }
 
 export default function StudentDashboard() {
   const navigate = useNavigate();
   const [liveWorkshops, setLiveWorkshops] = useState<LiveWorkshop[]>([]);
-  const [assignments, setAssignments] = useState<Assignment[]>([]);
+  const [assignmentStats, setAssignmentStats] = useState<AssignmentStats | null>(null);
+  const [assignTab, setAssignTab] = useState<'pending' | 'pastDue' | 'submitted'>('pending');
   const [loading, setLoading] = useState(true);
   const [otp, setOtp] = useState("");
   const [selectedWorkshop, setSelectedWorkshop] = useState<string | null>(null);
@@ -59,10 +70,10 @@ export default function StudentDashboard() {
   const fetchAssignments = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await axios.get(`${import.meta.env.VITE_API_URL}/assignments/student/active`, {
+      const response = await axios.get(`${import.meta.env.VITE_API_URL}/assignments/student/stats`, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      setAssignments(response.data);
+      setAssignmentStats(response.data);
     } catch (err) {
       console.error(err);
     }
@@ -171,49 +182,136 @@ export default function StudentDashboard() {
             )}
           </div>
 
-          <h3 className="font-black text-2xl tracking-tight px-2 flex items-center gap-4 mt-8">
-             <BookOpen className="w-6 h-6 text-indigo-500" />
-             Active Assignments
-          </h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {assignments.length > 0 ? (
-              assignments.map((assignment) => {
-                const isPastDue = new Date() > new Date(assignment.dueDate);
+          {/* Assignment Stats Summary Cards */}
+          <div className="grid grid-cols-3 gap-4">
+            <div className="bg-indigo-500/10 border border-indigo-500/20 rounded-2xl p-4 text-center">
+              <Clock className="w-5 h-5 text-indigo-400 mx-auto mb-1" />
+              <div className="font-black text-2xl text-indigo-400">{assignmentStats?.counts.pending ?? '—'}</div>
+              <div className="text-[9px] font-black uppercase tracking-widest opacity-50 mt-1">Pending</div>
+            </div>
+            <div className="bg-red-500/10 border border-red-500/20 rounded-2xl p-4 text-center">
+              <XCircle className="w-5 h-5 text-red-400 mx-auto mb-1" />
+              <div className="font-black text-2xl text-red-400">{assignmentStats?.counts.pastDue ?? '—'}</div>
+              <div className="text-[9px] font-black uppercase tracking-widest opacity-50 mt-1">Past Due</div>
+            </div>
+            <div className="bg-green-500/10 border border-green-500/20 rounded-2xl p-4 text-center">
+              <FileCheck className="w-5 h-5 text-green-400 mx-auto mb-1" />
+              <div className="font-black text-2xl text-green-400">{assignmentStats?.counts.submitted ?? '—'}</div>
+              <div className="text-[9px] font-black uppercase tracking-widest opacity-50 mt-1">Submitted</div>
+            </div>
+          </div>
+
+          {/* Assignment Tabs */}
+          <div>
+            <h3 className="font-black text-2xl tracking-tight px-1 flex items-center gap-3 mb-4">
+              <BookOpen className="w-6 h-6 text-indigo-500" />
+              Assignments
+            </h3>
+
+            {/* Tab Selector */}
+            <div className="flex gap-2 mb-4">
+              {(['pending', 'pastDue', 'submitted'] as const).map(tab => {
+                const labels = { pending: '⏳ Pending', pastDue: '❌ Past Due', submitted: '✅ Submitted' };
+                const counts = assignmentStats?.counts;
+                const count = counts ? counts[tab] : 0;
+                const active = assignTab === tab;
                 return (
-                  <div key={assignment._id} className="bg-white/5 border border-slate-200 dark:border-white/10 rounded-[32px] p-6 flex flex-col justify-between space-y-4 hover:border-indigo-500/50 transition-colors shadow-lg">
-                    <div>
-                      <div className="flex justify-between items-start mb-4">
-                        <h4 className="font-black text-lg line-clamp-2">{assignment.title}</h4>
-                        <span className="px-3 py-1 bg-indigo-500/10 text-indigo-500 text-[10px] font-black uppercase tracking-widest rounded-lg">{assignment.maxMarks}pts</span>
-                      </div>
-                      <div className="text-[10px] font-bold uppercase opacity-50 space-y-1">
-                        <p>Due: {new Date(assignment.dueDate).toLocaleString()}</p>
-                        {assignment.teacherId && <p>Teacher: {assignment.teacherId.name}</p>}
-                      </div>
-                    </div>
-                    
-                    <div className="pt-2 border-t border-slate-200 dark:border-white/5 mt-auto">
-                      {isPastDue ? (
-                        <div className="w-full py-3 bg-red-500/10 text-red-500 rounded-xl font-black text-[10px] uppercase tracking-widest text-center flex justify-center items-center gap-2">
-                           <AlertCircle className="w-4 h-4" /> Time's Up
-                        </div>
-                      ) : (
-                        <button 
-                          onClick={() => navigate(`/submit/${assignment._id}?studentToken=${user.id}`)}
-                          className="w-full py-3 bg-indigo-500 hover:bg-indigo-600 text-white rounded-xl font-black text-[10px] uppercase tracking-widest transition-all cursor-pointer shadow-lg shadow-indigo-500/20"
-                        >
-                          Submit Project
-                        </button>
-                      )}
-                    </div>
-                  </div>
+                  <button
+                    key={tab}
+                    onClick={() => setAssignTab(tab)}
+                    className={`flex-1 py-2 px-3 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                      active
+                        ? tab === 'pending' ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-500/30'
+                          : tab === 'pastDue' ? 'bg-red-500 text-white shadow-lg shadow-red-500/30'
+                          : 'bg-green-500 text-white shadow-lg shadow-green-500/30'
+                        : 'bg-slate-100 dark:bg-white/5 opacity-60 hover:opacity-100'
+                    }`}
+                  >
+                    {labels[tab]}
+                    <span className={`px-1.5 py-0.5 rounded-md text-[9px] ${active ? 'bg-white/20' : 'bg-slate-200 dark:bg-white/10'}`}>
+                      {count}
+                    </span>
+                  </button>
                 );
-              })
-            ) : (
-              <div className="col-span-1 md:col-span-2 p-10 text-center border border-dashed border-slate-200 dark:border-white/10 rounded-[32px]">
-                <p className="font-bold text-[10px] uppercase opacity-30">No active assignments</p>
-              </div>
-            )}
+              })}
+            </div>
+
+            {/* Tab Content */}
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={assignTab}
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                transition={{ duration: 0.2 }}
+                className="grid grid-cols-1 md:grid-cols-2 gap-4"
+              >
+                {(assignmentStats?.[assignTab] ?? []).length > 0 ? (
+                  (assignmentStats![assignTab] as Assignment[]).map((assignment) => (
+                    <div
+                      key={assignment._id}
+                      className={`rounded-2xl p-5 flex flex-col justify-between border transition-colors shadow-md ${
+                        assignTab === 'pastDue'
+                          ? 'bg-red-500/5 border-red-500/20 hover:border-red-500/40'
+                          : assignTab === 'submitted'
+                          ? 'bg-green-500/5 border-green-500/20 hover:border-green-500/40'
+                          : 'bg-indigo-500/5 border-indigo-500/20 hover:border-indigo-500/40'
+                      }`}
+                    >
+                      <div className="space-y-2 mb-4">
+                        <div className="flex justify-between items-start gap-2">
+                          <h4 className="font-black text-sm leading-snug line-clamp-2">{assignment.title}</h4>
+                          <span className={`shrink-0 px-2 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-widest ${
+                            assignTab === 'submitted' ? 'bg-green-500/20 text-green-500'
+                            : assignTab === 'pastDue' ? 'bg-red-500/20 text-red-500'
+                            : 'bg-indigo-500/20 text-indigo-500'
+                          }`}>
+                            {assignment.maxMarks}pts
+                          </span>
+                        </div>
+                        <div className="text-[9px] font-bold uppercase opacity-40 space-y-0.5">
+                          <p className="flex items-center gap-1"><Clock className="w-3 h-3" /> Due: {new Date(assignment.dueDate).toLocaleString()}</p>
+                          {assignment.teacherId && <p>Teacher: {assignment.teacherId.name}</p>}
+                          {assignment.workshopId && <p>Workshop: {(assignment.workshopId as any).title}</p>}
+                          {assignTab === 'submitted' && assignment.submission && (
+                            <p className="text-green-500 opacity-80">Submitted: {new Date(assignment.submission.submittedAt).toLocaleString()}</p>
+                          )}
+                          {assignTab === 'submitted' && assignment.submission?.marks !== undefined && assignment.submission.marks > 0 && (
+                            <p className="text-green-500 opacity-80">Marks: {assignment.submission.marks}/{assignment.maxMarks}</p>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="pt-3 border-t border-current/10">
+                        {assignTab === 'submitted' ? (
+                          <div className="flex items-center justify-center gap-2 text-green-500 font-black text-[10px] uppercase tracking-widest">
+                            <CheckCircle2 className="w-4 h-4" />
+                            {assignment.submission?.status === 'late' ? 'Submitted Late' : 'Submitted On Time'}
+                          </div>
+                        ) : assignTab === 'pastDue' ? (
+                          <div className="flex items-center justify-center gap-2 text-red-500 font-black text-[10px] uppercase tracking-widest">
+                            <AlertCircle className="w-4 h-4" /> Deadline Passed
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => navigate(`/submit/${assignment._id}`)}
+                            className="w-full py-2.5 bg-indigo-500 hover:bg-indigo-600 text-white rounded-xl font-black text-[10px] uppercase tracking-widest transition-all cursor-pointer shadow-lg shadow-indigo-500/20"
+                          >
+                            Submit Project
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="col-span-2 p-10 text-center border border-dashed border-slate-200 dark:border-white/10 rounded-2xl">
+                    <p className="font-bold text-[10px] uppercase opacity-30">
+                      {assignTab === 'pending' ? 'No pending assignments 🎉' : assignTab === 'pastDue' ? 'No overdue assignments' : 'No submissions yet'}
+                    </p>
+                  </div>
+                )}
+              </motion.div>
+            </AnimatePresence>
           </div>
         </div>
 
@@ -283,6 +381,9 @@ export default function StudentDashboard() {
           </div>
         </div>
       </div>
+
+      {/* Announcements at the bottom */}
+      <AnnouncementsWidget />
     </div>
   );
 }

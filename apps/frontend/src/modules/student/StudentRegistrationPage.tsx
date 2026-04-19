@@ -26,6 +26,7 @@ export default function StudentRegistrationPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [isSuccess, setIsSuccess] = useState(false);
+  const [regStatus, setRegStatus] = useState<'open' | 'not_started' | 'closed'>('open');
 
   const [formData, setFormData] = useState({
     name: "",
@@ -48,8 +49,9 @@ export default function StudentRegistrationPage() {
     try {
       const response = await axios.get(`${import.meta.env.VITE_API_URL}/workshops/validate-invite/${inviteToken}`);
       setWorkshop(response.data);
+      setRegStatus(response.data.registrationStatus || 'open');
     } catch (err) {
-      setError("This invitation link is invalid or has expired.");
+      setError("This invitation link is invalid or has been removed.");
     } finally {
       setLoading(false);
     }
@@ -149,6 +151,20 @@ export default function StudentRegistrationPage() {
           <div className="p-6 bg-red-500/10 border border-red-500/10 text-red-500 rounded-3xl flex items-center gap-4 text-sm font-bold">
             <AlertCircle className="w-6 h-6 shrink-0" />
             {error}
+          </div>
+        )}
+
+        {/* Registration window status banners — informational, does not block form */}
+        {!error && regStatus === 'not_started' && (
+          <div className="p-5 bg-yellow-500/10 border border-yellow-500/20 text-yellow-500 rounded-3xl flex items-center gap-3 text-sm font-bold">
+            <AlertCircle className="w-5 h-5 shrink-0" />
+            Registration hasn't opened yet. You can still fill in your details and try submitting when it opens.
+          </div>
+        )}
+        {!error && regStatus === 'closed' && (
+          <div className="p-5 bg-orange-500/10 border border-orange-500/20 text-orange-400 rounded-3xl flex items-center gap-3 text-sm font-bold">
+            <AlertCircle className="w-5 h-5 shrink-0" />
+            The registration window for this workshop has closed. Contact your instructor if you believe this is an error.
           </div>
         )}
 

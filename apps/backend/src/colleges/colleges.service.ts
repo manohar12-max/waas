@@ -67,14 +67,45 @@ export class CollegesService {
 
   async getPlatformStats() {
     this.logger.log('Fetching platform-wide statistics');
-    const [totalColleges, totalUsers, totalWorkshops, activeSessions] = await Promise.all([
+    const [totalColleges, totalUsers, totalWorkshops, activeSessions,
+      recentColleges, recentUsers, recentWorkshops] = await Promise.all([
       this.collegeModel.countDocuments(),
       this.userModel.countDocuments(),
       this.workshopModel.countDocuments(),
       this.workshopModel.countDocuments({ status: 'ONGOING' }),
+      // Recent activity sources
+      this.collegeModel.find().sort({ createdAt: -1 }).limit(3).select('name createdAt').lean(),
+      this.userModel.find({ role: { $ne: 'SUPER_ADMIN' } }).sort({ createdAt: -1 }).limit(4)
+        .populate('collegeId', 'name').select('name role createdAt collegeId').lean(),
+      this.workshopModel.find().sort({ createdAt: -1 }).limit(3)
+        .populate('collegeId', 'name').select('title status createdAt collegeId').lean(),
     ]);
 
-    return { totalColleges, totalUsers, totalWorkshops, activeSessions };
+    // Build a unified activity feed sorted by time
+    const activities: any[] = [
+      ...recentColleges.map((c: any) => ({
+        type: 'college',
+        icon: 'building',
+        label: `New institution onboarded — ${c.name}`,
+        time: c.createdAt,
+      })),
+      ...recentUsers.map((u: any) => ({
+        type: 'user',
+        icon: 'user',
+        label: `${u.role === 'COLLEGE_ADMIN' ? 'College admin' : u.role.charAt(0) + u.role.slice(1).toLowerCase()} joined — ${u.name}`,
+        sub: (u.collegeId as any)?.name || 'Platform',
+        time: u.createdAt,
+      })),
+      ...recentWorkshops.map((w: any) => ({
+        type: 'workshop',
+        icon: 'book',
+        label: `Workshop created — ${w.title}`,
+        sub: (w.collegeId as any)?.name || '',
+        time: w.createdAt,
+      })),
+    ].sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime()).slice(0, 8);
+
+    return { totalColleges, totalUsers, totalWorkshops, activeSessions, recentActivity: activities };
   }
 
   async getCollegeStats(collegeId: string | Types.ObjectId) {
@@ -82,28 +113,51 @@ export class CollegesService {
     this.logger.log(`Fetching statistics for college: ${cId}`);
     const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
     
-    const [totalStudents, totalWorkshops, liveWorkshops, activeStudents, workshops] = await Promise.all([
+    const [totalStudents, totalWorkshops, liveWorkshops, activeStudents, workshops,
+      recentStudents, recentWorkshops, recentSubmissions] = await Promise.all([
       this.userModel.countDocuments({ collegeId: cId, role: UserRole.STUDENT }),
       this.workshopModel.countDocuments({ collegeId: cId }),
       this.workshopModel.countDocuments({ collegeId: cId, status: 'ONGOING' }),
-      this.attendanceModel.distinct('studentId', { 
-        createdAt: { $gte: oneHourAgo } 
-      }).then(ids => ids.length),
+      this.attendanceModel.distinct('studentId', { createdAt: { $gte: oneHourAgo } }).then(ids => ids.length),
       this.workshopModel.find({ collegeId: cId }).select('schedule').exec(),
+      // Recent activity
+      this.userModel.find({ collegeId: cId, role: UserRole.STUDENT }).sort({ createdAt: -1 }).limit(3).select('name createdAt').lean(),
+      this.workshopModel.find({ collegeId: cId }).sort({ createdAt: -1 }).limit(3).select('title status createdAt').lean(),
+      this.submissionModel.find().sort({ createdAt: -1 }).limit(3)
+        .populate({ path: 'assignmentId', match: { workshopId: { $exists: true } }, select: 'title' })
+        .populate('studentId', 'name').select('createdAt status').lean(),
     ]);
 
-    // Calculate actual average session time
     const avgTime = workshops.length > 0 
       ? Math.round(workshops.reduce((acc, w) => acc + (w.schedule.end.getTime() - w.schedule.start.getTime()), 0) / workshops.length / 60000)
       : 0;
 
+    const activities: any[] = [
+      ...recentStudents.map((u: any) => ({
+        type: 'user', icon: 'user',
+        label: `New student enrolled — ${u.name}`,
+        time: u.createdAt,
+      })),
+      ...recentWorkshops.map((w: any) => ({
+        type: 'workshop', icon: 'book',
+        label: `Workshop ${w.status === 'ONGOING' ? 'started' : 'created'} — ${w.title}`,
+        time: w.createdAt,
+      })),
+      ...recentSubmissions
+        .filter((s: any) => s.assignmentId && s.studentId)
+        .map((s: any) => ({
+          type: 'submission', icon: 'check',
+          label: `Assignment submitted by ${(s.studentId as any)?.name || 'Student'}`,
+          sub: (s.assignmentId as any)?.title || '',
+          time: s.createdAt,
+        })),
+    ].sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime()).slice(0, 8);
+
     return {
-      totalStudents,
-      totalWorkshops,
-      liveWorkshops,
+      totalStudents, totalWorkshops, liveWorkshops,
       activeClassrooms: liveWorkshops,
-      activeStudents,
-      avgSessionTime: `${avgTime}m`,
+      activeStudents, avgSessionTime: `${avgTime}m`,
+      recentActivity: activities,
     };
   }
 

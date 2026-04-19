@@ -1,25 +1,23 @@
-import { Processor, WorkerHost } from '@nestjs/bullmq';
-import { Job } from 'bullmq';
+import { Injectable, Logger } from '@nestjs/common';
 import { SessionContentService } from './session-content.service';
-import { Logger } from '@nestjs/common';
 import { HttpService } from '@nestjs/axios';
 import { PDFService } from '../../infrastructure/pdf/pdf.service';
 import * as fs from 'fs/promises';
 
-@Processor('session-content-generation')
-export class SessionContentProcessor extends WorkerHost {
+/** Processor is now a plain service — no Redis/BullMQ required */
+@Injectable()
+export class SessionContentProcessor {
   private readonly logger = new Logger(SessionContentProcessor.name);
 
   constructor(
     private readonly service: SessionContentService,
     private readonly httpService: HttpService,
     private readonly pdfService: PDFService,
-  ) {
-    super();
-  }
+  ) {}
 
-  async process(job: Job<any, any, string>): Promise<any> {
-    const { sessionId, rawContentUrl, filePath } = job.data;
+  /** Call this directly when you want to process a session (replaces queue job) */
+  async process(data: { sessionId: string; rawContentUrl?: string; filePath?: string }): Promise<any> {
+    const { sessionId, rawContentUrl, filePath } = data;
     this.logger.log(`Processing content generation for session: ${sessionId}`);
 
     try {
@@ -45,10 +43,10 @@ export class SessionContentProcessor extends WorkerHost {
       
       try {
         // In the future, pass extractedText to the senior API
-        generatedData = await this.callSeniorAIAPI(rawContentUrl || filePath);
+        generatedData = await this.callSeniorAIAPI(rawContentUrl ?? filePath ?? '');
       } catch (apiError) {
         this.logger.warn(`Senior API failed or not configured, falling back to mock: ${apiError.message}`);
-        generatedData = await this.mockAIAPICall(extractedText || rawContentUrl || sessionId);
+        generatedData = await this.mockAIAPICall(extractedText || rawContentUrl || filePath || sessionId);
       }
 
       // Save content
@@ -72,10 +70,7 @@ export class SessionContentProcessor extends WorkerHost {
       return generatedData;
     } catch (error) {
       this.logger.error(`Failed to generate content for session: ${sessionId}`, error.stack);
-      
-      if (job.attemptsMade + 1 >= (job.opts.attempts || 1)) {
-        await this.service.updateSessionStatus(sessionId, 'failed');
-      }
+      await this.service.updateSessionStatus(sessionId, 'failed');
       throw error;
     }
   }

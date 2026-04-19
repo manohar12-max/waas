@@ -27,11 +27,11 @@ export class AssignmentsController {
      return this.assignmentsService.findAllAssignments();
   }
 
-  @Get('student/active')
+  @Get('student/stats')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.STUDENT)
   getForStudent(@Request() req: any) {
-    return this.assignmentsService.getAssignmentsForStudent(req.user.id);
+    return this.assignmentsService.getStudentAssignmentStats(req.user.id);
   }
 
   @Get(':id')
