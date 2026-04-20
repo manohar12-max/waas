@@ -320,14 +320,16 @@ export default function SessionContentGen({ workshopId }: { workshopId: string }
         <div className="space-y-6">
           <input placeholder="Session Title" value={newSession.title} onChange={e => setNewSession({ ...newSession, title: e.target.value })} className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 p-5 rounded-2xl font-bold text-slate-900 dark:text-white" />
           <div className="border-2 border-dashed border-slate-200 dark:border-white/10 rounded-[32px] p-8 flex flex-col items-center justify-center gap-4 cursor-pointer hover:border-primary-light transition-all" onClick={() => document.getElementById('f-up')?.click()}>
-            <input id="f-up" type="file" className="hidden" onChange={e => setSelectedFiles(e.target.files?.[0] ? [e.target.files[0]] : [])} />
+            <input id="f-up" type="file" multiple className="hidden" onChange={e => setSelectedFiles(Array.from(e.target.files || []))} />
             <FileUp className={`w-8 h-8 transition-all ${selectedFiles.length > 0 ? 'text-primary-light opacity-100' : 'opacity-20 text-slate-900 dark:text-white'}`} />
             <p className="font-bold text-sm text-slate-500 dark:text-white text-center px-4">
                {selectedFiles.length > 0 ? (
-                 <span className="text-primary-light truncate max-w-[200px] block">{selectedFiles[0].name}</span>
-               ) : "Drop Source Material"}
+                 <span className="text-primary-light block">
+                   {selectedFiles.length === 1 ? selectedFiles[0].name : `${selectedFiles.length} files selected`}
+                 </span>
+               ) : "Drop Source Materials"}
             </p>
-            {selectedFiles.length > 0 && <p className="text-[10px] font-black uppercase opacity-20 tracking-widest">Single File Stage</p>}
+            {selectedFiles.length > 0 && <p className="text-[10px] font-black uppercase opacity-20 tracking-widest">Multi-File Supported</p>}
           </div>
 
           <div className="flex items-center justify-between p-6 bg-slate-50 dark:bg-white/5 rounded-3xl border border-slate-100 dark:border-white/5">
@@ -382,7 +384,7 @@ export default function SessionContentGen({ workshopId }: { workshopId: string }
           <div className="pt-4 border-t border-slate-100 dark:border-white/5 space-y-4">
              <p className="text-[10px] font-black uppercase opacity-40 tracking-widest px-2 text-slate-900 dark:text-white">Add More Materials</p>
              <div className="border-2 border-dashed border-slate-200 dark:border-white/10 rounded-[32px] p-8 flex flex-col items-center justify-center gap-4 cursor-pointer hover:border-primary-light transition-all" onClick={() => document.getElementById('f-up-edit')?.click()}>
-                <input id="f-up-edit" type="file" className="hidden" onChange={e => setSelectedFiles(e.target.files?.[0] ? [e.target.files[0]] : [])} />
+                <input id="f-up-edit" type="file" multiple className="hidden" onChange={e => setSelectedFiles(Array.from(e.target.files || []))} />
                 <FileUp className={`w-8 h-8 transition-all ${selectedFiles.length > 0 ? 'text-primary-light opacity-100' : 'opacity-20 text-slate-900 dark:text-white'}`} />
                 <p className="font-bold text-sm text-slate-500 dark:text-white text-center px-4">
                    {selectedFiles.length > 0 ? (

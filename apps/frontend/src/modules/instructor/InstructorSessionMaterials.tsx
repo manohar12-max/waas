@@ -39,6 +39,9 @@ export default function InstructorSessionMaterials() {
   const [activeDoc, setActiveDoc] = useState<{ title: string, url: string, type: string } | null>(null);
   const [generatedContent, setGeneratedContent] = useState<any[]>([]);
   const [showReviewModal, setShowReviewModal] = useState<{ session: Session; content: any } | null>(null);
+  const [showAddMaterialModal, setShowAddMaterialModal] = useState(false);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [isSourceForAI, setIsSourceForAI] = useState(false);
 
   useEffect(() => {
     fetchSession();
@@ -153,6 +156,34 @@ export default function InstructorSessionMaterials() {
     } catch (err) { alert("Approval failed"); }
   };
 
+  const handleAddMaterials = async () => {
+    if (selectedFiles.length === 0) return;
+    try {
+      setSaving(true);
+      const token = localStorage.getItem('token');
+      const formData = new FormData();
+      formData.append('isSourceForAI', isSourceForAI.toString());
+      selectedFiles.forEach(file => formData.append('files', file));
+      
+      await axios.post(`${import.meta.env.VITE_API_URL}/sessions-content/${sessionId}/materials`, formData, { 
+        headers: { 
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'multipart/form-data'
+        } 
+      });
+      
+      setShowAddMaterialModal(false);
+      setSelectedFiles([]);
+      setIsSourceForAI(false);
+      fetchSession();
+    } catch (err) { 
+      alert("Failed to upload materials"); 
+      console.error(err);
+    } finally { 
+      setSaving(false); 
+    }
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'extracting': return 'text-cyan-500 bg-cyan-500/10 border-cyan-500/30';
@@ -191,34 +222,11 @@ export default function InstructorSessionMaterials() {
               {session.title}
             </h1>
             <div className="flex items-center gap-4">
-              <span className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase border flex items-center gap-2 ${getStatusColor(session.status)}`}>
-                {session.status === 'generating' && <Loader2 className="w-3 h-3 animate-spin" />}
-                {session.status === 'generating' ? 'Still Processing...' : session.status}
-              </span>
-              {getWorkflowBadge()}
-              <div className="h-4 w-px bg-slate-200 dark:bg-white/10" />
               <p className="text-slate-400 dark:text-white/40 text-xs font-bold uppercase tracking-widest">{session.materials.length} Total Materials</p>
             </div>
           </div>
 
           <div className="flex items-center gap-4">
-            {session.status === 'generated' && session.aiWorkflowStage && session.aiWorkflowStage !== 'Finalized' && (
-              <button 
-                onClick={handleOpenReview}
-                className="bg-amber-500 text-white px-8 py-4 rounded-2xl font-black text-xs uppercase tracking-widest flex items-center gap-2 shadow-xl shadow-amber-500/20 hover:scale-105 transition-all"
-              >
-                <Edit3 className="w-4 h-4" /> Review AI Assets
-              </button>
-            )}
-
-            {session.aiWorkflowStage === 'Finalized' && session.status !== 'approved' && (
-              <button 
-                onClick={handleApprove}
-                className="bg-green-500 text-white px-8 py-4 rounded-2xl font-black text-xs uppercase tracking-widest flex items-center gap-2 shadow-xl shadow-green-500/20 hover:scale-105 transition-all"
-              >
-                <CheckCircle className="w-4 h-4" /> Finalize Content
-              </button>
-            )}
             <button 
               onClick={() => setDashboardTab('INSTRUCTOR')}
               className={`px-8 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${dashboardTab === 'INSTRUCTOR' ? 'bg-primary-light text-white shadow-xl shadow-primary-light/20' : 'text-slate-500 dark:text-white/40 hover:text-slate-900 dark:hover:text-white'}`}
@@ -332,6 +340,21 @@ export default function InstructorSessionMaterials() {
                   </div>
                 </motion.div>
               ))}
+
+              {/* Add Material Card */}
+              <motion.div 
+                whileHover={{ y: -5 }}
+                className="group relative bg-slate-100/50 dark:bg-white/[0.02] border-2 border-dashed border-slate-200 dark:border-white/10 rounded-[32px] p-6 flex flex-col items-center justify-center gap-4 transition-all cursor-pointer hover:border-primary-light hover:bg-primary-light/5"
+                onClick={() => setShowAddMaterialModal(true)}
+              >
+                <div className="w-16 h-16 rounded-full bg-white dark:bg-white/5 flex items-center justify-center shadow-sm group-hover:scale-110 transition-transform">
+                  <Plus className="w-8 h-8 text-primary-light" />
+                </div>
+                <div className="text-center">
+                  <h4 className="font-black text-lg text-slate-900 dark:text-white group-hover:text-primary-light transition-colors">Add New Asset</h4>
+                  <p className="text-[10px] font-bold uppercase opacity-40 tracking-widest mt-1">Upload PDF or Slides</p>
+                </div>
+              </motion.div>
             </div>
           ) : (
             <div className="space-y-16">
@@ -352,7 +375,14 @@ export default function InstructorSessionMaterials() {
                             <BrainCircuit className="w-10 h-10" />
                           </div>
                           <div>
-                            <p className="text-[10px] font-black uppercase text-primary-light tracking-[0.4em] mb-2">Generated Curriculum</p>
+                            <div className="flex items-center gap-3 mb-2">
+                              <p className="text-[10px] font-black uppercase text-primary-light tracking-[0.4em]">Generated Curriculum</p>
+                              <span className={`px-3 py-1 rounded-full text-[8px] font-black uppercase border flex items-center gap-2 ${getStatusColor(session.status)}`}>
+                                {session.status === 'generating' && <Loader2 className="w-2.5 h-2.5 animate-spin" />}
+                                {session.status === 'generating' ? 'Processing...' : session.status}
+                              </span>
+                              {getWorkflowBadge()}
+                            </div>
                             <h3 className="text-3xl font-black tracking-tight">{content.sourceMaterialTitle || "Primary Asset"}</h3>
                           </div>
                         </div>
@@ -364,7 +394,7 @@ export default function InstructorSessionMaterials() {
                               onClick={() => handleOpenReview(content)}
                               className="bg-amber-500 text-white px-8 py-5 rounded-[24px] font-black text-xs uppercase tracking-widest flex items-center gap-3 shadow-xl shadow-amber-500/30 hover:scale-105 transition-all"
                             >
-                              <Edit3 className="w-5 h-5" /> Review Stage
+                              <Edit3 className="w-5 h-5" /> Review AI Assets
                             </button>
                           )}
                           {session.aiWorkflowStage === 'Finalized' && session.status !== 'approved' && (
@@ -372,7 +402,7 @@ export default function InstructorSessionMaterials() {
                               onClick={handleApprove}
                               className="bg-green-500 text-white px-8 py-5 rounded-[24px] font-black text-xs uppercase tracking-widest flex items-center gap-3 shadow-xl shadow-green-500/30 hover:scale-105 transition-all"
                             >
-                              <CheckCircle className="w-5 h-5" /> Approve & Publish
+                              <CheckCircle className="w-5 h-5" /> Finalize Content
                             </button>
                           )}
                           <button 
@@ -570,6 +600,68 @@ export default function InstructorSessionMaterials() {
                 {saving ? <Loader2 className="w-5 h-5 animate-spin" /> : <><CheckCircle2 className="w-5 h-5" /> Save & Continue to Next Stage</>}
               </button>
            </div>
+        </div>
+      </UniversalModal>
+
+      {/* Add Material Modal */}
+      <UniversalModal
+        isOpen={showAddMaterialModal}
+        onClose={() => setShowAddMaterialModal(false)}
+        title="Upload New Asset"
+        description="Add PDFs, Slides or Other study materials to this session"
+        maxWidth="max-w-md"
+        icon={<Plus />}
+      >
+        <div className="space-y-6">
+          <div 
+            className="border-2 border-dashed border-slate-200 dark:border-white/10 rounded-[32px] p-10 flex flex-col items-center justify-center gap-4 cursor-pointer hover:border-primary-light transition-all bg-slate-50 dark:bg-white/[0.02]" 
+            onClick={() => document.getElementById('asset-upload')?.click()}
+          >
+            <input 
+              id="asset-upload" 
+              type="file" 
+              multiple
+              className="hidden" 
+              onChange={e => setSelectedFiles(Array.from(e.target.files || []))} 
+            />
+            <div className={`w-16 h-16 rounded-2xl flex items-center justify-center transition-all ${selectedFiles.length > 0 ? 'bg-primary-light text-white shadow-lg shadow-primary-light/20' : 'bg-slate-200 dark:bg-white/5 text-slate-400 dark:text-white/20'}`}>
+              <Plus className="w-8 h-8" />
+            </div>
+            <p className="font-bold text-sm text-slate-500 dark:text-white text-center px-4">
+               {selectedFiles.length > 0 ? (
+                 <span className="text-primary-light block">
+                   {selectedFiles.length === 1 ? selectedFiles[0].name : `${selectedFiles.length} files selected`}
+                 </span>
+               ) : "Click to browse or drop files here"}
+            </p>
+            <p className="text-[10px] font-black uppercase opacity-20 tracking-widest">PDF, PPTX, DOCX Supported</p>
+          </div>
+
+          <div className="flex items-center justify-between p-6 bg-slate-50 dark:bg-white/5 rounded-3xl border border-slate-100 dark:border-white/5">
+             <div className="flex items-center gap-3">
+                <div className={`p-2 rounded-lg transition-colors ${isSourceForAI ? 'bg-primary-light/10 text-primary-light' : 'bg-slate-200 dark:bg-white/10 text-slate-400'}`}>
+                   <BrainCircuit className="w-5 h-5" />
+                </div>
+                <div>
+                   <p className="text-xs font-black uppercase text-slate-900 dark:text-white">AI Source</p>
+                   <p className="text-[10px] font-bold opacity-30 uppercase tracking-widest">Use for AI generation</p>
+                </div>
+             </div>
+             <button 
+               onClick={() => setIsSourceForAI(!isSourceForAI)}
+               className={`w-12 h-6 rounded-full relative transition-all duration-300 ${isSourceForAI ? 'bg-primary-light shadow-lg shadow-primary-light/30' : 'bg-slate-300 dark:bg-white/10'}`}
+             >
+                <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all duration-300 ${isSourceForAI ? 'left-7' : 'left-1'}`} />
+             </button>
+          </div>
+
+          <button 
+            onClick={handleAddMaterials} 
+            disabled={selectedFiles.length === 0 || saving}
+            className="w-full py-5 bg-primary-light text-white rounded-3xl font-black uppercase shadow-xl hover:brightness-110 active:scale-95 transition-all disabled:opacity-50 flex items-center justify-center gap-3"
+          >
+            {saving ? <Loader2 className="w-5 h-5 animate-spin" /> : <><Plus className="w-4 h-4" /> Upload Assets</>}
+          </button>
         </div>
       </UniversalModal>
     </div>
