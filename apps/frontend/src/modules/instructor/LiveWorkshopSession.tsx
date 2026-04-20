@@ -281,7 +281,7 @@ export default function LiveWorkshopSession() {
                                   </div>
                                </td>
                                <td className="px-10 py-6 cursor-pointer">
-                                  {(user.role === 'TEACHER' || user.role === 'COLLEGE_ADMIN') && (
+                                  {(user.role === 'TEACHER' || user.role === 'COLLEGE_ADMIN' || user.role === 'INSTRUCTOR') && (
                                     <div className="flex items-center gap-2 cursor-pointer">
                                        <button 
                                          onClick={() => handleOverride(record._id, record.status === 'PRESENT' ? 'ABSENT' : 'PRESENT')}

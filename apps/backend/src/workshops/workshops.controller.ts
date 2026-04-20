@@ -67,7 +67,7 @@ export class WorkshopsController {
   // --- Smart Attendance API (Prompt 4) ---
 
   @Post(':id/attendance')
-  @Roles(UserRole.INSTRUCTOR, UserRole.TEACHER, UserRole.COLLEGE_ADMIN)
+  @Roles(UserRole.INSTRUCTOR, UserRole.TEACHER, UserRole.COLLEGE_ADMIN, UserRole.STUDENT)
   recordAttendance(
     @Param('id') workshopId: string,
     @Body('studentId') studentId: string,
@@ -78,7 +78,7 @@ export class WorkshopsController {
   }
 
   @Patch(':id/attendance/:attendanceId')
-  @Roles(UserRole.TEACHER, UserRole.COLLEGE_ADMIN)
+  @Roles(UserRole.TEACHER, UserRole.COLLEGE_ADMIN, UserRole.INSTRUCTOR)
   overrideAttendance(
     @Param('attendanceId') attendanceId: string,
     @Body('status') status: string,
