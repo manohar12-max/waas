@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import DocViewer, { DocViewerRenderers } from "@cyntler/react-doc-viewer";
 import { SlideViewer, UnitAssetsItem } from '../instructor/components/SlideViewer';
+import { DEMO_AI_CONTENT } from '../../utils/demoData';
 
 interface Material {
   title: string;
@@ -112,8 +113,9 @@ export default function LearningCenterPage() {
                const aiRes = await axios.get(`${import.meta.env.VITE_API_URL}/sessions-content/${session._id}/content`, {
                  headers: { Authorization: `Bearer ${token}` }
                });
-               session.aiContent = Array.isArray(aiRes.data) ? aiRes.data : aiRes.data ? [aiRes.data] : [];
-             } catch (e) { session.aiContent = []; }
+               const content = Array.isArray(aiRes.data) ? aiRes.data : aiRes.data ? [aiRes.data] : [];
+               session.aiContent = content.length > 0 ? content : DEMO_AI_CONTENT;
+             } catch (e) { session.aiContent = DEMO_AI_CONTENT; }
           }
         }
 
@@ -320,27 +322,36 @@ export default function LearningCenterPage() {
                                                                      <h5 className="font-black text-indigo-500 uppercase tracking-widest text-[10px]">AI-Generated Module</h5>
                                                                      <p className="font-bold text-lg text-slate-800 dark:text-white leading-tight">Review: {content.sourceMaterialTitle}</p>
                                                                   </div>
-                                                                  <div className="flex bg-slate-100 dark:bg-white/5 p-1 rounded-2xl border border-slate-200 dark:border-white/10 shrink-0">
-                                                                     <button onClick={() => handleOpenAIPlay(content)} className="p-3 bg-white dark:bg-white/10 text-indigo-500 dark:text-indigo-400 rounded-xl hover:bg-indigo-500 hover:text-white transition-all shadow-sm"><Play className="w-5 h-5 fill-current" /></button>
-                                                                  </div>
                                                                </div>
                                                                
-                                                               <div className="grid grid-cols-2 gap-4 relative z-10">
+                                                               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 relative z-10">
+                                                                  <button 
+                                                                     onClick={() => handleOpenAIPlay(content)}
+                                                                     className="group/slides bg-indigo-500/5 hover:bg-indigo-500 border border-indigo-500/20 hover:border-indigo-500 rounded-[32px] p-6 transition-all text-left space-y-3 shadow-md hover:shadow-xl hover:shadow-indigo-500/10"
+                                                                  >
+                                                                     <div className="w-10 h-10 bg-indigo-500/10 group-hover/slides:bg-white/20 rounded-xl flex items-center justify-center text-indigo-500 group-hover/slides:text-white transition-colors"><Play className="w-5 h-5 fill-current" /></div>
+                                                                     <div>
+                                                                        <h4 className="font-black text-slate-900 dark:text-white group-hover/slides:text-white text-sm">Slide Show</h4>
+                                                                        <p className="text-[9px] font-bold uppercase tracking-widest text-indigo-600 dark:text-indigo-400 group-hover/slides:text-white/60">Module Review</p>
+                                                                     </div>
+                                                                  </button>
+
                                                                   <button 
                                                                      onClick={() => handleOpenQuiz(content.mcqs)}
-                                                                     className="group/quiz bg-emerald-500/5 hover:bg-emerald-500 border border-emerald-500/20 hover:border-emerald-500 rounded-3xl p-6 transition-all text-left space-y-3"
+                                                                     className="group/quiz bg-emerald-500/5 hover:bg-emerald-500 border border-emerald-500/20 hover:border-emerald-500 rounded-[32px] p-6 transition-all text-left space-y-3 shadow-md hover:shadow-xl hover:shadow-emerald-500/10"
                                                                   >
                                                                      <div className="w-10 h-10 bg-emerald-500/10 group-hover/quiz:bg-white/20 rounded-xl flex items-center justify-center text-emerald-500 group-hover/quiz:text-white transition-colors"><CheckCircle2 className="w-5 h-5" /></div>
                                                                      <div>
                                                                         <h4 className="font-black text-slate-900 dark:text-white group-hover/quiz:text-white text-sm">Take Quiz</h4>
-                                                                        <p className="text-[9px] font-bold uppercase tracking-widest text-emerald-600 dark:text-emerald-400 group-hover/quiz:text-white/60">{content.mcqs?.length || 0} Knowledge Problems</p>
+                                                                        <p className="text-[9px] font-bold uppercase tracking-widest text-emerald-600 dark:text-emerald-400 group-hover/quiz:text-white/60">{content.mcqs?.length || 0} Problems</p>
                                                                      </div>
                                                                   </button>
-                                                                  <div className="bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-3xl p-6 space-y-3">
+
+                                                                  <div className="bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-[32px] p-6 space-y-3">
                                                                      <div className="w-10 h-10 bg-primary-light/10 rounded-xl flex items-center justify-center text-primary-light"><AlertCircle className="w-5 h-5" /></div>
                                                                      <div>
                                                                         <h4 className="font-black text-slate-900 dark:text-white text-sm">Application Case</h4>
-                                                                        <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400 dark:text-white/20">{content.applicationProblem ? 'Active Scenario' : 'Pending Deployment'}</p>
+                                                                        <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400 dark:text-white/20">{content.applicationProblem ? 'Active Scenario' : 'Pending'}</p>
                                                                      </div>
                                                                   </div>
                                                                </div>
@@ -398,6 +409,7 @@ function QuizModal({ mcqs, onClose }: { mcqs: any[], onClose: () => void }) {
    const [answers, setAnswers] = useState<Record<number, string>>({});
    const [markedForReview, setMarkedForReview] = useState<Set<number>>(new Set());
    const [isSubmitted, setIsSubmitted] = useState(false);
+   const [reviewMode, setReviewMode] = useState(false);
    const [score, setScore] = useState(0);
    const [timeLeft, setTimeLeft] = useState(mcqs.length * 60);
 
@@ -423,6 +435,7 @@ function QuizModal({ mcqs, onClose }: { mcqs: any[], onClose: () => void }) {
       });
       setScore(s);
       setIsSubmitted(true);
+      setReviewMode(false);
    };
 
    const toggleMark = (idx: number) => {
@@ -463,7 +476,7 @@ function QuizModal({ mcqs, onClose }: { mcqs: any[], onClose: () => void }) {
                <div className="hidden sm:block space-y-0.5">
                   <h2 className="text-lg font-black text-slate-900 dark:text-white leading-tight flex items-center gap-2 tracking-tight">AI Assessment <span className="px-2 py-0.5 bg-indigo-500 text-white text-[8px] uppercase italic rounded-md">V2.0</span></h2>
                   <div className="flex items-center gap-3">
-                     <span className="text-[9px] font-black uppercase text-slate-400 dark:text-white/20 tracking-widest">Active Diagnostic Phase</span>
+                     <span className="text-[9px] font-black uppercase text-slate-400 dark:text-white/50 tracking-widest">Active Diagnostic Phase</span>
                      <div className="w-1 h-1 bg-slate-300 dark:bg-white/10 rounded-full" />
                      <span className="text-[9px] font-black uppercase text-indigo-500 tracking-widest">{mcqs.length} High-Stakes Matrix Problems</span>
                   </div>
@@ -492,7 +505,7 @@ function QuizModal({ mcqs, onClose }: { mcqs: any[], onClose: () => void }) {
                <div className="space-y-12">
                   <div className="space-y-6">
                      <div className="flex items-center justify-between">
-                        <h3 className="text-[10px] font-black text-slate-400 dark:text-white/20 uppercase tracking-[0.2em] italic">Session Progress</h3>
+                        <h3 className="text-[10px] font-black text-slate-400 dark:text-white/40 uppercase tracking-[0.2em] italic">Session Progress</h3>
                         <span className="text-xs font-black text-indigo-500">{progress}%</span>
                      </div>
                      <div className="h-1.5 w-full bg-slate-200 dark:bg-white/5 rounded-full overflow-hidden">
@@ -501,7 +514,7 @@ function QuizModal({ mcqs, onClose }: { mcqs: any[], onClose: () => void }) {
                   </div>
 
                   <div className="space-y-6">
-                     <h3 className="text-[10px] font-black text-slate-400 dark:text-white/20 uppercase tracking-[0.2em]">Questions</h3>
+                     <h3 className="text-[10px] font-black text-slate-400 dark:text-white/40 uppercase tracking-[0.2em]">Questions</h3>
                      <div className="grid grid-cols-4 gap-3">
                         {mcqs.map((_, i) => {
                            const isCurrent = currentIdx === i;
@@ -511,7 +524,10 @@ function QuizModal({ mcqs, onClose }: { mcqs: any[], onClose: () => void }) {
                            return (
                               <button 
                                  key={i} 
-                                 onClick={() => setCurrentIdx(i)}
+                                 onClick={() => {
+                                    setCurrentIdx(i);
+                                    if (isSubmitted) setReviewMode(true);
+                                  }}
                                  className={`w-full aspect-square rounded-2xl text-[11px] font-black transition-all border-2 flex items-center justify-center relative group
                                  ${isCurrent ? 'bg-slate-900 dark:bg-white border-slate-900 dark:border-white text-white dark:text-black shadow-xl' : 
                                    isMarked ? 'bg-primary-light border-primary-light text-white shadow-lg shadow-primary-light/20' :
@@ -528,12 +544,12 @@ function QuizModal({ mcqs, onClose }: { mcqs: any[], onClose: () => void }) {
 
                   <div className="space-y-5 pt-10 border-t border-slate-200 dark:border-white/5">
                      <div className="p-5 bg-white dark:bg-white/5 rounded-3xl border border-slate-100 dark:border-white/5 space-y-4 shadow-sm">
-                        <p className="text-[9px] font-black text-slate-400 dark:text-white/20 uppercase tracking-widest italic">Legend</p>
+                        <p className="text-[9px] font-black text-slate-400 dark:text-white/40 uppercase tracking-widest italic">Legend</p>
                         <div className="space-y-3">
-                           <div className="flex items-center gap-3"><div className="w-2 h-2 rounded-full bg-slate-900 dark:bg-white" /><span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Current</span></div>
-                           <div className="flex items-center gap-3"><div className="w-2 h-2 rounded-full bg-emerald-500" /><span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Attempted</span></div>
-                           <div className="flex items-center gap-3"><div className="w-2 h-2 rounded-full bg-primary-light" /><span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Mark for Review</span></div>
-                           <div className="flex items-center gap-3"><div className="w-2 h-2 rounded-full bg-slate-200 dark:bg-white/10" /><span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Not Attempted</span></div>
+                           <div className="flex items-center gap-3"><div className="w-2 h-2 rounded-full bg-slate-900 dark:bg-white" /><span className="text-[10px] font-bold text-slate-500 dark:text-white/60 uppercase tracking-widest">Current</span></div>
+                           <div className="flex items-center gap-3"><div className="w-2 h-2 rounded-full bg-emerald-500" /><span className="text-[10px] font-bold text-slate-500 dark:text-white/60 uppercase tracking-widest">Attempted</span></div>
+                           <div className="flex items-center gap-3"><div className="w-2 h-2 rounded-full bg-primary-light" /><span className="text-[10px] font-bold text-slate-500 dark:text-white/60 uppercase tracking-widest">Mark for Review</span></div>
+                           <div className="flex items-center gap-3"><div className="w-2 h-2 rounded-full bg-slate-200 dark:bg-white/10" /><span className="text-[10px] font-bold text-slate-500 dark:text-white/60 uppercase tracking-widest">Not Attempted</span></div>
                         </div>
                      </div>
                   </div>
@@ -544,7 +560,7 @@ function QuizModal({ mcqs, onClose }: { mcqs: any[], onClose: () => void }) {
             <main className="flex-1 overflow-y-auto custom-scrollbar p-6 md:p-14 bg-white/20 dark:bg-black/5">
                <div className="max-w-4xl mx-auto h-full flex flex-col">
                   <AnimatePresence mode="wait">
-                     {isSubmitted ? (
+                     {isSubmitted && !reviewMode ? (
                         <motion.div key="results" initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} className="flex-1 flex flex-col items-center justify-center text-center space-y-16">
                            <div className="relative">
                               <div className="w-48 h-48 bg-emerald-500/10 rounded-[60px] flex items-center justify-center transform rotate-12 group">
@@ -558,7 +574,7 @@ function QuizModal({ mcqs, onClose }: { mcqs: any[], onClose: () => void }) {
                                  <span className="w-2 h-2 bg-emerald-500 rounded-full animate-ping" />
                                  <h3 className="text-6xl font-black text-slate-900 dark:text-white tracking-tighter uppercase italic">Success Authenticated</h3>
                               </div>
-                              <p className="text-xl font-bold text-slate-400 dark:text-white/20 max-w-lg mx-auto leading-relaxed">Your diagnostic session is captured. AI-curated performance metadata has been synced to your profile.</p>
+                              <p className="text-xl font-bold text-slate-400 dark:text-white/40 max-w-lg mx-auto leading-relaxed">Your diagnostic session is captured. AI-curated performance metadata has been synced to your profile.</p>
                            </div>
 
                            <div className="flex items-stretch gap-6 h-32">
@@ -589,40 +605,75 @@ function QuizModal({ mcqs, onClose }: { mcqs: any[], onClose: () => void }) {
                                  </h4>
                               </div>
 
-                              <div className="grid gap-3">
-                                 {(q.options || q.choices || []).map((opt: string, oi: number) => {
-                                    const isSelected = answers[currentIdx] === opt;
-                                    return (
-                                       <button 
-                                          key={oi} 
-                                          onClick={() => setAnswers(prev => ({ ...prev, [currentIdx]: opt }))}
-                                          className={`w-full text-left p-5 md:p-6 rounded-[24px] border-2 transition-all group relative overflow-hidden flex items-center justify-between
-                                          ${isSelected ? 
-                                             'bg-slate-900 dark:bg-white border-slate-900 dark:border-white shadow-2xl scale-[1.01]' : 
-                                             'bg-white dark:bg-white/[0.03] border-slate-100 dark:border-white/5 hover:border-indigo-500/30'}`}
-                                       >
-                                          <div className={`absolute left-0 top-0 w-1.5 h-full bg-indigo-500 transition-transform duration-500 ${isSelected ? 'translate-x-0' : '-translate-x-full'}`} />
-                                          <div className="flex items-center gap-5 relative z-10">
-                                             <span className={`w-8 h-8 rounded-lg flex items-center justify-center font-black text-[10px] border-2 transition-all ${isSelected ? 'bg-white/10 border-white/20 text-white dark:text-black' : 'bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-400 group-hover:border-indigo-500/30 group-hover:text-indigo-500'}`}>
-                                                {String.fromCharCode(65 + oi)}
-                                             </span>
-                                             <span className={`text-base font-bold leading-snug ${isSelected ? 'text-white dark:text-black' : 'text-slate-600 dark:text-white/40'}`}>
-                                                {opt}
-                                             </span>
-                                          </div>
-                                          {isSelected && (
-                                             <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} className="w-6 h-6 bg-indigo-500 rounded-full flex items-center justify-center text-white shadow-lg relative z-10">
-                                                <CheckCircle2 className="w-3.5 h-3.5" />
-                                             </motion.div>
-                                          )}
-                                       </button>
-                                    );
-                                 })}
-                              </div>
+                               <div className="grid gap-3">
+                                  {(q.options || q.choices || []).map((opt: string, oi: number) => {
+                                     const isSelected = answers[currentIdx] === opt;
+                                     const isCorrect = opt === (q.correctAnswer || q.answer);
+                                     
+                                     let borderClass = "border-slate-100 dark:border-white/5 hover:border-indigo-500/30";
+                                     let bgClass = "bg-white dark:bg-white/[0.03]";
+                                     let textClass = "text-slate-600 dark:text-white";
+
+                                     if (isSelected) {
+                                        if (isSubmitted) {
+                                           if (isCorrect) {
+                                              borderClass = "border-emerald-500 bg-emerald-500/10";
+                                              bgClass = "bg-emerald-500/10";
+                                              textClass = "text-emerald-600 dark:text-emerald-400";
+                                           } else {
+                                              borderClass = "border-rose-500 bg-rose-500/10";
+                                              bgClass = "bg-rose-500/10";
+                                              textClass = "text-rose-600 dark:text-rose-400";
+                                           }
+                                        } else {
+                                           borderClass = "border-slate-900 dark:border-white shadow-2xl scale-[1.01]";
+                                           bgClass = "bg-slate-900 dark:bg-white";
+                                           textClass = "text-white dark:text-black";
+                                        }
+                                     } else if (isSubmitted && isCorrect) {
+                                        borderClass = "border-emerald-500/50 bg-emerald-500/5";
+                                        bgClass = "bg-emerald-500/5";
+                                     }
+
+                                     return (
+                                        <button 
+                                           key={oi} 
+                                           onClick={() => !isSubmitted && setAnswers(prev => ({ ...prev, [currentIdx]: opt }))}
+                                           disabled={isSubmitted}
+                                           className={`w-full text-left p-5 md:p-6 rounded-[24px] border-2 transition-all group relative overflow-hidden flex items-center justify-between ${borderClass} ${bgClass}`}
+                                        >
+                                           <div className={`absolute left-0 top-0 w-1.5 h-full bg-indigo-500 transition-transform duration-500 ${isSelected && !isSubmitted ? 'translate-x-0' : '-translate-x-full'}`} />
+                                           <div className="flex items-center gap-5 relative z-10">
+                                              <span className={`w-8 h-8 rounded-lg flex items-center justify-center font-black text-[10px] border-2 transition-all ${isSelected && !isSubmitted ? 'bg-white/10 border-white/20 text-white dark:text-black' : 'bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-400 group-hover:border-indigo-500/30 group-hover:text-indigo-500'}`}>
+                                                 {String.fromCharCode(65 + oi)}
+                                              </span>
+                                              <span className={`text-base font-bold leading-snug ${textClass}`}>
+                                                 {opt}
+                                              </span>
+                                           </div>
+                                           {isSelected && !isSubmitted && (
+                                              <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} className="w-6 h-6 bg-indigo-500 rounded-full flex items-center justify-center text-white shadow-lg relative z-10">
+                                                 <CheckCircle2 className="w-3.5 h-3.5" />
+                                              </motion.div>
+                                           )}
+                                           {isSubmitted && isCorrect && (
+                                              <div className="w-6 h-6 bg-emerald-500 rounded-full flex items-center justify-center text-white shadow-lg relative z-10">
+                                                 <CheckCircle2 className="w-3.5 h-3.5" />
+                                              </div>
+                                           )}
+                                           {isSubmitted && isSelected && !isCorrect && (
+                                              <div className="w-6 h-6 bg-rose-500 rounded-full flex items-center justify-center text-white shadow-lg relative z-10">
+                                                 <X className="w-3.5 h-3.5" />
+                                              </div>
+                                           )}
+                                        </button>
+                                     );
+                                  })}
+                               </div>
                            </div>
 
                            {/* Interactive Controls */}
-                           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 items-center pt-10 border-t border-slate-200 dark:border-white/5 pb-10">
+                           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 items-center pt-10 border-t border-slate-200 dark:border-white/5 pb-10">
                               <button 
                                  onClick={() => setCurrentIdx(prev => Math.max(0, prev - 1))}
                                  disabled={currentIdx === 0}
@@ -630,12 +681,23 @@ function QuizModal({ mcqs, onClose }: { mcqs: any[], onClose: () => void }) {
                               >
                                  <ChevronLeft className="w-4 h-4" /> Previous
                               </button>
-                              <button 
-                                 onClick={() => toggleMark(currentIdx)}
-                                 className={`py-4 rounded-2xl flex items-center justify-center gap-3 font-black uppercase tracking-widest text-[10px] transition-all border-2 ${markedForReview.has(currentIdx) ? 'bg-primary-light border-primary-light text-white shadow-xl shadow-primary-light/20' : 'bg-white dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-400 hover:border-primary-light/30 hover:text-primary-light'}`}
-                              >
-                                 <AlertCircle className="w-4 h-4" /> Mark Review
-                              </button>
+                              
+                              {!isSubmitted ? (
+                                 <button 
+                                    onClick={() => toggleMark(currentIdx)}
+                                    className={`py-4 rounded-2xl flex items-center justify-center gap-3 font-black uppercase tracking-widest text-[10px] transition-all border-2 ${markedForReview.has(currentIdx) ? 'bg-primary-light border-primary-light text-white shadow-xl shadow-primary-light/20' : 'bg-white dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-400 hover:border-primary-light/30 hover:text-primary-light'}`}
+                                 >
+                                    <AlertCircle className="w-4 h-4" /> Mark Review
+                                 </button>
+                              ) : (
+                                 <button 
+                                    onClick={() => setReviewMode(false)}
+                                    className="py-4 rounded-2xl flex items-center justify-center gap-3 font-black uppercase tracking-widest text-[10px] transition-all border-2 bg-indigo-500/10 border-indigo-500/30 text-indigo-500 hover:bg-indigo-500 hover:text-white"
+                                 >
+                                    <Layout className="w-4 h-4" /> View Results
+                                 </button>
+                              )}
+
                               <button 
                                  onClick={() => setCurrentIdx(prev => Math.min(mcqs.length - 1, prev + 1))}
                                  disabled={currentIdx === mcqs.length - 1}
@@ -643,13 +705,23 @@ function QuizModal({ mcqs, onClose }: { mcqs: any[], onClose: () => void }) {
                               >
                                  Next <ChevronRight className="w-4 h-4" />
                               </button>
-                              <button 
-                                 onClick={handleGlobalSubmit}
-                                 disabled={Object.keys(answers).length < mcqs.length && timeLeft > 0}
-                                 className={`py-4 rounded-2xl bg-slate-900 dark:bg-white text-white dark:text-black font-black uppercase tracking-[0.2em] text-[10px] transition-all shadow-2xl hover:scale-105 active:scale-[0.98] disabled:opacity-20 disabled:hover:scale-100 disabled:cursor-not-allowed shadow-slate-900/30 dark:shadow-white/10`}
-                              >
-                                 Submit
-                              </button>
+
+                              {!isSubmitted ? (
+                                 <button 
+                                    onClick={handleGlobalSubmit}
+                                    disabled={Object.keys(answers).length < mcqs.length && timeLeft > 0}
+                                    className={`py-4 rounded-2xl bg-slate-900 dark:bg-white text-white dark:text-black font-black uppercase tracking-[0.2em] text-[10px] transition-all shadow-2xl hover:scale-105 active:scale-[0.98] disabled:opacity-20 disabled:hover:scale-100 disabled:cursor-not-allowed shadow-slate-900/30 dark:shadow-white/10`}
+                                 >
+                                    Submit
+                                 </button>
+                              ) : (
+                                 <button 
+                                    onClick={onClose}
+                                    className="py-4 rounded-2xl bg-rose-500 text-white font-black uppercase tracking-[0.2em] text-[10px] transition-all shadow-2xl shadow-rose-500/20 hover:bg-rose-600"
+                                 >
+                                    Close Assessment
+                                 </button>
+                              )}
                            </div>
                         </motion.div>
                      )}
