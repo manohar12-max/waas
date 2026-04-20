@@ -324,6 +324,9 @@ export class SessionContentService {
       );
       return updatedSession;
     }
+
+    await session.save();
+    return session;
   }
 
   async addMaterials(sessionId: string, materials: any[]) {
