@@ -157,14 +157,14 @@ export const SlideViewer: React.FC<SlideViewerProps> = ({ groups, unitTitle }) =
     if (dotStart + dotCount > total) dotStart = Math.max(0, total - dotCount);
 
     return (
-        <div ref={containerRef} className={`flex flex-col rounded-[32px] overflow-hidden ${isFullscreen ? 'h-screen bg-slate-100 dark:bg-card-dark p-4' : 'h-full bg-white/5 border border-white/10'}`}>
+        <div ref={containerRef} className={`flex flex-col rounded-[32px] overflow-hidden ${isFullscreen ? 'h-screen bg-slate-50 dark:bg-[#020208] p-4' : 'h-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10'}`}>
             {/* ── Top bar ── */}
             <div className="flex items-center justify-between mb-3 p-6 pb-2 gap-3 flex-wrap">
-                <div className="flex items-center gap-2 text-sm text-slate-400 min-w-0">
+                <div className="flex items-center gap-2 text-sm text-slate-400 dark:text-slate-500 min-w-0">
                     <BookOpen className="w-4 h-4 shrink-0" />
-                    <span className="font-medium text-white truncate">{unitTitle}</span>
+                    <span className="font-bold text-slate-900 dark:text-white truncate">{unitTitle}</span>
                     <ChevronRight className="w-3.5 h-3.5 shrink-0 opacity-20" />
-                    <span className="truncate max-w-[180px] opacity-40">{subTopicTitle}</span>
+                    <span className="truncate max-w-[180px] text-slate-500 dark:text-white/40 font-medium">{subTopicTitle}</span>
                 </div>
 
                 <div className="flex items-center gap-2 shrink-0">
@@ -175,13 +175,13 @@ export const SlideViewer: React.FC<SlideViewerProps> = ({ groups, unitTitle }) =
                     </div>
 
                     {isPlaying && (
-                        <div className="flex items-center gap-1 bg-white/5 border border-white/10 rounded-xl px-2 py-1 shadow-sm">
-                            <Clock className="w-3.5 h-3.5 opacity-20" />
+                        <div className="flex items-center gap-1 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl px-2 py-1 shadow-sm">
+                            <Clock className="w-3.5 h-3.5 text-slate-400 dark:text-white/20" />
                             {AUTO_PLAY_SPEEDS.map((s, i) => (
                                 <button
                                     key={i}
                                     onClick={() => setSpeedIdx(i)}
-                                    className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-lg transition-colors ${i === speedIdx ? 'bg-primary-light text-white' : 'text-slate-400 hover:bg-white/5'
+                                    className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-lg transition-colors ${i === speedIdx ? 'bg-primary-light text-white' : 'text-slate-400 hover:bg-slate-100 dark:hover:bg-white/5'
                                         }`}
                                 >
                                     {s.label}
@@ -194,7 +194,7 @@ export const SlideViewer: React.FC<SlideViewerProps> = ({ groups, unitTitle }) =
                         onClick={() => setIsPlaying(!isPlaying)}
                         className={`p-2 rounded-xl border transition-colors ${isPlaying
                                 ? 'bg-primary-light text-white border-primary-light'
-                                : 'bg-white/5 text-white/40 border-white/10 hover:border-primary-light/50 hover:text-primary-light'
+                                : 'bg-white dark:bg-white/5 text-slate-400 dark:text-white/40 border-slate-200 dark:border-white/10 hover:border-primary-light/50 hover:text-primary-light'
                             }`}
                     >
                         {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
@@ -204,7 +204,7 @@ export const SlideViewer: React.FC<SlideViewerProps> = ({ groups, unitTitle }) =
                         onClick={() => setShowIndex(!showIndex)}
                         className={`p-2 rounded-xl border transition-colors ${showIndex
                                 ? 'bg-primary-light text-white border-primary-light'
-                                : 'bg-white/5 text-white/40 border-white/10 hover:border-primary-light/50 hover:text-primary-light'
+                                : 'bg-white dark:bg-white/5 text-slate-400 dark:text-white/40 border-slate-200 dark:border-white/10 hover:border-primary-light/50 hover:text-primary-light'
                             }`}
                     >
                         {showIndex ? <X className="w-4 h-4" /> : <List className="w-4 h-4" />}
@@ -212,7 +212,7 @@ export const SlideViewer: React.FC<SlideViewerProps> = ({ groups, unitTitle }) =
 
                     <button
                         onClick={toggleFullscreen}
-                        className="p-2 rounded-xl border bg-white/5 text-white/40 border-white/10 hover:border-primary-light/50 hover:text-primary-light transition-colors"
+                        className="p-2 rounded-xl border bg-white dark:bg-white/5 text-slate-400 dark:text-white/40 border-slate-200 dark:border-white/10 hover:border-primary-light/50 hover:text-primary-light transition-colors"
                     >
                         {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
                     </button>
@@ -225,10 +225,10 @@ export const SlideViewer: React.FC<SlideViewerProps> = ({ groups, unitTitle }) =
                 {showIndex && (
                     <div
                         ref={indexRef}
-                        className="w-64 shrink-0 bg-white/5 border border-white/10 rounded-2xl overflow-y-auto flex flex-col custom-scrollbar"
+                        className="w-64 shrink-0 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-2xl overflow-y-auto flex flex-col custom-scrollbar shadow-sm"
                     >
-                        <div className="px-4 py-3 border-b border-white/10 sticky top-0 bg-[#1A1A2E] z-10">
-                            <p className="text-[10px] font-black text-white/20 uppercase tracking-[0.2em]">Index</p>
+                        <div className="px-4 py-3 border-b border-slate-100 dark:border-white/10 sticky top-0 bg-white dark:bg-[#1A1A2E] z-10">
+                            <p className="text-[10px] font-black text-slate-400 dark:text-white/20 uppercase tracking-[0.2em]">Index</p>
                         </div>
                         <div className="p-2 space-y-1">
                             {slides.map(({ slide: s, subTopicTitle: st, globalIndex: gi }) => (
@@ -238,10 +238,10 @@ export const SlideViewer: React.FC<SlideViewerProps> = ({ groups, unitTitle }) =
                                     onClick={() => goTo(gi)}
                                     className={`w-full text-left px-3 py-2.5 rounded-xl transition-colors ${gi === current
                                             ? 'bg-primary-light text-white'
-                                            : 'hover:bg-white/5 text-white/60'
+                                            : 'hover:bg-slate-50 dark:hover:bg-white/5 text-slate-800 dark:text-white/60'
                                         }`}
                                 >
-                                    <div className={`text-[9px] font-black uppercase mb-0.5 ${gi === current ? 'text-white' : 'text-white/20'}`}>
+                                    <div className={`text-[9px] font-black uppercase mb-0.5 ${gi === current ? 'text-white' : 'text-slate-400 dark:text-white/20'}`}>
                                         {gi + 1} · {st}
                                     </div>
                                     <div className="text-xs font-bold leading-snug line-clamp-2">
@@ -262,11 +262,11 @@ export const SlideViewer: React.FC<SlideViewerProps> = ({ groups, unitTitle }) =
                             style={{ animation: `${direction === 'next' ? 'slideInFromRight' : 'slideInFromLeft'} 0.35s cubic-bezier(0.22,1,0.36,1) both` }}
                         >
                             <div className="space-y-3">
-                                <h2 className="text-3xl md:text-5xl font-black tracking-tight text-white leading-tight">
+                                <h2 className="text-3xl md:text-5xl font-black tracking-tight text-slate-900 dark:text-white leading-tight italic">
                                     <SplitTitle title={slide.title} />
                                 </h2>
                                 {description && (
-                                    <p className="text-lg text-white/60 leading-relaxed font-medium">{description}</p>
+                                    <p className="text-lg text-slate-800 dark:text-white/60 leading-relaxed font-bold tracking-tight">{description}</p>
                                 )}
                             </div>
 
@@ -278,14 +278,14 @@ export const SlideViewer: React.FC<SlideViewerProps> = ({ groups, unitTitle }) =
                                         const label = hasLabel ? point.slice(0, colonIdx).trim() : null;
                                         const body = hasLabel ? point.slice(colonIdx + 1).trim() : point;
                                         return (
-                                            <div key={i} className="p-5 rounded-2xl border border-white/5 bg-white/5 transition-all hover:border-primary-light/20">
+                                            <div key={i} className="p-6 rounded-[24px] border border-slate-200 dark:border-white/5 bg-white dark:bg-white/5 transition-all hover:border-primary-light/20 shadow-sm">
                                                 {label ? (
                                                     <>
-                                                        <h4 className="font-black text-[10px] uppercase tracking-widest mb-1 text-primary-light">{label}</h4>
-                                                        <p className="text-xs text-white/40 leading-relaxed font-medium">{body}</p>
+                                                        <h4 className="font-black text-[10px] uppercase tracking-[0.2em] mb-2 text-primary-light italic">{label}</h4>
+                                                        <p className="text-sm text-slate-600 dark:text-white/40 leading-relaxed font-medium">{body}</p>
                                                     </>
                                                 ) : (
-                                                    <p className="text-sm text-white/80 leading-relaxed font-medium">{body}</p>
+                                                    <p className="text-sm text-slate-700 dark:text-white/80 leading-relaxed font-medium">{body}</p>
                                                 )}
                                             </div>
                                         );
@@ -296,18 +296,18 @@ export const SlideViewer: React.FC<SlideViewerProps> = ({ groups, unitTitle }) =
                     </div>
 
                     {/* Bottom nav */}
-                    <div className="bg-[#1A1A2E]/80 backdrop-blur-md px-8 py-6 border-t border-white/5 flex items-center justify-between shrink-0">
+                    <div className="bg-white/80 dark:bg-[#1A1A2E]/80 backdrop-blur-md px-8 py-6 border-t border-slate-100 dark:border-white/5 flex items-center justify-between shrink-0">
                         <button
                             onClick={prev}
                             disabled={current === 0}
-                            className="flex items-center gap-2 px-6 py-3 rounded-2xl font-black uppercase text-[10px] tracking-widest text-white/40 hover:bg-white/5 hover:text-white disabled:opacity-10 disabled:cursor-not-allowed transition-all"
+                            className="flex items-center gap-2 px-6 py-3 rounded-2xl font-black uppercase text-[10px] tracking-widest text-slate-500 dark:text-white/40 hover:bg-slate-100 dark:hover:bg-white/5 hover:text-slate-900 dark:hover:text-white disabled:opacity-10 disabled:cursor-not-allowed transition-all"
                         >
                             <ChevronLeft className="w-5 h-5" />
                             Previous
                         </button>
 
                         <div className="flex items-center gap-1.5">
-                            {dotStart > 0 && <span className="text-white/10 text-xs">…</span>}
+                            {dotStart > 0 && <span className="text-slate-300 dark:text-white/10 text-xs">…</span>}
                             {Array.from({ length: dotCount }).map((_, i) => {
                                 const idx = dotStart + i;
                                 return (
@@ -319,12 +319,12 @@ export const SlideViewer: React.FC<SlideViewerProps> = ({ groups, unitTitle }) =
                                                 ? 'w-10 bg-primary-light shadow-[0_0_15px_rgba(var(--primary-rgb),0.5)]'
                                                 : idx < current
                                                     ? 'w-6 bg-primary-light/20'
-                                                    : 'w-6 bg-white/10'
+                                                    : 'w-6 bg-slate-300 dark:bg-white/10'
                                             }`}
                                     />
                                 );
                             })}
-                            {dotStart + dotCount < total && <span className="text-white/10 text-xs">…</span>}
+                            {dotStart + dotCount < total && <span className="text-slate-300 dark:text-white/10 text-xs">…</span>}
                         </div>
 
                         <button
