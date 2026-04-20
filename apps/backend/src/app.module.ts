@@ -14,11 +14,17 @@ import { ForumModule } from './forum/forum.module';
 import { BullModule } from '@nestjs/bullmq';
 import { SessionContentModule } from './workshops/session-content/session-content.module';
 import { SandboxModule } from './sandbox/sandbox.module';
+import { ServeStaticModule } from '@nestjs/serve-static';
+import { join } from 'path';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
+    }),
+    ServeStaticModule.forRoot({
+      rootPath: join(process.cwd(), 'uploads'),
+      serveRoot: '/uploads',
     }),
     MongooseModule.forRootAsync({
       imports: [ConfigModule],
