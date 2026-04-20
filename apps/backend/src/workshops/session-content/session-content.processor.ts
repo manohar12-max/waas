@@ -27,12 +27,20 @@ export class SessionContentProcessor {
       if (filePath) {
         try {
           await this.service.updateSessionStatus(sessionId, 'extracting');
-          const buffer = await fs.readFile(filePath);
-          extractedText = await this.pdfService.extractText(buffer);
+          const isOffice = filePath.toLowerCase().endsWith('.pptx') || 
+                           filePath.toLowerCase().endsWith('.ppt') || 
+                           filePath.toLowerCase().endsWith('.docx');
+          
+          if (isOffice) {
+            extractedText = await this.pdfService.extractFromOffice(filePath);
+          } else {
+            const buffer = await fs.readFile(filePath);
+            extractedText = await this.pdfService.extractText(buffer);
+          }
+          
           this.logger.log(`Extracted ${extractedText.length} characters for session ${sessionId}`);
         } catch (extError) {
           this.logger.error(`Extraction failed for session ${sessionId}: ${extError.message}`);
-          // Continue to generation even if extraction fails (fallback to title)
         }
       }
 
@@ -57,16 +65,6 @@ export class SessionContentProcessor {
 
       this.logger.log(`Successfully generated content for session: ${sessionId}`);
       
-      // Cleanup file after processing
-      if (filePath) {
-        try {
-          await fs.unlink(filePath);
-          this.logger.log(`Deleted temporary file: ${filePath}`);
-        } catch (err) {
-          this.logger.warn(`Failed to delete temporary file: ${filePath}`);
-        }
-      }
-
       return generatedData;
     } catch (error) {
       this.logger.error(`Failed to generate content for session: ${sessionId}`, error.stack);

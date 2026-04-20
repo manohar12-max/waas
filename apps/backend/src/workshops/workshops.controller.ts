@@ -31,7 +31,7 @@ export class WorkshopsController {
   }
 
   @Get()
-  @Roles(UserRole.COLLEGE_ADMIN, UserRole.TEACHER, UserRole.INSTRUCTOR)
+  @Roles(UserRole.COLLEGE_ADMIN, UserRole.TEACHER, UserRole.INSTRUCTOR, UserRole.STUDENT)
   findAll(
     @GetUser('collegeId') collegeId: string,
     @GetUser('role') role: string,
@@ -49,7 +49,7 @@ export class WorkshopsController {
   }
 
   @Get(':id')
-  @Roles(UserRole.COLLEGE_ADMIN, UserRole.TEACHER, UserRole.INSTRUCTOR)
+  @Roles(UserRole.COLLEGE_ADMIN, UserRole.TEACHER, UserRole.INSTRUCTOR, UserRole.STUDENT)
   findOne(@Param('id') id: string, @GetUser('collegeId') collegeId: string) {
     return this.workshopsService.findOne(id, collegeId);
   }

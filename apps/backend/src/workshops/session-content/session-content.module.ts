@@ -9,6 +9,7 @@ import { SessionContentService } from './session-content.service';
 import { SessionContentController } from './session-content.controller';
 import { SessionContentProcessor } from './session-content.processor';
 import { PDFService } from '../../infrastructure/pdf/pdf.service';
+import { AIServiceClient } from './ai-service.client';
 
 @Module({
   imports: [
@@ -20,7 +21,7 @@ import { PDFService } from '../../infrastructure/pdf/pdf.service';
     ]),
     HttpModule,
   ],
-  providers: [SessionContentService, SessionContentProcessor, PDFService],
+  providers: [SessionContentService, SessionContentProcessor, PDFService, AIServiceClient],
   controllers: [SessionContentController],
   exports: [SessionContentService],
 })

@@ -15,10 +15,18 @@ import { NaacReportsModule } from './naac-reports/naac-reports.module';
 import { GlobalRulesModule } from './global-rules/global-rules.module';
 import { SessionContentModule } from './workshops/session-content/session-content.module';
 import { SandboxModule } from './sandbox/sandbox.module';
+import { ServeStaticModule } from '@nestjs/serve-static';
+import { join } from 'path';
 
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true }),
+    ConfigModule.forRoot({
+      isGlobal: true,
+    }),
+    ServeStaticModule.forRoot({
+      rootPath: join(process.cwd(), 'uploads'),
+      serveRoot: '/uploads',
+    }),
     MongooseModule.forRootAsync({
       imports: [ConfigModule],
       useFactory: async (configService: ConfigService) => ({

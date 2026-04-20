@@ -1,6 +1,27 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, Types } from 'mongoose';
 
+@Schema({ _id: false })
+export class SessionMaterial {
+  @Prop({ required: true })
+  title: string;
+
+  @Prop({ required: true })
+  url: string;
+
+  @Prop()
+  filePath?: string;
+
+  @Prop({ required: true, enum: ['PDF', 'SLIDES', 'VIDEO', 'LINK', 'OTHER'], default: 'PDF' })
+  type: string;
+
+  @Prop({ default: false })
+  isSourceForAI: boolean;
+
+  @Prop({ default: false })
+  isPublished: boolean;
+}
+
 @Schema({ timestamps: true })
 export class Session {
   @Prop({ type: Types.ObjectId, ref: 'Workshop', required: true })
@@ -18,6 +39,9 @@ export class Session {
   @Prop()
   filePath?: string;
 
+  @Prop({ type: [SessionMaterial], default: [] })
+  materials: SessionMaterial[];
+
   @Prop({
     required: true,
     enum: ['pending', 'extracting', 'generating', 'generated', 'approved', 'failed'],
@@ -27,6 +51,16 @@ export class Session {
 
   @Prop()
   jobId?: string;
+
+  @Prop()
+  aiSessionId?: string;
+
+  @Prop({
+    enum: ['Draft', 'Stage1', 'Stage2', 'Finalized'],
+    default: 'Draft'
+  })
+  aiWorkflowStage: string;
 }
 
 export const SessionSchema = SchemaFactory.createForClass(Session);
+

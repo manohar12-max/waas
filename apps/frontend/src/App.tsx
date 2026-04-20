@@ -22,6 +22,7 @@ import MediaFeedPage from './modules/media/MediaFeedPage';
 import LearningCenterPage from './modules/learning/LearningCenterPage';
 import InstructorPortal from './modules/instructor/InstructorPortal';
 import InstructorWorkshopManage from './modules/instructor/InstructorWorkshopManage';
+import InstructorSessionMaterials from './modules/instructor/InstructorSessionMaterials';
 import AssignmentManagement from './modules/teacher/AssignmentManagement';
 import DashboardLayout from './components/layouts/DashboardLayout';
 import ForumHubPage from './modules/forum/ForumHubPage';
@@ -149,6 +150,12 @@ function App() {
             <Route path="/instructor/workshop/:id/manage" element={
               <ProtectedRoute allowedRoles={['INSTRUCTOR']}>
                 <InstructorWorkshopManage />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/instructor/workshop/:workshopId/session/:sessionId/materials" element={
+              <ProtectedRoute allowedRoles={['INSTRUCTOR']}>
+                <InstructorSessionMaterials />
               </ProtectedRoute>
             } />
 
