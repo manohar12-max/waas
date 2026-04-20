@@ -10,8 +10,9 @@ import { DivisionsModule } from './divisions/divisions.module';
 import { WorkshopsModule } from './workshops/workshops.module';
 import { AssignmentsModule } from './assignments/assignments.module';
 import { ForumModule } from './forum/forum.module';
-
-import { BullModule } from '@nestjs/bullmq';
+import { AnnouncementsModule } from './announcements/announcements.module';
+import { NaacReportsModule } from './naac-reports/naac-reports.module';
+import { GlobalRulesModule } from './global-rules/global-rules.module';
 import { SessionContentModule } from './workshops/session-content/session-content.module';
 import { SandboxModule } from './sandbox/sandbox.module';
 import { ServeStaticModule } from '@nestjs/serve-static';
@@ -33,12 +34,6 @@ import { join } from 'path';
       }),
       inject: [ConfigService],
     }),
-    BullModule.forRoot({
-      connection: {
-        host: 'localhost',
-        port: 6379,
-      },
-    }),
     UsersModule,
     AuthModule,
     CollegesModule,
@@ -48,8 +43,12 @@ import { join } from 'path';
     SessionContentModule,
     ForumModule,
     SandboxModule,
+    AnnouncementsModule,
+    NaacReportsModule,
+    GlobalRulesModule,
   ],
   controllers: [AppController],
   providers: [AppService],
 })
 export class AppModule {}
+

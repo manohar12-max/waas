@@ -42,6 +42,28 @@ export default function LoginPage() {
       const { access_token, user } = response.data;
       localStorage.setItem("token", access_token);
       localStorage.setItem("user", JSON.stringify(user));
+
+      // Fetch and store college status for expiry gate
+      if (user.collegeId && user.role !== 'SUPER_ADMIN') {
+        try {
+          const collegeRes = await axios.get(`${import.meta.env.VITE_API_URL}/colleges/${user.collegeId}`, {
+            headers: { Authorization: `Bearer ${access_token}` }
+          });
+          localStorage.setItem('college_status', collegeRes.data.status || 'ACTIVE');
+          // Store college name for NAAC and other pages that need it
+          const updatedUser = { ...user, collegeName: collegeRes.data.name };
+          localStorage.setItem('user', JSON.stringify(updatedUser));
+          if (collegeRes.data.status === 'EXPIRED') {
+            navigate('/expired');
+            return;
+          }
+        } catch {
+          localStorage.setItem('college_status', 'ACTIVE'); // fail open
+        }
+      } else {
+        localStorage.removeItem('college_status');
+      }
+
       navigate("/dashboard");
     } catch (err: any) {
       setError(err.response?.data?.message || `${isLogin ? 'Login' : 'Registration'} failed.`);

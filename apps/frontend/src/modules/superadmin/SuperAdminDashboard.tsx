@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { Plus, School, Users, Activity, ShieldCheck, Edit3, Trash2, Settings } from 'lucide-react';
 import UniversalModal from '../../components/UniversalModal';
 import { normalizeEmail } from '../../utils/normalization';
+import AnnouncementsWidget from '../../components/AnnouncementsWidget';
 
 interface College {
   _id: string;
@@ -278,9 +279,11 @@ export default function SuperAdminDashboard() {
                     <td className="px-6 py-5">
                       <span className={`px-3 py-1 rounded-full text-[10px] font-bold tracking-wider ${college.status === 'ACTIVE'
                         ? 'bg-green-500/10 text-green-500'
+                        : college.status === 'EXPIRED'
+                        ? 'bg-red-500/10 text-red-500'
                         : 'bg-yellow-500/10 text-yellow-500'
                         }`}>
-                        {college.status}
+                        {college.status === 'EXPIRED' ? '⏱ Expired' : college.status}
                       </span>
                     </td>
                     <td className="px-6 py-5">
@@ -363,9 +366,9 @@ export default function SuperAdminDashboard() {
               value={newCollege.status}
               onChange={e => setNewCollege({...newCollege, status: e.target.value})}
             >
-              <option value="ACTIVE" className="bg-slate-800 text-white">ACTIVE</option>
-              <option value="INACTIVE" className="bg-slate-800 text-white">INACTIVE</option>
-              <option value="SUSPENDED" className="bg-slate-800 text-white">SUSPENDED</option>
+              <option value="ACTIVE" className="bg-slate-800 text-white">ACTIVE — Fully Operational</option>
+              <option value="INACTIVE" className="bg-slate-800 text-white">INACTIVE — Temporarily Paused</option>
+              <option value="EXPIRED" className="bg-slate-800 text-white">EXPIRED — Subscription Ended</option>
             </select>
           </div>
 
@@ -474,6 +477,9 @@ export default function SuperAdminDashboard() {
           </div>
         </div>
       </UniversalModal>
+
+      {/* Announcements Section */}
+      <AnnouncementsWidget />
     </div>
   );
 }

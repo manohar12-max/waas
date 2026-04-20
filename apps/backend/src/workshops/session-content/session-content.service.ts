@@ -1,8 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
-import { InjectQueue } from '@nestjs/bullmq';
-import { Queue } from 'bullmq';
 import { Day } from './schemas/day.schema';
 import { Session } from './schemas/session.schema';
 import { SessionContent } from './schemas/session-content.schema';
@@ -18,7 +16,6 @@ export class SessionContentService {
     @InjectModel(Session.name) private sessionModel: Model<Session>,
     @InjectModel(SessionContent.name) private contentModel: Model<SessionContent>,
     @InjectModel(Workshop.name) private workshopModel: Model<Workshop>,
-    @InjectQueue('session-content-generation') private generationQueue: Queue,
     private readonly aiClient: AIServiceClient,
     private readonly pdfService: PDFService,
   ) {}

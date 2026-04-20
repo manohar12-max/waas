@@ -11,7 +11,6 @@ export default function ProtectedRoute({ children, allowedRoles }: ProtectedRout
   const location = useLocation();
 
   if (!token || !userStr) {
-    // Redirect to login but save the current location to redirect back after login
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
@@ -22,8 +21,13 @@ export default function ProtectedRoute({ children, allowedRoles }: ProtectedRout
     return <>{children}</>;
   }
 
+  // Gate: If college subscription is expired, block access
+  const collegeStatus = localStorage.getItem('college_status');
+  if (collegeStatus === 'EXPIRED') {
+    return <Navigate to="/expired" replace />;
+  }
+
   if (allowedRoles && !allowedRoles.includes(user.role)) {
-    // Role not authorized, send to base dashboard
     return <Navigate to="/dashboard" replace />;
   }
 
