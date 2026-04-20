@@ -304,7 +304,7 @@ export class SessionContentService {
       session.materials.push(...data.materials);
     }
 
-    // 2. If we just want to toggle source for an EXTISTING material
+    // 2. If we just want to toggle source for an EXISTING material
     if (data.materialUrl) {
       // Robust Toggle: Create a fresh array with all flags cleared except the target
       const updatedMaterials = session.materials.map(m => {
@@ -324,6 +324,10 @@ export class SessionContentService {
       );
       return updatedSession;
     }
+
+    // ✅ FIXED: Always save — was missing, causing uploaded materials to silently vanish
+    await session.save();
+    return session;
   }
 
   async addMaterials(sessionId: string, materials: any[]) {
