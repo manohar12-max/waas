@@ -123,6 +123,8 @@ export class AuthService {
         id: user._id,
         name: user.name,
         email: user.email,
+        phone: user.phone,
+        phoneNumber: user.phoneNumber,
         role: user.role,
         collegeId: user.collegeId,
       },

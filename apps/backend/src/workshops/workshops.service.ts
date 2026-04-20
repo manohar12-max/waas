@@ -31,7 +31,7 @@ export class WorkshopsService {
 
   async enrollStudent(enrollDto: any) {
     const email = enrollDto.email?.trim()?.toLowerCase() || '';
-    const { inviteToken, name, phone, password } = enrollDto;
+    const { inviteToken, name, phone, phoneNumber, password } = enrollDto;
     this.logger.log(`Enrollment attempt: ${email} for token ${inviteToken}`);
 
     const rules = await this.globalRules.get();
@@ -98,6 +98,7 @@ export class WorkshopsService {
         name,
         email,
         phone,
+        phoneNumber,
         password: hashedPassword,
         role: UserRole.STUDENT,
         collegeId: workshop.collegeId,

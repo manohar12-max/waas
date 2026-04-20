@@ -25,6 +25,9 @@ export class User {
   @Prop()
   phone?: string;
 
+  @Prop()
+  phoneNumber?: string;
+
   @Prop({
     required: true,
     enum: UserRole,

@@ -42,11 +42,12 @@ export class AuthController {
 
   @UseGuards(JwtAuthGuard)
   @Patch('profile')
-  async updateProfile(@Request() req, @Body() body: { name?: string; phone?: string; currentPassword?: string; newPassword?: string }) {
+  async updateProfile(@Request() req, @Body() body: { name?: string; phone?: string; phoneNumber?: string; currentPassword?: string; newPassword?: string }) {
     const userId = req.user.id || req.user.sub;
     const updateData: any = {};
     if (body.name) updateData.name = body.name;
     if (body.phone) updateData.phone = body.phone;
+    if (body.phoneNumber) updateData.phoneNumber = body.phoneNumber;
     if (body.newPassword && body.currentPassword) {
       // Validate current password before allowing change
       const validation = await this.authService.signIn(req.user.email, body.currentPassword).catch(() => null);
@@ -54,7 +55,14 @@ export class AuthController {
       updateData.password = body.newPassword;
     }
     const updated = await this.usersService.update(userId, updateData);
-    return { name: updated.name, email: updated.email, phone: updated.phone, profileImage: updated.profileImage, role: updated.role };
+    return { 
+      name: updated.name, 
+      email: updated.email, 
+      phone: updated.phone, 
+      phoneNumber: updated.phoneNumber,
+      profileImage: updated.profileImage, 
+      role: updated.role 
+    };
   }
 
   @UseGuards(JwtAuthGuard)
