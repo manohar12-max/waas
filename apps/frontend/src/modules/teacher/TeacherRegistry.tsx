@@ -21,7 +21,8 @@ export default function TeacherRegistry() {
     name: '',
     email: '',
     phone: '',
-    password: 'Nexus@123'
+    password: 'Nexus@123',
+    confirmPassword: 'Nexus@123'
   });
 
   useEffect(() => {
@@ -46,6 +47,11 @@ export default function TeacherRegistry() {
   const handleAddStudent = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!division?.workshopId?._id) return;
+
+    if (formData.password !== formData.confirmPassword) {
+      alert("Passwords do not match!");
+      return;
+    }
     
     setFormLoading(true);
     try {
@@ -54,7 +60,7 @@ export default function TeacherRegistry() {
         headers: { Authorization: `Bearer ${token}` }
       });
       setShowAddModal(false);
-      setFormData({ name: '', email: '', phone: '', password: 'Nexus@123' });
+      setFormData({ name: '', email: '', phone: '', password: 'Nexus@123', confirmPassword: 'Nexus@123' });
       fetchData();
     } catch (err: any) {
       alert(err.response?.data?.message || "Failed to add student");
@@ -197,16 +203,31 @@ export default function TeacherRegistry() {
           </div>
 
           <div className="space-y-2">
-            <label className="text-[10px] font-black uppercase tracking-[0.2em] opacity-40 ml-4">Initial Password</label>
+            <label className="text-[10px] font-black uppercase tracking-[0.2em] opacity-40 ml-4">Portal Password</label>
             <div className="relative group">
               <Lock className="absolute left-6 top-1/2 -translate-y-1/2 w-4 h-4 opacity-30 group-focus-within:opacity-100 group-focus-within:text-primary-light transition-all" />
               <input
-                type="text"
+                type="password"
                 required
                 value={formData.password}
                 onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                 className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/5 rounded-2xl py-5 pl-14 pr-6 outline-none focus:ring-2 focus:ring-primary-light/20 transition-all font-bold"
                 placeholder="Temporary Password"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-[10px] font-black uppercase tracking-[0.2em] opacity-40 ml-4">Confirm Password</label>
+            <div className="relative group">
+              <Lock className="absolute left-6 top-1/2 -translate-y-1/2 w-4 h-4 opacity-30 group-focus-within:opacity-100 group-focus-within:text-primary-light transition-all" />
+              <input
+                type="password"
+                required
+                value={formData.confirmPassword}
+                onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
+                className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/5 rounded-2xl py-5 pl-14 pr-6 outline-none focus:ring-2 focus:ring-primary-light/20 transition-all font-bold"
+                placeholder="Repeat password"
               />
             </div>
           </div>
