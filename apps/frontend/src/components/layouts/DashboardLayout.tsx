@@ -74,7 +74,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     { icon: Users, label: 'Teachers', path: '/teachers', roles: ['COLLEGE_ADMIN', 'INSTRUCTOR'] },
     { icon: Layout, label: 'Division Hub', path: '/divisions', roles: ['INSTRUCTOR'] },
     { icon: BookOpen, label: 'Workshop Hub', path: '/workshops', roles: ['COLLEGE_ADMIN', 'INSTRUCTOR'] },
-    { icon: Image, label: 'Media Feed', path: '/media-feed', roles: ['TEACHER', 'INSTRUCTOR'] },
+    { icon: Image, label: 'Media Feed', path: '/media-feed', roles: ['SUPER_ADMIN', 'COLLEGE_ADMIN', 'TEACHER', 'INSTRUCTOR', 'STUDENT'] },
     // Community Forum — hidden when forum_enabled = false
     ...(rules.forum_enabled ? [{ icon: Users, label: 'Community Forum', path: '/forum', roles: ['SUPER_ADMIN', 'COLLEGE_ADMIN', 'TEACHER', 'INSTRUCTOR', 'STUDENT'] }] : []),
     { icon: Library, label: 'Learning Center', path: '/learning-center', roles: ['TEACHER', 'INSTRUCTOR', 'STUDENT'] },
