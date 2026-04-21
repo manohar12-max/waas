@@ -60,7 +60,11 @@ function App() {
               </DashboardLayout>
             </ProtectedRoute>
           }>
-            <Route path="/dashboard" element={<Overview />} />
+            <Route path="/dashboard" element={
+              <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'COLLEGE_ADMIN', 'TEACHER', 'INSTRUCTOR']}>
+                <Overview />
+              </ProtectedRoute>
+            } />
 
             <Route path="/colleges" element={
               <ProtectedRoute allowedRoles={['SUPER_ADMIN']}>

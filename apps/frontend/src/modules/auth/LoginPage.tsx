@@ -20,8 +20,14 @@ export default function LoginPage() {
 
   useEffect(() => {
     const token = localStorage.getItem('token');
-    if (token) {
-      navigate('/dashboard');
+    const userStr = localStorage.getItem('user');
+    if (token && userStr) {
+      const user = JSON.parse(userStr);
+      if (user.role === 'STUDENT') navigate("/student/dashboard");
+      else if (user.role === 'SUPER_ADMIN') navigate("/colleges");
+      else if (user.role === 'INSTRUCTOR') navigate("/instructor/portal");
+      else if (user.role === 'TEACHER') navigate("/teacher/divisions");
+      else navigate("/dashboard");
     }
   }, [navigate]);
 
@@ -64,7 +70,18 @@ export default function LoginPage() {
         localStorage.removeItem('college_status');
       }
 
-      navigate("/dashboard");
+      // Correctly route users based on their administrative level
+      if (user.role === 'STUDENT') {
+        navigate("/student/dashboard");
+      } else if (user.role === 'SUPER_ADMIN') {
+        navigate("/colleges");
+      } else if (user.role === 'INSTRUCTOR') {
+        navigate("/instructor/portal");
+      } else if (user.role === 'TEACHER') {
+        navigate("/teacher/divisions");
+      } else {
+        navigate("/dashboard");
+      }
     } catch (err: any) {
       setError(err.response?.data?.message || `${isLogin ? 'Login' : 'Registration'} failed.`);
     } finally {
