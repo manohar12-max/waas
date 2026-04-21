@@ -39,7 +39,6 @@ function App() {
       <Router>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
-          <Route path="/register" element={<StudentRegistrationPage />} />
           <Route path="/check-in/:id" element={<AttendanceCheckinPage />} />
           <Route path="/submit/:id" element={<AssignmentSubmissionPage />} />
           <Route path="/expired" element={<ExpiredPage />} />

@@ -18,8 +18,20 @@ export class WorkshopsController {
     return this.workshopsService.validateInvite(token);
   }
 
-  @Public()
+  // Restricted manual enrollment/creation by Teachers/Admins
+  @Post(':id/students')
+  @Roles(UserRole.TEACHER, UserRole.INSTRUCTOR, UserRole.COLLEGE_ADMIN)
+  createStudent(
+    @Param('id') workshopId: string,
+    @Body() studentData: any,
+    @GetUser('collegeId') collegeId: string
+  ) {
+    return this.workshopsService.createStudentForWorkshop(workshopId, studentData, collegeId);
+  }
+
+  // Deprecated: Public enrollment is now restricted to avoid self-creation
   @Post('enroll')
+  @Roles(UserRole.SUPER_ADMIN) 
   enrollStudent(@Body() enrollDto: any) {
     return this.workshopsService.enrollStudent(enrollDto);
   }

@@ -123,6 +123,47 @@ export class WorkshopsService {
     };
   }
 
+  async createStudentForWorkshop(workshopId: string, studentData: any, collegeId: any) {
+    const { name, email, phone, password } = studentData;
+    const trimmedEmail = email.trim().toLowerCase();
+
+    // 1. Check if workshop exists
+    const workshop = await this.workshopModel.findById(workshopId);
+    if (!workshop) throw new NotFoundException('Workshop not found');
+
+    // 2. Resolve Student Identity
+    let student = await this.userModel.findOne({ 
+      email: { $regex: new RegExp(`^${trimmedEmail}$`, 'i') } 
+    });
+    
+    if (student) {
+      if (student.role !== UserRole.STUDENT) {
+        throw new ConflictException('A user with this email already exists with a different role (Teacher/Admin).');
+      }
+    } else {
+      // Create new student identity
+      const hashedPassword = await bcrypt.hash(password || 'Nexus@123', 10);
+      student = new this.userModel({
+        name,
+        email: trimmedEmail,
+        phone,
+        password: hashedPassword,
+        role: UserRole.STUDENT,
+        collegeId: this.toObjectId(collegeId),
+        active: true
+      });
+      student = await student.save();
+      this.logger.log(`Created new student account for ${trimmedEmail}`);
+    }
+
+    // 3. Enroll in Workshop
+    await this.workshopModel.findByIdAndUpdate(workshopId, {
+      $addToSet: { registeredStudentIds: (student as any)._id }
+    });
+
+    return student;
+  }
+
   private toObjectId(id: any): Types.ObjectId | null {
     if (!id) return null;
     if (id instanceof Types.ObjectId) return id;

@@ -171,18 +171,11 @@ export default function LoginPage() {
               <Loader2 className="w-6 h-6 animate-spin" />
             ) : (
               <>
-                {isLogin ? "Authenticate" : "Create Account"}
+                Authenticate
               </>
             )}
           </motion.button>
         </form>
-
-        <button
-          onClick={() => setIsLogin(!isLogin)}
-          className="w-full text-center text-[10px] font-black uppercase tracking-widest opacity-40 mt-10 hover:opacity-100 transition-opacity cursor-pointer"
-        >
-          {isLogin ? "Need access? Join Network" : "Already member? Sign In"}
-        </button>
       </motion.div>
     </div>
   );
