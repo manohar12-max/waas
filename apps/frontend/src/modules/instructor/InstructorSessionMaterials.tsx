@@ -9,7 +9,6 @@ import {
 import { SlideViewer, UnitAssetsItem } from './components/SlideViewer';
 import DocViewer, { DocViewerRenderers } from "@cyntler/react-doc-viewer";
 import UniversalModal from '../../components/UniversalModal';
-import { DEMO_AI_CONTENT } from '../../utils/demoData';
 
 interface SessionMaterial {
   _id?: string;
@@ -70,8 +69,8 @@ export default function InstructorSessionMaterials() {
           });
           // Ensure it's an array for mapping
           const content = Array.isArray(contentRes.data) ? contentRes.data : contentRes.data ? [contentRes.data] : [];
-          setGeneratedContent(content.length > 0 ? content : DEMO_AI_CONTENT);
-        } catch (err) { setGeneratedContent(DEMO_AI_CONTENT); }
+          setGeneratedContent(content);
+        } catch (err) { setGeneratedContent([]); }
       }
     } catch (err) {
       console.error(err);

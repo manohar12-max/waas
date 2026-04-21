@@ -8,7 +8,6 @@ import {
 } from 'lucide-react';
 import DocViewer, { DocViewerRenderers } from "@cyntler/react-doc-viewer";
 import { SlideViewer, UnitAssetsItem } from '../instructor/components/SlideViewer';
-import { DEMO_AI_CONTENT } from '../../utils/demoData';
 
 interface Material {
   title: string;
@@ -114,8 +113,8 @@ export default function LearningCenterPage() {
                  headers: { Authorization: `Bearer ${token}` }
                });
                const content = Array.isArray(aiRes.data) ? aiRes.data : aiRes.data ? [aiRes.data] : [];
-               session.aiContent = content.length > 0 ? content : DEMO_AI_CONTENT;
-             } catch (e) { session.aiContent = DEMO_AI_CONTENT; }
+               session.aiContent = content;
+             } catch (e) { session.aiContent = []; }
           }
         }
 

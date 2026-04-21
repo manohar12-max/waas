@@ -320,35 +320,36 @@ export default function LiveWorkshopSession() {
                 <h3 className="text-xl font-black tracking-tight cursor-pointer">Active Pulse</h3>
               </div>
               
-              <div className="space-y-6 cursor-pointer">
-                 <div>
-                    <div className="flex justify-between items-end mb-2 cursor-pointer">
-                       <span className="text-[10px] font-black uppercase tracking-widest opacity-40 cursor-pointer">Participation Rate</span>
-                       <span className="text-sm font-black text-primary-light cursor-pointer">
-                         {workshop?.studentCount ? Math.round((attendance.length / 60) * 100) : 0}%
-                       </span>
-                    </div>
-                    <div className="h-2 bg-white/5 rounded-full overflow-hidden cursor-pointer">
-                       <motion.div 
-                         initial={{ width: 0 }}
-                         animate={{ width: `${workshop?.studentCount ? (attendance.length / 60) * 100 : 0}%` }}
-                         className="h-full bg-primary-light cursor-pointer"
-                       />
-                    </div>
-                 </div>
+                 <div className="space-y-6 cursor-pointer">
+                  <div>
+                     <div className="flex justify-between items-end mb-2 cursor-pointer">
+                        <span className="text-[10px] font-black uppercase tracking-widest opacity-40 cursor-pointer">Participation Rate</span>
+                        <span className="text-sm font-black text-primary-light cursor-pointer">
+                          {workshop?.registeredStudentIds?.length
+                            ? Math.min(100, Math.round((attendance.filter(a => a.status === 'PRESENT').length / workshop.registeredStudentIds.length) * 100))
+                            : 0}%
+                        </span>
+                     </div>
+                     <div className="h-2 bg-white/5 rounded-full overflow-hidden cursor-pointer">
+                        <motion.div 
+                          initial={{ width: 0 }}
+                          animate={{ width: `${workshop?.registeredStudentIds?.length ? Math.min(100, (attendance.filter(a => a.status === 'PRESENT').length / workshop.registeredStudentIds.length) * 100) : 0}%` }}
+                          className="h-full bg-primary-light cursor-pointer"
+                        />
+                     </div>
+                  </div>
 
-                 <div className="pt-6 border-t border-white/5 grid grid-cols-2 gap-6 cursor-pointer">
-                    <div>
-                       <p className="text-[10px] font-black uppercase tracking-widest opacity-30 mb-1 cursor-pointer">Documents Opened</p>
-                       <p className="text-2xl font-black cursor-pointer">24</p>
-                    </div>
-                    <div>
-                       <p className="text-[10px] font-black uppercase tracking-widest opacity-30 mb-1 cursor-pointer">Video Engagement</p>
-                       <p className="text-2xl font-black text-indigo-500 cursor-pointer">82%</p>
-                    </div>
-                 </div>
-              </div>
-            </div>
+                  <div className="pt-6 border-t border-white/5 grid grid-cols-2 gap-6 cursor-pointer">
+                     <div>
+                        <p className="text-[10px] font-black uppercase tracking-widest opacity-30 mb-1 cursor-pointer">Present</p>
+                        <p className="text-2xl font-black cursor-pointer">{attendance.filter(a => a.status === 'PRESENT').length}</p>
+                     </div>
+                     <div>
+                        <p className="text-[10px] font-black uppercase tracking-widest opacity-30 mb-1 cursor-pointer">Registered</p>
+                        <p className="text-2xl font-black text-indigo-500 cursor-pointer">{workshop?.registeredStudentIds?.length ?? '—'}</p>
+                     </div>
+                  </div>
+               </div></div>
 
             <div className="p-10 rounded-[56px] border border-primary-light/20 bg-primary-light/5 relative overflow-hidden group hover:bg-primary-light/10 transition-all cursor-pointer cursor-pointer">
                <div className="absolute top-0 right-0 p-8 text-primary-light opacity-20 group-hover:scale-125 transition-transform cursor-pointer">
