@@ -17,7 +17,7 @@ export const StatsChart: React.FC<ChartProps> = ({ data, title, type }) => {
   if (!data || data.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center h-full opacity-40">
-        <p className="text-sm font-black uppercase tracking-widest">No Data Available</p>
+        <p className="text-sm font-black uppercase tracking-widest px-8 text-center leading-relaxed">No {title} Data</p>
       </div>
     );
   }

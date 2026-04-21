@@ -485,6 +485,26 @@ export class WorkshopsService {
     ).exec();
   }
 
+  async likeMediaPost(postId: string, userId: string): Promise<WorkshopMediaPostDocument | null> {
+    const post = await this.mediaPostModel.findById(this.toObjectId(postId));
+    if (!post) throw new NotFoundException('Media post not found');
+
+    const uId = this.toObjectId(userId);
+    if (!uId) throw new BadRequestException('Invalid User ID');
+
+    const likes = post.likes || [];
+    const index = likes.findIndex(id => id.toString() === uId.toString());
+
+    if (index > -1) {
+      likes.splice(index, 1); // Unlike
+    } else {
+      likes.push(uId); // Like
+    }
+
+    post.likes = likes;
+    return post.save();
+  }
+
   // --- Teacher Content Methods ---
   async createTeacherContent(createDto: any, teacherId: string): Promise<TeacherContentDocument> {
     const { shareToMediaFeed, ...data } = createDto;

@@ -368,14 +368,8 @@ export default function StudentDashboard() {
                <h4 className="text-xl font-black tracking-tight">Achievements</h4>
              </div>
              <div className="space-y-4">
-               <div className="p-4 bg-white/5 rounded-2xl border border-white/5">
-                 <div className="flex justify-between text-[10px] font-black uppercase opacity-40 mb-2">
-                   <span>Program Completion</span>
-                   <span>0%</span>
-                 </div>
-                 <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
-                   <div className="h-full bg-primary-light w-0" />
-                 </div>
+               <div className="p-10 bg-slate-50 dark:bg-white/5 rounded-3xl border border-dashed border-slate-200 dark:border-white/10 text-center">
+                  <p className="text-[10px] font-black uppercase tracking-widest opacity-20">Milestones Coming Soon</p>
                </div>
              </div>
           </div>

@@ -98,7 +98,7 @@ export default function InstructorManagement() {
           <h1 className="text-4xl font-outfit font-black tracking-tight mb-2">Instructor Control</h1>
           <p className="opacity-40 font-medium">Manage and onboard instructors for your institution.</p>
         </motion.div>
-        {user.role === 'SUPER_ADMIN' && (
+        {['SUPER_ADMIN', 'COLLEGE_ADMIN'].includes(user.role) && (
           <motion.button
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
@@ -185,7 +185,7 @@ export default function InstructorManagement() {
                       </div>
                     </td>
                     <td className="px-6 py-6 text-right">
-                      {user.role === 'SUPER_ADMIN' && (
+                      {['SUPER_ADMIN', 'COLLEGE_ADMIN'].includes(user.role) && (
                         <motion.button 
                           whileHover={{ scale: 1.1, color: '#ef4444' }}
                           onClick={() => handleDelete(instructor._id)}
@@ -229,7 +229,7 @@ export default function InstructorManagement() {
               <input
                 required
                 className="w-full bg-slate-50 dark:bg-white/5 border border-slate-300 dark:border-white/10 rounded-2xl p-4 focus:ring-2 focus:ring-primary-light outline-none transition-all placeholder:opacity-20 text-slate-900 dark:text-white text-sm font-bold"
-                placeholder="Dr. John Doe"
+                placeholder="Full Name"
                 value={newInstructor.name}
                 onChange={e => setNewInstructor({...newInstructor, name: e.target.value})}
               />
@@ -241,7 +241,7 @@ export default function InstructorManagement() {
                 required
                 type="email"
                 className="w-full bg-slate-50 dark:bg-white/5 border border-slate-300 dark:border-white/10 rounded-2xl p-4 focus:ring-2 focus:ring-primary-light outline-none transition-all placeholder:opacity-20 text-slate-900 dark:text-white text-sm font-bold"
-                placeholder="john.doe@college.edu"
+                placeholder="faculty@institution.edu"
                 value={newInstructor.email}
                 onChange={e => setNewInstructor({...newInstructor, email: e.target.value})}
               />

@@ -115,24 +115,121 @@ const InstructorDashboard = ({ stats, loading }: any) => (
   </div>
 );
 
-const StudentDashboardView = ({ stats, loading }: any) => (
-  <div className="space-y-8">
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-      <QuickStat label="My Attendance" value={loading ? '...' : stats?.attendanceRate} icon={CheckCircle2} />
-      <QuickStat label="Joined Workshops" value={loading ? '...' : stats?.totalWorkshops} icon={BookOpen} />
-      <QuickStat label="Active Missions" value={loading ? '...' : stats?.assignments?.find((a: any) => a.name === 'submitted')?.value || 0} icon={Clock} />
-    </div>
+const StudentDashboardView = ({ stats, loading }: any) => {
+  const navigate = useNavigate();
+  const [liveWorkshops, setLiveWorkshops] = useState<any[]>([]);
+  const [assignmentStats, setAssignmentStats] = useState<any>(null);
+  const [assignTab, setAssignTab] = useState<'pending' | 'pastDue' | 'submitted'>('pending');
+  const [selectedWorkshop, setSelectedWorkshop] = useState<string | null>(null);
+  
+  useEffect(() => {
+    fetchLiveWorkshops();
+    fetchAssignments();
+  }, []);
 
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-      <div className="bg-card-light dark:bg-card-dark border border-slate-200 dark:border-white/5 p-8 rounded-[40px] shadow-2xl">
-        <StatsChart title="Progress Analytics" type="pie" data={stats?.assignments} />
+  const fetchAssignments = async () => {
+    try {
+      const response = await axios.get(`${API}/assignments/student/stats`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      });
+      setAssignmentStats(response.data);
+    } catch (err) { console.error(err); }
+  };
+
+  const fetchLiveWorkshops = async () => {
+    try {
+      const response = await axios.get(`${API}/workshops`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      });
+      setLiveWorkshops(response.data.filter((w: any) => w.status === 'ONGOING'));
+    } catch (err) { console.error(err); }
+  };
+
+  return (
+    <div className="space-y-12">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <QuickStat label="My Attendance" value={loading ? '...' : stats?.attendanceRate} icon={CheckCircle2} />
+        <QuickStat label="Joined Workshops" value={loading ? '...' : stats?.totalWorkshops} icon={BookOpen} />
+        <QuickStat label="Active Missions" value={loading ? '...' : stats?.assignments?.find((a: any) => a.name === 'submitted')?.value || 0} icon={Clock} />
       </div>
-      <div className="md:col-span-2 bg-card-light dark:bg-card-dark border border-slate-200 dark:border-white/5 p-8 rounded-[40px] shadow-2xl">
-        <StatsChart title="Recent Performance Metrics" type="bar" data={stats?.recentPerformance?.map((p: any) => ({ name: p.name, value: p.score }))} />
+
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+        <div className="lg:col-span-8 space-y-10">
+          <div className="bg-card-light dark:bg-card-dark border border-slate-200 dark:border-white/5 p-8 rounded-[48px] shadow-2xl">
+            <h3 className="font-black text-2xl tracking-tight mb-8 flex items-center gap-3">
+              <Clock className="w-6 h-6 text-primary-light" />
+              Live Workshop Theatre
+            </h3>
+            <div className="space-y-4">
+              {liveWorkshops.length > 0 ? (
+                liveWorkshops.map((w) => (
+                  <div key={w._id} className={`p-6 rounded-3xl border transition-all ${selectedWorkshop === w._id ? 'bg-primary-light/5 border-primary-light ring-4 ring-primary-light/5' : 'bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/5'}`}>
+                    <div className="flex justify-between items-center">
+                      <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 rounded-2xl bg-primary-light/10 flex items-center justify-center text-primary-light"><BookOpen className="w-6 h-6" /></div>
+                        <div>
+                          <h4 className="font-bold text-lg">{w.title}</h4>
+                          <p className="text-[10px] uppercase font-black tracking-widest opacity-40">Started: {new Date(w.schedule.start).toLocaleTimeString()}</p>
+                        </div>
+                      </div>
+                      <button onClick={() => setSelectedWorkshop(w._id)} className={`px-6 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all ${selectedWorkshop === w._id ? 'bg-primary-light text-white' : 'bg-slate-200 dark:bg-white/10 hover:bg-primary-light/10'}`}>
+                        {selectedWorkshop === w._id ? 'Selected' : 'Select'}
+                      </button>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="py-12 text-center opacity-20"><p className="text-[10px] font-black uppercase tracking-widest">No ongoing sessions</p></div>
+              )}
+            </div>
+          </div>
+
+          <div className="bg-card-light dark:bg-card-dark border border-slate-200 dark:border-white/5 p-8 rounded-[48px] shadow-2xl">
+            <div className="flex items-center justify-between mb-8">
+              <h3 className="font-black text-2xl tracking-tight flex items-center gap-3">
+                <FileText className="w-6 h-6 text-indigo-500" />
+                Active Assignments
+              </h3>
+              <div className="flex gap-2">
+                {(['pending', 'pastDue', 'submitted'] as const).map(tab => (
+                  <button key={tab} onClick={() => setAssignTab(tab)} className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${assignTab === tab ? 'bg-indigo-500 text-white' : 'bg-slate-100 dark:bg-white/5 opacity-50'}`}>
+                    {tab} ({assignmentStats?.counts[tab] || 0})
+                  </button>
+                ))}
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+               {(assignmentStats?.[assignTab] || []).map((a: any) => (
+                  <div key={a._id} className="p-5 bg-slate-50 dark:bg-white/5 rounded-3xl border border-slate-200 dark:border-white/5 flex flex-col justify-between group">
+                    <div>
+                      <h4 className="font-bold text-sm mb-2 line-clamp-1">{a.title}</h4>
+                      <p className="text-[9px] font-black uppercase opacity-40 mb-4">Due: {new Date(a.dueDate).toLocaleDateString()}</p>
+                    </div>
+                    {assignTab !== 'submitted' ? (
+                      <button onClick={() => navigate(`/submit/${a._id}`)} className="w-full py-2.5 bg-primary-light text-white rounded-xl text-[9px] font-black uppercase tracking-widest">Submit Mission</button>
+                    ) : (
+                      <div className="text-center py-2 text-green-500 text-[9px] font-black uppercase tracking-widest">Submitted ✓</div>
+                    )}
+                  </div>
+               ))}
+            </div>
+          </div>
+        </div>
+
+        <div className="lg:col-span-4 space-y-8">
+          <div className="bg-card-light dark:bg-card-dark border border-slate-200 dark:border-white/10 p-8 rounded-[48px] shadow-2xl space-y-6">
+             <div className="flex items-center gap-3">
+               <PieChartIcon className="w-10 h-10 text-primary-light opacity-20" />
+               <h3 className="text-lg font-black tracking-tight">Progress Scan</h3>
+             </div>
+             <StatsChart title="Assignment Status" type="pie" data={stats?.assignments} />
+          </div>
+        </div>
       </div>
     </div>
-  </div>
-);
+  );
+};
 
 export default function Overview() {
   const user = JSON.parse(localStorage.getItem('user') || '{}');
@@ -267,7 +364,7 @@ export default function Overview() {
           ) : activities.length === 0 ? (
             <div className="flex-1 flex flex-col items-center justify-center opacity-20 space-y-3">
               <FileText className="w-12 h-12 stroke-[1.5]" />
-              <p className="text-[10px] font-black uppercase tracking-[0.2em]">Zero Feed Delta</p>
+              <p className="text-[10px] font-black uppercase tracking-[0.2em]">No Activity Data Collected</p>
             </div>
           ) : (
             <div className="space-y-4 flex-1 overflow-y-auto max-h-[440px] pr-2 custom-scrollbar">

@@ -22,6 +22,9 @@ export class WorkshopMediaPost {
 
   @Prop()
   description?: string;
+
+  @Prop({ type: [{ type: Types.ObjectId, ref: 'User' }], default: [] })
+  likes: Types.ObjectId[];
 }
 
 export const WorkshopMediaPostSchema = SchemaFactory.createForClass(WorkshopMediaPost);

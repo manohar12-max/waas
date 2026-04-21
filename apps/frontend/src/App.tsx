@@ -9,7 +9,6 @@ import WorkshopHubPage from './modules/collegeadmin/WorkshopHubPage';
 import LiveWorkshopSessionPage from './modules/instructor/LiveWorkshopSessionPage';
 import StudentRegistrationPage from './modules/student/StudentRegistrationPage';
 import AttendanceCheckinPage from './modules/student/AttendanceCheckinPage';
-import StudentDashboard from './modules/student/StudentDashboard';
 import StudentProgressPage from './modules/student/StudentProgressPage';
 import ProtectedRoute from './components/ProtectedRoute';
 import AssignmentSubmissionPage from './modules/student/AssignmentSubmissionPage';
@@ -83,7 +82,7 @@ function App() {
             } />
 
             <Route path="/divisions" element={
-              <ProtectedRoute allowedRoles={['INSTRUCTOR']}>
+              <ProtectedRoute allowedRoles={['COLLEGE_ADMIN', 'INSTRUCTOR']}>
                 <DivisionManagementPage />
               </ProtectedRoute>
             } />
@@ -163,11 +162,6 @@ function App() {
             } />
 
             {/* Student Routes */}
-            <Route path="/student/dashboard" element={
-              <ProtectedRoute allowedRoles={['STUDENT']}>
-                <StudentDashboard />
-              </ProtectedRoute>
-            } />
 
             <Route path="/student/progress" element={
               <ProtectedRoute allowedRoles={['STUDENT']}>

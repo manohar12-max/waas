@@ -45,23 +45,31 @@
 
 /* Customized Sanctuary Scrollbar */
 .custom-scrollbar::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 8px;
+  height: 8px;
 }
 
 .custom-scrollbar::-webkit-scrollbar-track {
-  background: rgba(255, 255, 255, 0.01);
+  background: rgba(0, 0, 0, 0.05);
   border-radius: 10px;
 }
 
+.dark .custom-scrollbar::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.02);
+}
+
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: rgba(129, 140, 248, 0.15); /* primary-light with low opacity */
+  background: rgba(129, 140, 248, 0.4); /* primary-light 40% */
   border-radius: 10px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
   transition: all 0.3s ease;
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: rgba(129, 140, 248, 0.4);
+  background: rgba(129, 140, 248, 0.7); /* primary-light 70% */
+  border: 2px solid transparent;
+  background-clip: padding-box;
 }
 
 .no-scrollbar::-webkit-scrollbar {

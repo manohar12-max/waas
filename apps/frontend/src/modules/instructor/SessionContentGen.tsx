@@ -237,51 +237,24 @@ export default function SessionContentGen({ workshopId }: { workshopId: string }
                                 {session.status === 'generating' ? 'Still Processing...' : session.status}
                              </span>
                              {getWorkflowBadge(session)}
-                             {session.materials?.map((mat: SessionMaterial, mi) => (
-                                <div 
-                                  key={mi} 
-                                  onClick={(e) => { e.stopPropagation(); handleTogglePublish(session._id, mat.url); }}
-                                  className={`flex items-center gap-2 px-3 py-1 rounded-full border cursor-pointer hover:border-primary-light transition-all ${mat.isPublished ? 'bg-green-500/10 border-green-500/30 text-green-500' : 'bg-slate-100 dark:bg-white/5 opacity-50'}`}
-                                >
-                                  {mat.isPublished ? <Check className="w-3 h-3" /> : <FileText className="w-3 h-3" />}
-                                  <span className="text-[10px] font-bold uppercase truncate max-w-[100px]">{mat.title}</span>
-                                </div>
-                             ))}
+                             {session.materials?.length > 0 && (
+                                <span className="text-[10px] font-black uppercase opacity-40 tracking-widest">
+                                  {session.materials.length} Materials Attached
+                                </span>
+                             )}
                           </div>
                         </div>
                       </div>
                       <div className="flex items-center gap-2" onClick={e => e.stopPropagation()}>
-                        {(session.status === 'pending' || session.status === 'failed') && <button onClick={() => handleGenerate(session._id)} className="p-3 bg-primary-light/10 text-primary-light rounded-xl"><BrainCircuit className="w-5 h-5" /></button>}
-                        {session.status === 'generated' && session.aiWorkflowStage && session.aiWorkflowStage !== 'Finalized' && (
-                          <div className="flex items-center gap-2">
-                            <button 
-                              onClick={() => handleOpenReview(session)} 
-                              className="bg-amber-500 text-white px-6 py-4 rounded-2xl font-black text-[9px] uppercase tracking-widest flex items-center gap-2 shadow-xl shadow-amber-500/20"
-                            >
-                              <Edit3 className="w-4 h-4" /> Review Content
-                            </button>
-                            <button 
-                              onClick={() => { if(window.confirm("Restart generation? This will clear current progress.")) handleGenerate(session._id); }}
-                              className="p-4 bg-slate-100 dark:bg-white/5 text-slate-400 hover:text-red-500 rounded-2xl transition-colors"
-                              title="Restart AI Flow"
-                            >
-                              <BrainCircuit className="w-5 h-5" />
-                            </button>
-                          </div>
-                        )}
-                        {session.aiWorkflowStage === 'Finalized' && (
-                          <button onClick={() => handleApprove(session._id)} className="p-3 bg-green-500/10 text-green-500 rounded-xl"><Check className="w-5 h-5" /></button>
-                        )}
-                        
                         <button 
                           onClick={() => navigate(`/instructor/workshop/${workshopId}/session/${session._id}/materials`)}
-                          className="px-6 py-4 bg-primary-light text-white rounded-2xl hover:bg-primary-dark hover:scale-105 transition-all font-black text-[9px] uppercase tracking-widest hidden md:flex items-center gap-2 shadow-xl shadow-primary-light/20"
+                          className="px-6 py-4 bg-primary-light text-white rounded-2xl hover:bg-primary-dark hover:scale-105 transition-all font-black text-[9px] uppercase tracking-widest flex items-center gap-2 shadow-xl shadow-primary-light/20"
                         >
-                          <BookOpen className="w-4 h-4" /> View Materials
+                          <BookOpen className="w-4 h-4" /> Manage Content
                         </button>
 
-                        <button onClick={() => { setNewSession({ title: session.title }); setShowEditSessionModal({ session, workshopId }); }} className="p-4 bg-slate-100 dark:bg-white/5 text-slate-400 dark:text-white/30 rounded-2xl hover:text-primary-light dark:hover:text-white transition-colors"><Edit3 className="w-5 h-5" /></button>
-                        <button onClick={() => handleDeleteSession(session._id)} className="p-4 bg-red-500/5 text-red-500/30 rounded-2xl hover:bg-red-500 hover:text-white transition-all"><Trash2 className="w-5 h-5" /></button>
+                        <button onClick={() => { setNewSession({ title: session.title }); setShowEditSessionModal({ session, workshopId }); }} className="p-4 bg-slate-100 dark:bg-white/5 text-slate-400 dark:text-white/30 rounded-2xl hover:text-primary-light dark:hover:text-white transition-colors" title="Edit Title"><Edit3 className="w-5 h-5" /></button>
+                        <button onClick={() => handleDeleteSession(session._id)} className="p-4 bg-red-500/5 text-red-500/30 rounded-2xl hover:bg-red-500 hover:text-white transition-all" title="Delete Session"><Trash2 className="w-5 h-5" /></button>
                       </div>
                     </motion.div>
                   ))}

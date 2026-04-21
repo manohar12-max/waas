@@ -21,20 +21,26 @@ export class MediaFeedController {
   }
 
   @Get(':workshopId')
-  @Roles(UserRole.TEACHER, UserRole.INSTRUCTOR)
+  @Roles(UserRole.TEACHER, UserRole.INSTRUCTOR, UserRole.STUDENT, UserRole.SUPER_ADMIN, UserRole.COLLEGE_ADMIN)
   async getFeed(@Param('workshopId') workshopId: string) {
     return this.workshopsService.getMediaFeed(workshopId);
   }
 
   @Delete(':id')
-  @Roles(UserRole.TEACHER, UserRole.INSTRUCTOR, UserRole.COLLEGE_ADMIN)
+  @Roles(UserRole.TEACHER, UserRole.INSTRUCTOR, UserRole.SUPER_ADMIN, UserRole.COLLEGE_ADMIN)
   async deletePost(@Param('id') id: string) {
     return this.workshopsService.deleteMediaPost(id);
   }
 
   @Post(':id')
-  @Roles(UserRole.TEACHER, UserRole.INSTRUCTOR)
+  @Roles(UserRole.TEACHER, UserRole.INSTRUCTOR, UserRole.SUPER_ADMIN, UserRole.COLLEGE_ADMIN)
   async updatePost(@Param('id') id: string, @Body() updateDto: any) {
     return this.workshopsService.updateMediaPost(id, updateDto);
+  }
+  
+  @Post(':id/like')
+  @Roles(UserRole.TEACHER, UserRole.INSTRUCTOR, UserRole.STUDENT, UserRole.SUPER_ADMIN, UserRole.COLLEGE_ADMIN)
+  async likePost(@Param('id') id: string, @GetUser('_id') userId: string) {
+    return this.workshopsService.likeMediaPost(id, userId);
   }
 }

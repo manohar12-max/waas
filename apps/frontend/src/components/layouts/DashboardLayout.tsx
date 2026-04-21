@@ -71,7 +71,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     { icon: School, label: 'Partners', path: '/colleges', roles: ['SUPER_ADMIN'] },
     { icon: Users, label: 'Instructors', path: '/instructors', roles: ['COLLEGE_ADMIN'] },
     { icon: Users, label: 'Teachers', path: '/teachers', roles: ['COLLEGE_ADMIN', 'INSTRUCTOR'] },
-    { icon: Layout, label: 'Division Hub', path: '/divisions', roles: ['INSTRUCTOR'] },
+    { icon: Layout, label: 'Division Hub', path: '/divisions', roles: ['COLLEGE_ADMIN', 'INSTRUCTOR'] },
     { icon: BookOpen, label: 'Workshop Hub', path: '/workshops', roles: ['COLLEGE_ADMIN', 'INSTRUCTOR'] },
     // Community Forum — hidden when forum_enabled = false
     ...(rules.forum_enabled ? [{ icon: Users, label: 'Community Forum', path: '/forum', roles: ['SUPER_ADMIN', 'COLLEGE_ADMIN', 'TEACHER', 'INSTRUCTOR', 'STUDENT'] }] : []),
@@ -111,10 +111,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         transition={{ type: "tween", ease: "circOut", duration: 0.5 }}
         className="hidden md:flex flex-col bg-surface-light dark:bg-card-dark border-r border-slate-200 dark:border-white/10 h-screen sticky top-0 z-50 shadow-[10px_0_30px_rgba(0,0,0,0.05)] dark:shadow-[20px_0_60px_rgba(0,0,0,0.3)] will-change-[width]"
       >
-        <div className="p-6 flex items-center justify-between overflow-hidden border-b-2 border-slate-200/60 dark:border-white/10 bg-white/50 dark:bg-black/20 backdrop-blur-sm mb-4">
+        <div className="h-20 px-6 flex items-center justify-between overflow-hidden border-b-2 border-slate-200/60 dark:border-white/10 bg-white/50 dark:bg-black/20 backdrop-blur-sm">
           <div className={`transition-all duration-500 flex items-center overflow-hidden ${collapsed ? 'max-w-0 opacity-0' : 'max-w-full opacity-100'}`}>
             <div className="font-outfit font-black text-2xl tracking-tight text-primary-light whitespace-nowrap flex flex-col">
-              NEXUS<span className="text-[10px] font-black uppercase tracking-widest text-slate-500 mt-1">by Pixaflip</span>
+              NEXUS<span className="text-[10px] font-black uppercase tracking-widest text-slate-500 mt-1 leading-none">by Pixaflip</span>
             </div>
           </div>
           <button
@@ -125,7 +125,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </button>
         </div>
 
-        <div className="px-4 py-4 flex-1 space-y-2 overflow-y-auto no-scrollbar">
+        <div className="px-4 py-8 flex-1 space-y-2 overflow-y-auto no-scrollbar">
           {filteredMenuItems.map((item) => (
             <SidebarItem
               key={item.path}
@@ -169,7 +169,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       {/* Main Content Area */}
       <main className="flex-1 flex flex-col h-screen overflow-hidden bg-white/40 dark:bg-transparent backdrop-blur-[1px]">
         {/* Top Header Bar */}
-        <div className="flex items-center justify-between px-6 py-3 border-b border-slate-200 dark:border-white/10 bg-white/80 dark:bg-black/20 backdrop-blur-sm sticky top-0 z-30 shrink-0">
+        <div className="h-20 flex items-center justify-between px-6 border-b border-slate-200 dark:border-white/10 bg-white/80 dark:bg-black/20 backdrop-blur-sm sticky top-0 z-30 shrink-0">
           <div className="flex items-center gap-3">
             {/* Mobile menu toggle */}
             <button
