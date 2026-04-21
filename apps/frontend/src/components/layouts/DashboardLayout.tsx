@@ -15,7 +15,6 @@ import {
   BookOpen,
   Sun,
   Moon,
-  Image,
   Library,
   Terminal,
   ClipboardList
@@ -37,16 +36,16 @@ interface SidebarItemProps {
 const SidebarItem = ({ icon: Icon, label, active, collapsed, onClick }: Omit<SidebarItemProps, 'path'>) => (
   <button
     onClick={onClick}
-    className={`w-full flex items-center gap-3 px-4 py-4 rounded-2xl cursor-pointer transition-all duration-300 group ${active
+    className={`w-full flex items-center gap-3 px-4 py-4 rounded-2xl cursor-pointer transition-colors duration-200 group ${active
         ? 'bg-primary-light text-white shadow-lg shadow-primary-light/30'
         : 'hover:bg-primary-light/10 text-slate-500 dark:text-slate-400 hover:text-primary-light'
       }`}
   >
-    <div className={`transition-transform duration-300 shrink-0 ${active ? 'scale-110' : 'group-hover:scale-110'}`}>
+    <div className={`transition-transform duration-200 shrink-0 ${active ? 'scale-110' : 'group-hover:scale-110'}`}>
       <Icon className="w-5 h-5" />
     </div>
-    <div className={`overflow-hidden transition-all duration-300 flex items-center ${collapsed ? 'w-0 opacity-0' : 'w-full opacity-100'}`}>
-      <span className="font-semibold tracking-tight whitespace-nowrap ml-1">
+    <div className={`overflow-hidden transition-all duration-500 flex items-center ${collapsed ? 'max-w-0 opacity-0 ml-0' : 'max-w-[200px] opacity-100 ml-1'}`}>
+      <span className="font-semibold tracking-tight whitespace-nowrap">
         {label}
       </span>
     </div>
@@ -68,13 +67,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }
 
   const menuItems = [
-    { icon: LayoutDashboard, label: 'Overview', path: user.role === 'STUDENT' ? '/student/dashboard' : '/dashboard', roles: ['SUPER_ADMIN', 'COLLEGE_ADMIN', 'TEACHER', 'INSTRUCTOR', 'STUDENT'] },
+    { icon: LayoutDashboard, label: 'Overview', path: '/dashboard', roles: ['SUPER_ADMIN', 'COLLEGE_ADMIN', 'TEACHER', 'INSTRUCTOR', 'STUDENT'] },
     { icon: School, label: 'Partners', path: '/colleges', roles: ['SUPER_ADMIN'] },
     { icon: Users, label: 'Instructors', path: '/instructors', roles: ['COLLEGE_ADMIN'] },
     { icon: Users, label: 'Teachers', path: '/teachers', roles: ['COLLEGE_ADMIN', 'INSTRUCTOR'] },
     { icon: Layout, label: 'Division Hub', path: '/divisions', roles: ['INSTRUCTOR'] },
     { icon: BookOpen, label: 'Workshop Hub', path: '/workshops', roles: ['COLLEGE_ADMIN', 'INSTRUCTOR'] },
-    { icon: Image, label: 'Media Feed', path: '/media-feed', roles: ['TEACHER', 'INSTRUCTOR'] },
     // Community Forum — hidden when forum_enabled = false
     ...(rules.forum_enabled ? [{ icon: Users, label: 'Community Forum', path: '/forum', roles: ['SUPER_ADMIN', 'COLLEGE_ADMIN', 'TEACHER', 'INSTRUCTOR', 'STUDENT'] }] : []),
     { icon: Library, label: 'Learning Center', path: '/learning-center', roles: ['TEACHER', 'INSTRUCTOR', 'STUDENT'] },
@@ -109,12 +107,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       {/* Sidebar */}
       <motion.aside
         initial={false}
-        animate={{ width: collapsed ? 80 : 280 }}
-        transition={{ type: "spring", stiffness: 300, damping: 30 }}
-        className="hidden md:flex flex-col bg-surface-light dark:bg-card-dark border-r border-slate-200 dark:border-white/10 h-screen sticky top-0 z-50 shadow-[20px_0_50px_rgba(0,0,0,0.1)] dark:shadow-[20px_0_80px_rgba(0,0,0,0.4)]"
+        animate={{ width: collapsed ? 84 : 280 }}
+        transition={{ type: "tween", ease: "circOut", duration: 0.5 }}
+        className="hidden md:flex flex-col bg-surface-light dark:bg-card-dark border-r border-slate-200 dark:border-white/10 h-screen sticky top-0 z-50 shadow-[10px_0_30px_rgba(0,0,0,0.05)] dark:shadow-[20px_0_60px_rgba(0,0,0,0.3)] will-change-[width]"
       >
         <div className="p-6 flex items-center justify-between overflow-hidden border-b-2 border-slate-200/60 dark:border-white/10 bg-white/50 dark:bg-black/20 backdrop-blur-sm mb-4">
-          <div className={`transition-all duration-300 flex items-center overflow-hidden ${collapsed ? 'w-0 opacity-0' : 'w-full opacity-100'}`}>
+          <div className={`transition-all duration-500 flex items-center overflow-hidden ${collapsed ? 'max-w-0 opacity-0' : 'max-w-full opacity-100'}`}>
             <div className="font-outfit font-black text-2xl tracking-tight text-primary-light whitespace-nowrap flex flex-col">
               NEXUS<span className="text-[10px] font-black uppercase tracking-widest text-slate-500 mt-1">by Pixaflip</span>
             </div>

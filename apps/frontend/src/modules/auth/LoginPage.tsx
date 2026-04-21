@@ -23,11 +23,7 @@ export default function LoginPage() {
     const userStr = localStorage.getItem('user');
     if (token && userStr) {
       const user = JSON.parse(userStr);
-      if (user.role === 'STUDENT') navigate("/student/dashboard");
-      else if (user.role === 'SUPER_ADMIN') navigate("/colleges");
-      else if (user.role === 'INSTRUCTOR') navigate("/instructor/portal");
-      else if (user.role === 'TEACHER') navigate("/teacher/divisions");
-      else navigate("/dashboard");
+      navigate("/dashboard");
     }
   }, [navigate]);
 
@@ -71,17 +67,7 @@ export default function LoginPage() {
       }
 
       // Correctly route users based on their administrative level
-      if (user.role === 'STUDENT') {
-        navigate("/student/dashboard");
-      } else if (user.role === 'SUPER_ADMIN') {
-        navigate("/colleges");
-      } else if (user.role === 'INSTRUCTOR') {
-        navigate("/instructor/portal");
-      } else if (user.role === 'TEACHER') {
-        navigate("/teacher/divisions");
-      } else {
-        navigate("/dashboard");
-      }
+      navigate("/dashboard");
     } catch (err: any) {
       setError(err.response?.data?.message || `${isLogin ? 'Login' : 'Registration'} failed.`);
     } finally {

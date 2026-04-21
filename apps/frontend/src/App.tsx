@@ -18,7 +18,6 @@ import InstructorWorkshopConfig from './modules/instructor/InstructorWorkshopCon
 import TeacherDivisionHub from './modules/teacher/TeacherDivisionHub';
 import TeacherRegistry from './modules/teacher/TeacherRegistry';
 import TeacherClassroom from './modules/teacher/TeacherClassroom';
-import MediaFeedPage from './modules/media/MediaFeedPage';
 import LearningCenterPage from './modules/learning/LearningCenterPage';
 import InstructorPortal from './modules/instructor/InstructorPortal';
 import InstructorWorkshopManage from './modules/instructor/InstructorWorkshopManage';
@@ -60,7 +59,7 @@ function App() {
             </ProtectedRoute>
           }>
             <Route path="/dashboard" element={
-              <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'COLLEGE_ADMIN', 'TEACHER', 'INSTRUCTOR']}>
+              <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'COLLEGE_ADMIN', 'TEACHER', 'INSTRUCTOR', 'STUDENT']}>
                 <Overview />
               </ProtectedRoute>
             } />
@@ -101,11 +100,6 @@ function App() {
               </ProtectedRoute>
             } />
 
-            <Route path="/media-feed" element={
-              <ProtectedRoute allowedRoles={['TEACHER', 'INSTRUCTOR', 'STUDENT']}>
-                <MediaFeedPage />
-              </ProtectedRoute>
-            } />
 
             <Route path="/forum" element={
               <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'COLLEGE_ADMIN', 'TEACHER', 'INSTRUCTOR', 'STUDENT']}>

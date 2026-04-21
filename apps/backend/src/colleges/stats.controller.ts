@@ -31,4 +31,10 @@ export class StatsController {
   ) {
     return this.collegesService.getInstructorStats(userId, collegeId);
   }
+
+  @Get('student')
+  @Roles(UserRole.STUDENT)
+  async getStudentStats(@GetUser('_id') userId: string) {
+    return this.collegesService.getStudentStats(userId);
+  }
 }
