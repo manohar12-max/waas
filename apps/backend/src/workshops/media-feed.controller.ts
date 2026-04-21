@@ -37,4 +37,10 @@ export class MediaFeedController {
   async updatePost(@Param('id') id: string, @Body() updateDto: any) {
     return this.workshopsService.updateMediaPost(id, updateDto);
   }
+  
+  @Post(':id/like')
+  @Roles(UserRole.TEACHER, UserRole.INSTRUCTOR, UserRole.STUDENT, UserRole.SUPER_ADMIN, UserRole.COLLEGE_ADMIN)
+  async likePost(@Param('id') id: string, @GetUser('_id') userId: string) {
+    return this.workshopsService.likeMediaPost(id, userId);
+  }
 }

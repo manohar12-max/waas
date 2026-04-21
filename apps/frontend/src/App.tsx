@@ -84,7 +84,7 @@ function App() {
             } />
 
             <Route path="/divisions" element={
-              <ProtectedRoute allowedRoles={['INSTRUCTOR']}>
+              <ProtectedRoute allowedRoles={['COLLEGE_ADMIN', 'INSTRUCTOR']}>
                 <DivisionManagementPage />
               </ProtectedRoute>
             } />

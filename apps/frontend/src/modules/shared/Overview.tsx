@@ -96,12 +96,12 @@ export default function Overview() {
         <QuickStat
           label={user.role === 'SUPER_ADMIN' ? 'Total Colleges' : 'Active Classrooms'}
           value={loading ? '...' : (user.role === 'SUPER_ADMIN' ? stats?.totalColleges : stats?.activeClassrooms)}
-          icon={School} trend="+2.5%"
+          icon={School}
         />
         <QuickStat
           label="Total Students"
           value={loading ? '...' : (user.role === 'SUPER_ADMIN' ? stats?.totalUsers : stats?.totalStudents)}
-          icon={Users} trend="+12%"
+          icon={Users}
         />
         <QuickStat
           label="Live Workshops"

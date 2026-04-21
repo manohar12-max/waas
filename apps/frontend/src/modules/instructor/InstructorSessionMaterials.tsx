@@ -295,7 +295,7 @@ export default function InstructorSessionMaterials() {
                     <div className="flex items-center gap-2">
                        <p className="text-[10px] font-black uppercase opacity-40 tracking-[0.2em]">{mat.type || 'Document'}</p>
                        <div className="w-1 h-1 rounded-full bg-slate-300 dark:bg-white/10" />
-                       <span className="text-[10px] font-bold text-slate-400 dark:text-white/20">Archived Asset</span>
+                       <span className="text-[10px] font-bold text-slate-400 dark:text-white/20">{mat.isPublished ? 'Live Asset' : 'Internal Draft'}</span>
                     </div>
                   </div>
                   

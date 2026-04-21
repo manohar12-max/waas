@@ -1,18 +1,15 @@
 import { useState, useEffect } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { motion } from "framer-motion";
+import { useNavigate } from "react-router-dom";
 import axios from "axios";
 
-import { LogIn, Mail, Lock, Loader2, AlertCircle, UserPlus, School, BookOpen, ShieldCheck, Phone } from "lucide-react";
+import { LogIn, Mail, Lock, Loader2, AlertCircle } from "lucide-react";
 import { normalizeEmail } from "../../utils/normalization";
 
 export default function LoginPage() {
-  const [isLogin, setIsLogin] = useState(true);
   const [formData, setFormData] = useState({
     email: "",
     password: "",
-    name: "",
-    role: "STUDENT"
   });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -36,27 +33,23 @@ export default function LoginPage() {
     setLoading(true);
     setError("");
 
-    const endpoint = isLogin ? '/auth/login' : '/auth/register';
     const email = normalizeEmail(formData.email);
     
-    const payload = isLogin 
-      ? { email, password: formData.password } 
-      : { ...formData, email };
-
     try {
-      const response = await axios.post(`${import.meta.env.VITE_API_URL}${endpoint}`, payload);
+      const response = await axios.post(`${import.meta.env.VITE_API_URL}/auth/login`, {
+        email,
+        password: formData.password
+      });
       const { access_token, user } = response.data;
       localStorage.setItem("token", access_token);
       localStorage.setItem("user", JSON.stringify(user));
 
-      // Fetch and store college status for expiry gate
       if (user.collegeId && user.role !== 'SUPER_ADMIN') {
         try {
           const collegeRes = await axios.get(`${import.meta.env.VITE_API_URL}/colleges/${user.collegeId}`, {
             headers: { Authorization: `Bearer ${access_token}` }
           });
           localStorage.setItem('college_status', collegeRes.data.status || 'ACTIVE');
-          // Store college name for NAAC and other pages that need it
           const updatedUser = { ...user, collegeName: collegeRes.data.name };
           localStorage.setItem('user', JSON.stringify(updatedUser));
           if (collegeRes.data.status === 'EXPIRED') {
@@ -64,26 +57,19 @@ export default function LoginPage() {
             return;
           }
         } catch {
-          localStorage.setItem('college_status', 'ACTIVE'); // fail open
+          localStorage.setItem('college_status', 'ACTIVE');
         }
       } else {
         localStorage.removeItem('college_status');
       }
 
-      // Correctly route users based on their administrative level
-      if (user.role === 'STUDENT') {
-        navigate("/student/dashboard");
-      } else if (user.role === 'SUPER_ADMIN') {
-        navigate("/colleges");
-      } else if (user.role === 'INSTRUCTOR') {
-        navigate("/instructor/portal");
-      } else if (user.role === 'TEACHER') {
-        navigate("/teacher/divisions");
-      } else {
-        navigate("/dashboard");
-      }
+      if (user.role === 'STUDENT') navigate("/student/dashboard");
+      else if (user.role === 'SUPER_ADMIN') navigate("/colleges");
+      else if (user.role === 'INSTRUCTOR') navigate("/instructor/portal");
+      else if (user.role === 'TEACHER') navigate("/teacher/divisions");
+      else navigate("/dashboard");
     } catch (err: any) {
-      setError(err.response?.data?.message || `${isLogin ? 'Login' : 'Registration'} failed.`);
+      setError(err.response?.data?.message || 'Login failed.');
     } finally {
       setLoading(false);
     }
@@ -106,19 +92,17 @@ export default function LoginPage() {
             animate={{ scale: 1 }}
             className="w-20 h-20 bg-primary-light rounded-[32px] flex items-center justify-center mx-auto mb-6 shadow-2xl shadow-primary-light/40"
           >
-            {isLogin ? <LogIn className="text-white w-10 h-10" /> : <UserPlus className="text-white w-10 h-10" />}
+            <LogIn className="text-white w-10 h-10" />
           </motion.div>
           <h1 className="text-4xl font-black tracking-tighter uppercase">
-             {isLogin ? (
-               <div className="flex flex-col items-center">
-                 <span className="text-primary-light text-xl tracking-[0.3em] mb-2">NEXUS</span>
-                 <span className="text-[10px] text-slate-500 uppercase tracking-[0.3em] font-normal block mb-4">by Pixaflip</span>
-                 <span className="text-slate-900 dark:text-white">Portal</span>
-               </div>
-             ) : "Join Network"}
+             <div className="flex flex-col items-center">
+               <span className="text-primary-light text-xl tracking-[0.3em] mb-2">NEXUS</span>
+               <span className="text-[10px] text-slate-500 uppercase tracking-[0.3em] font-normal block mb-4">by Pixaflip</span>
+               <span className="text-slate-900 dark:text-white">Portal</span>
+             </div>
           </h1>
           <p className="opacity-40 mt-4 text-[10px] font-black uppercase tracking-[0.3em] leading-relaxed">
-            {isLogin ? "Secure Entry for Authorized Personnel" : "Create your administrative identity"}
+            Secure Entry for Authorized Personnel
           </p>
         </div>
 
@@ -134,16 +118,6 @@ export default function LoginPage() {
         )}
 
         <form onSubmit={handleSubmit} className="space-y-6 text-slate-900 dark:text-white">
-          {!isLogin && (
-            <div className="space-y-2">
-              <label className="text-[10px] font-black uppercase tracking-[0.2em] opacity-40 ml-4">Full Name</label>
-              <div className="relative group">
-                <UserPlus className="absolute left-6 top-1/2 -translate-y-1/2 w-4 h-4 opacity-30 group-focus-within:opacity-100 group-focus-within:text-primary-light transition-all" />
-                <input type="text" required value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} className="w-full bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/5 rounded-[24px] py-5 pl-14 pr-6 outline-none focus:ring-2 focus:ring-primary-light/20 transition-all font-bold group-hover:bg-slate-200 dark:group-hover:bg-white/10 text-slate-900 dark:text-white cursor-pointer placeholder:opacity-40" placeholder="Enter full name" />
-              </div>
-            </div>
-          )}
-
           <div className="space-y-2">
             <label className="text-[10px] font-black uppercase tracking-[0.2em] opacity-40 ml-4">Email Address</label>
             <div className="relative group">
