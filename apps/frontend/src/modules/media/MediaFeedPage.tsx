@@ -130,13 +130,14 @@ export default function MediaFeedPage() {
       if (selectedFile) {
         const formData = new FormData();
         formData.append('file', selectedFile);
-        formData.append('upload_preset', import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET);
         
+        const token = localStorage.getItem('token');
         const res = await axios.post(
-          `https://api.cloudinary.com/v1_1/${import.meta.env.VITE_CLOUDINARY_CLOUD_NAME}/auto/upload`,
-          formData
+          `${import.meta.env.VITE_API_URL}/workshops/upload`,
+          formData,
+          { headers: { Authorization: `Bearer ${token}` } }
         );
-        finalMediaUrl = res.data.secure_url;
+        finalMediaUrl = res.data.url;
       }
 
       const token = localStorage.getItem('token');

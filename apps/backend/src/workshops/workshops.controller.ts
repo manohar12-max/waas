@@ -1,4 +1,8 @@
-import { Controller, Get, Post, Body, UseGuards, Delete, Param, Patch } from '@nestjs/common';
+import { 
+  Controller, Get, Post, Body, UseGuards, Delete, Param, Patch,
+  UseInterceptors, UploadedFile, BadRequestException 
+} from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
@@ -11,6 +15,15 @@ import { Public } from '../auth/public.decorator';
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class WorkshopsController {
   constructor(private readonly workshopsService: WorkshopsService) { }
+
+  @Public()
+  @Post('upload')
+  @UseInterceptors(FileInterceptor('file'))
+  async uploadFile(@UploadedFile() file: Express.Multer.File) {
+    if (!file) throw new BadRequestException('No file provided');
+    const url = await this.workshopsService.uploadToCloudinary(file);
+    return { url };
+  }
 
   @Public()
   @Get('validate-invite/:token')

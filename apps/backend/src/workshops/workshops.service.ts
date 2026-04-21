@@ -547,6 +547,35 @@ export class WorkshopsService {
     return lastPart.split('.')[0]; // public_id
   }
 
+  async uploadToCloudinary(file: Express.Multer.File): Promise<string> {
+    this.logger.log(`Uploading file ${file.originalname} to Cloudinary...`);
+    
+    // Determine the resource type for Cloudinary
+    let resource_type: 'image' | 'video' | 'raw' | 'auto' = 'auto';
+    if (file.mimetype.startsWith('image/')) resource_type = 'image';
+    else if (file.mimetype.startsWith('video/')) resource_type = 'video';
+    else if (file.mimetype === 'application/pdf') resource_type = 'raw';
+
+    return new Promise((resolve, reject) => {
+      const upload = cloudinary.uploader.upload_stream(
+        { resource_type, folder: 'nexus_platform' },
+        (error, result) => {
+          if (error) {
+            this.logger.error(`Cloudinary Upload Failed: ${error.message}`, error.stack);
+            return reject(new BadRequestException(`Cloudinary Upload Failed: ${error.message}`));
+          }
+          if (!result) return reject(new BadRequestException('Cloudinary upload returned no result'));
+          
+          this.logger.log(`Cloudinary Upload Success: ${result.secure_url}`);
+          resolve(result.secure_url);
+        }
+      );
+
+      // Multer file.buffer contains the file data
+      upload.end(file.buffer);
+    });
+  }
+
   async deleteMediaPost(id: string): Promise<any> {
     const post = await this.mediaPostModel.findById(id);
     if (!post) throw new NotFoundException('Post not found');

@@ -110,9 +110,10 @@ export default function AssignmentSubmissionPage() {
       if (submissionType === 'file' && file) {
         const formData = new FormData();
         formData.append('file', file);
-        formData.append('upload_preset', 'pixaflip_presets');
-        const uploadRes = await axios.post(`https://api.cloudinary.com/v1_1/dbqxje2nu/auto/upload`, formData);
-        fileUrl = uploadRes.data.secure_url;
+        
+        // Use backend upload proxy
+        const uploadRes = await axios.post(`${import.meta.env.VITE_API_URL}/workshops/upload`, formData);
+        fileUrl = uploadRes.data.url;
       }
 
       await axios.post(`${import.meta.env.VITE_API_URL}/submissions/${assignmentId}`, {
