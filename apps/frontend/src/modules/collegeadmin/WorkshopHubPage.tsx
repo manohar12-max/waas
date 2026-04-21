@@ -381,7 +381,7 @@ export default function WorkshopHubPage() {
             setEditingWorkshop(null);
         }}
         title={editingWorkshop ? "Workshop Settings" : "Deploy Workshop"}
-        description={editingWorkshop ? `Update details for ${editingWorkshop.title}` : "Initialize a new curriculum delivery instance"}
+        description={editingWorkshop ? `Update details for ${editingWorkshop.title}` : "Initialize a new workshop delivery instance"}
         maxWidth="max-w-2xl"
         icon={editingWorkshop ? <Settings className="text-white w-8 h-8" /> : <BookOpen className="text-white w-8 h-8" />}
       >
@@ -438,7 +438,7 @@ export default function WorkshopHubPage() {
 
           <div className="flex gap-4 pt-4">
             <button type="button" onClick={() => setShowModal(false)} className="flex-1 py-5 border border-slate-200 dark:border-white/10 rounded-[32px] font-black uppercase tracking-widest text-[10px] hover:bg-slate-50 dark:hover:bg-white/5 transition-all text-slate-500 dark:text-white/40 cursor-pointer">Discard</button>
-            <button type="submit" disabled={submitting} className="flex-2 py-5 bg-primary-light hover:bg-primary-dark text-white rounded-[32px] font-black uppercase tracking-widest text-xs shadow-2xl shadow-primary-light/20 cursor-pointer disabled:opacity-50 transition-all">{submitting ? <Loader2 className="animate-spin mx-auto w-5 h-5" /> : (editingWorkshop ? "Update Settings" : "Deploy Curriculum")}</button>
+            <button type="submit" disabled={submitting} className="flex-2 py-5 bg-primary-light hover:bg-primary-dark text-white rounded-[32px] font-black uppercase tracking-widest text-xs shadow-2xl shadow-primary-light/20 cursor-pointer disabled:opacity-50 transition-all">{submitting ? <Loader2 className="animate-spin mx-auto w-5 h-5" /> : (editingWorkshop ? "Update Settings" : "Deploy Workshop")}</button>
           </div>
         </form>
       </UniversalModal>

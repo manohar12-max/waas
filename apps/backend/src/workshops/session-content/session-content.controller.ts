@@ -20,6 +20,12 @@ export class SessionContentController {
     return this.service.createDay(body.workshopId, new Date(body.date), body.dayNumber);
   }
 
+  @Post('days/:id/delete')
+  @Roles(UserRole.INSTRUCTOR, UserRole.COLLEGE_ADMIN)
+  async deleteDay(@Param('id') dayId: string) {
+    return this.service.deleteDay(dayId);
+  }
+
   @Get('workshop/:workshopId')
   @Roles(UserRole.INSTRUCTOR, UserRole.COLLEGE_ADMIN, UserRole.STUDENT)
   async getWorkshopStructure(@Param('workshopId') workshopId: string) {

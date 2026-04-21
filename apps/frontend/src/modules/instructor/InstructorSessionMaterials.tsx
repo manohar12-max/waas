@@ -145,6 +145,18 @@ export default function InstructorSessionMaterials() {
     } catch (err) { alert("Review submission failed"); } finally { setSaving(false); }
   };
 
+  const handleDeleteMaterial = async (url: string) => {
+    if (!window.confirm("Are you sure you want to delete this material?")) return;
+    try {
+      const token = localStorage.getItem('token');
+      await axios.delete(`${import.meta.env.VITE_API_URL}/sessions-content/${sessionId}/materials`, {
+        data: { url },
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      fetchSession();
+    } catch (err) { alert("Failed to delete material"); }
+  };
+
   const handleApprove = async () => {
     try {
       const token = localStorage.getItem('token');
@@ -273,6 +285,13 @@ export default function InstructorSessionMaterials() {
                       >
                         <Download className="w-4 h-4" />
                       </a>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handleDeleteMaterial(mat.url); }}
+                        className="p-3 bg-red-500/5 hover:bg-red-500 text-red-500 hover:text-white rounded-xl transition-all border border-red-500/10 relative z-20"
+                        title="Delete Material"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
                       <div className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest border ${mat.isPublished ? 'bg-green-500/10 border-green-500/20 text-green-500 shadow-sm' : 'bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/5 text-slate-400 dark:text-white/40'}`}>
                         {mat.isPublished ? 'Published' : 'Draft'}
                       </div>

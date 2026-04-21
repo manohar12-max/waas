@@ -21,15 +21,57 @@ export class SessionContentService {
   ) {}
 
   async createDay(workshopId: string, date: Date, dayNumber: number) {
-    return this.dayModel.create({
+    const day = await this.dayModel.create({
       workshopId: new Types.ObjectId(workshopId),
       date,
       dayNumber,
     });
+
+    // Automatically extend workshop schedule if the new day is beyond current end date
+    const workshop = await this.workshopModel.findById(workshopId);
+    if (workshop && workshop.schedule) {
+      const dayDate = new Date(date);
+      if (dayDate > new Date(workshop.schedule.end)) {
+        workshop.schedule.end = dayDate;
+        await workshop.save();
+      }
+    }
+
+    return day;
   }
 
   async getDaysByWorkshop(workshopId: string) {
     return this.dayModel.find({ workshopId: new Types.ObjectId(workshopId) }).sort({ dayNumber: 1 });
+  }
+
+  async deleteDay(dayId: string) {
+    const day = await this.dayModel.findById(dayId);
+    if (!day) throw new NotFoundException('Day not found');
+
+    // Remove all sessions associated with this day
+    const sessions = await this.sessionModel.find({ dayId: new Types.ObjectId(dayId) });
+    for (const session of sessions) {
+      await this.deleteSession(session._id.toString());
+    }
+
+    const workshopId = day.workshopId;
+    await this.dayModel.findByIdAndDelete(dayId);
+
+    // Sync workshop end date after deletion
+    const remainingDays = await this.dayModel.find({ workshopId }).sort({ dayNumber: -1 });
+    const workshop = await this.workshopModel.findById(workshopId);
+    if (workshop && workshop.schedule) {
+      if (remainingDays.length > 0) {
+        workshop.schedule.end = new Date(remainingDays[0].date);
+      } else {
+        // If no days left, maybe keep start as end or keep current? 
+        // Let's set it to start date to represent a 0-day/1-day workshop
+        workshop.schedule.end = workshop.schedule.start;
+      }
+      await workshop.save();
+    }
+
+    return { success: true };
   }
 
   async createSession(workshopId: string, dayId: string, title: string, materials?: any[]) {

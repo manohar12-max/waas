@@ -37,7 +37,7 @@ interface Day {
   sessions: Session[];
 }
 
-export default function SessionContentGen({ workshopId }: { workshopId: string }) {
+export default function SessionContentGen({ workshopId, onUpdate }: { workshopId: string, onUpdate?: () => void }) {
   const navigate = useNavigate();
   const [days, setDays] = useState<Day[]>([]);
   const [loading, setLoading] = useState(true);
@@ -86,6 +86,7 @@ export default function SessionContentGen({ workshopId }: { workshopId: string }
       await axios.post(`${import.meta.env.VITE_API_URL}/sessions-content/days`, { workshopId, ...newDay }, { headers: { Authorization: `Bearer ${token}` } });
       setShowAddDayModal(false);
       fetchStructure();
+      if (onUpdate) onUpdate();
     } catch (err) { alert("Failed to add day"); } finally { setSaving(false); }
   };
 
@@ -182,6 +183,17 @@ export default function SessionContentGen({ workshopId }: { workshopId: string }
     } catch (err) { alert("Delete failed"); }
   };
 
+  const handleDeleteDay = async (e: React.MouseEvent, dayId: string) => {
+    e.stopPropagation();
+    if (!window.confirm("Are you sure? This will delete all sessions inside this day!")) return;
+    try {
+      const token = localStorage.getItem('token');
+      await axios.post(`${import.meta.env.VITE_API_URL}/sessions-content/days/${dayId}/delete`, {}, { headers: { Authorization: `Bearer ${token}` } });
+      fetchStructure();
+      if (onUpdate) onUpdate();
+    } catch (err) { alert("Delete Day failed"); }
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'extracting': return 'text-cyan-500 bg-cyan-500/10 border-cyan-500/30';
@@ -205,7 +217,23 @@ export default function SessionContentGen({ workshopId }: { workshopId: string }
     <div className="space-y-8 font-outfit text-slate-900 dark:text-white">
       <div className="flex items-center justify-between">
         <h2 className="text-3xl font-black tracking-tight">Learning Journey</h2>
-        <button onClick={() => setShowAddDayModal(true)} className="bg-primary-light text-white px-8 py-4 rounded-2xl font-black text-xs uppercase shadow-lg flex items-center gap-2 tracking-widest hover:brightness-110"><PlusCircle className="w-4 h-4" /> Add Day</button>
+        <button 
+          onClick={() => {
+            if (days.length > 0) {
+              const lastDay = days[days.length - 1];
+              const nextNum = lastDay.dayNumber + 1;
+              const nextDate = new Date(lastDay.date);
+              nextDate.setDate(nextDate.getDate() + 1);
+              setNewDay({ dayNumber: nextNum, date: nextDate.toISOString().split('T')[0] });
+            } else {
+              setNewDay({ dayNumber: 1, date: new Date().toISOString().split('T')[0] });
+            }
+            setShowAddDayModal(true);
+          }} 
+          className="bg-primary-light text-white px-8 py-4 rounded-2xl font-black text-xs uppercase shadow-lg flex items-center gap-2 tracking-widest hover:brightness-110"
+        >
+          <PlusCircle className="w-4 h-4" /> Add Day
+        </button>
       </div>
 
       <div className="grid gap-8">
@@ -216,7 +244,16 @@ export default function SessionContentGen({ workshopId }: { workshopId: string }
                 <div className="w-14 h-14 bg-primary-light/10 text-primary-light rounded-2xl flex items-center justify-center"><CalendarIcon className="w-6 h-6" /></div>
                 <div><h3 className="text-xl font-black">Day {day.dayNumber}</h3><p className="text-xs font-black opacity-40 uppercase">{new Date(day.date).toDateString()}</p></div>
               </div>
-              {expandedDays.includes(day._id) ? <ChevronUp className="opacity-30" /> : <ChevronDown className="opacity-30" />}
+              <div className="flex items-center gap-4">
+                <button 
+                  onClick={(e) => handleDeleteDay(e, day._id)}
+                  className="p-3 bg-red-500/5 text-red-500/30 rounded-xl hover:bg-red-500 hover:text-white transition-all"
+                  title="Delete Day"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+                {expandedDays.includes(day._id) ? <ChevronUp className="opacity-30" /> : <ChevronDown className="opacity-30" />}
+              </div>
             </div>
             <AnimatePresence>
               {expandedDays.includes(day._id) && (
