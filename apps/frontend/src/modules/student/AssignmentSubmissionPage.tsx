@@ -131,20 +131,20 @@ export default function AssignmentSubmissionPage() {
     }
   };
 
-  if (loading) return <div className="flex items-center justify-center h-screen bg-[#020202] text-white"><Loader2 className="w-8 h-8 animate-spin text-primary-light" /></div>;
+  if (loading) return <div className="flex items-center justify-center h-screen bg-background-light dark:bg-background-dark text-slate-900 dark:text-white"><Loader2 className="w-8 h-8 animate-spin text-primary-light" /></div>;
   
   if (!assignment) return (
-    <div className="min-h-screen bg-[#020202] flex items-center justify-center p-6 bg-radial-gradient">
+    <div className="min-h-screen bg-background-light dark:bg-background-dark flex items-center justify-center p-6">
       <div className="text-center space-y-4 max-w-sm font-outfit">
         <AlertCircle className="w-12 h-12 text-red-500 mx-auto" />
-        <h1 className="text-2xl font-black uppercase text-white tracking-tighter">Mission Not Found</h1>
-        <p className="text-white/40 text-sm font-medium">Deployment link is invalid or mission coordinates have expired.</p>
+        <h1 className="text-2xl font-black uppercase text-slate-900 dark:text-white tracking-tighter">Mission Not Found</h1>
+        <p className="opacity-40 text-sm font-medium">Deployment link is invalid or mission coordinates have expired.</p>
       </div>
     </div>
   );
 
   return (
-    <div className="min-h-screen bg-[#020202] text-white font-outfit selection:bg-primary-light selection:text-white flex flex-col items-center justify-center p-6 sm:p-12 relative overflow-hidden">
+    <div className="min-h-screen bg-background-light dark:bg-background-dark text-slate-900 dark:text-white font-outfit selection:bg-primary-light selection:text-white flex flex-col items-center justify-center p-6 sm:p-12 relative overflow-hidden">
       
       {/* Premium Background Background */}
       <div className="absolute inset-0 pointer-events-none">
@@ -166,23 +166,23 @@ export default function AssignmentSubmissionPage() {
                 <span className="text-[10px] font-black uppercase tracking-widest opacity-60">Submission Uplink</span>
              </div>
              <h1 className="text-4xl sm:text-5xl font-black tracking-tighter leading-none">{assignment.title}</h1>
-             <div className="flex items-center justify-center gap-4 text-xs font-bold text-white/40">
+             <div className="flex items-center justify-center gap-4 text-xs font-bold opacity-40">
                 <span className="flex items-center gap-1.5"><Clock className="w-3.5 h-3.5" /> Due: {new Date(assignment.dueDate).toLocaleDateString()}</span>
-                <span className="w-1 h-1 bg-white/10 rounded-full" />
+                <span className="w-1 h-1 bg-slate-500/20 rounded-full" />
                 <span className="flex items-center gap-1.5"><ShieldCheck className="w-3.5 h-3.5" /> {assignment.maxMarks} Merit Points</span>
              </div>
           </motion.div>
 
           {/* Core Interface Card */}
-          <motion.div initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} className="bg-[#0a0a0a] border border-white/5 rounded-[40px] p-8 sm:p-10 shadow-[0_32px_80px_rgba(0,0,0,0.5)] backdrop-blur-3xl overflow-hidden relative">
-             <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-primary-light/40 to-transparent" />
+          <motion.div initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} className="bg-card-light dark:bg-card-dark border border-slate-200 dark:border-white/5 rounded-[40px] p-8 sm:p-10 shadow-2xl backdrop-blur-3xl overflow-hidden relative">
+            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-primary-light/40 to-transparent" />
              
              <AnimatePresence mode="wait">
                 {currentStep === 1 ? (
                   <motion.div key="step1" initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 10 }} className="space-y-8">
                      <div className="space-y-2">
                         <h3 className="text-lg font-black tracking-tight">Step 1: Identity Clearance</h3>
-                        <p className="text-xs font-medium text-white/40">Please enter your registered credentials to unlock your mission reports.</p>
+                        <p className="text-xs font-medium opacity-40">Please enter your registered credentials to unlock your mission reports.</p>
                      </div>
 
                      <form onSubmit={handleVerify} className="space-y-6">
@@ -207,21 +207,21 @@ export default function AssignmentSubmissionPage() {
                   </motion.div>
                 ) : (
                   <motion.div key="step2" initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }} className="space-y-10">
-                     <div className="flex items-center justify-between bg-white/[0.02] border border-white/5 p-4 rounded-2xl">
+                     <div className="flex items-center justify-between bg-slate-500/5 border border-slate-200 dark:border-white/5 p-4 rounded-2xl">
                         <div className="flex items-center gap-3">
                            <div className="w-8 h-8 rounded-full bg-primary-light flex items-center justify-center text-white font-black text-xs">{studentName[0]}</div>
-                           <p className="font-black text-sm">{studentName}</p>
+                           <p className="font-black text-sm text-slate-900 dark:text-white">{studentName}</p>
                         </div>
                         <button onClick={() => setCurrentStep(1)} className="text-[10px] font-black uppercase tracking-widest opacity-30 hover:opacity-100 transition-all cursor-pointer">Not You? Switch</button>
                      </div>
 
                      <form onSubmit={handleSubmit} className="space-y-10">
                         {/* Selector */}
-                        <div className="flex gap-2 p-1.5 bg-white/[0.03] border border-white/5 rounded-2xl">
-                           <button type="button" onClick={() => setSubmissionType('link')} className={`flex-1 py-3.5 rounded-xl transition-all font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 cursor-pointer ${submissionType === 'link' ? 'bg-white text-black' : 'opacity-30'}`}>
+                        <div className="flex gap-2 p-1.5 bg-slate-500/5 border border-slate-200 dark:border-white/5 rounded-2xl">
+                           <button type="button" onClick={() => setSubmissionType('link')} className={`flex-1 py-3.5 rounded-xl transition-all font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 cursor-pointer ${submissionType === 'link' ? 'bg-primary-light text-white shadow-lg' : 'opacity-30'}`}>
                               <Github className="w-4 h-4" /> Link
                            </button>
-                           <button type="button" onClick={() => setSubmissionType('file')} className={`flex-1 py-3.5 rounded-xl transition-all font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 cursor-pointer ${submissionType === 'file' ? 'bg-white text-black' : 'opacity-30'}`}>
+                           <button type="button" onClick={() => setSubmissionType('file')} className={`flex-1 py-3.5 rounded-xl transition-all font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 cursor-pointer ${submissionType === 'file' ? 'bg-primary-light text-white shadow-lg' : 'opacity-30'}`}>
                               <Upload className="w-4 h-4" /> File
                            </button>
                         </div>
@@ -233,7 +233,7 @@ export default function AssignmentSubmissionPage() {
                                  <label className="text-[10px] font-black uppercase tracking-[0.2em] opacity-20 ml-2">GitHub / Project Repository</label>
                                  <div className="relative group">
                                     <div className="absolute inset-y-0 left-5 flex items-center opacity-30 group-focus-within:opacity-100 transition-opacity"><Github className="w-5 h-5" /></div>
-                                    <input required className="w-full bg-white/[0.03] border border-white/5 rounded-[22px] p-5 pl-14 outline-none font-bold text-lg focus:border-white transition-all cursor-pointer" placeholder="https://github.com/..." value={link} onChange={e => setLink(e.target.value)} />
+                                    <input required className="w-full bg-slate-500/5 border border-slate-200 dark:border-white/5 rounded-[22px] p-5 pl-14 outline-none font-bold text-lg focus:border-primary-light transition-all cursor-pointer text-slate-900 dark:text-white" placeholder="https://github.com/..." value={link} onChange={e => setLink(e.target.value)} />
                                  </div>
                               </div>
                            ) : (
@@ -241,7 +241,7 @@ export default function AssignmentSubmissionPage() {
                                  <label className="text-[10px] font-black uppercase tracking-[0.2em] opacity-20 ml-2">Binary Upload (ZIP/PDF)</label>
                                  <label className="block cursor-pointer">
                                     <input type="file" className="hidden" onChange={e => { if(e.target.files) setFile(e.target.files[0]) }} />
-                                    <div className="w-full h-32 bg-white/[0.03] border border-dashed border-white/10 rounded-3xl flex flex-col items-center justify-center gap-3 hover:bg-white/5 hover:border-white transition-all">
+                                    <div className="w-full h-32 bg-slate-500/5 border border-dashed border-slate-200 dark:border-white/10 rounded-3xl flex flex-col items-center justify-center gap-3 hover:bg-primary-light/5 hover:border-primary-light transition-all">
                                        <Upload className="w-6 h-6 opacity-30" />
                                        <p className="font-black text-sm uppercase tracking-widest">{file ? file.name : "Select Operational Files"}</p>
                                     </div>
@@ -271,7 +271,7 @@ export default function AssignmentSubmissionPage() {
               <h2 className="text-4xl font-black tracking-tighter">REPORT SECURED</h2>
               <p className="text-white/40 text-sm font-medium leading-relaxed">Your submission has been cataloged and transmitted to the institutional command center.</p>
            </div>
-           <button onClick={() => window.location.reload()} className="px-8 py-3.5 bg-white text-black rounded-full font-black uppercase text-[10px] tracking-widest hover:scale-110 transition-all ring-8 ring-white/5 cursor-pointer">Update Submission</button>
+           <button onClick={() => window.location.reload()} className="px-8 py-3.5 bg-primary-light text-white rounded-full font-black uppercase text-[10px] tracking-widest hover:scale-110 transition-all ring-8 ring-primary-light/5 cursor-pointer">Update Submission</button>
         </motion.div>
       )}
 

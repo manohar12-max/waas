@@ -13,7 +13,12 @@ import {
   Edit3,
   User,
   Trash2,
-  Settings
+  Settings,
+  Pencil,
+  Activity,
+  Wand2,
+  Cpu,
+  Airplay
 } from 'lucide-react';
 import UniversalModal from '../../components/UniversalModal';
 
@@ -35,8 +40,9 @@ interface Workshop {
     start: string;
     end: string;
   };
-  status: 'DRAFT' | 'ONGOING' | 'COMPLETED';
+  status: 'DRAFT' | 'ONGOING' | 'COMPLETED' | 'INACTIVE';
   inviteToken?: string;
+  isActive: boolean;
 }
 
 export default function WorkshopHubPage() {
@@ -147,9 +153,21 @@ export default function WorkshopHubPage() {
       setWorkshopToDelete(null);
       fetchData();
     } catch (err: any) {
-      setError(err.response?.data?.message || "Failed to delete workshop.");
+      setError(err.response?.data?.message || "Failed to delete workshop. Check your permissions.");
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const toggleActive = async (id: string, current: boolean) => {
+    try {
+      const token = localStorage.getItem('token');
+      await axios.patch(`${import.meta.env.VITE_API_URL}/workshops/${id}/active`, { isActive: !current }, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      fetchData();
+    } catch (err: any) {
+      alert(err.response?.data?.message || "Failed to toggle status.");
     }
   };
 
@@ -185,121 +203,176 @@ export default function WorkshopHubPage() {
     switch (status) {
       case 'ONGOING': return 'text-green-500 bg-green-500/10 border-green-500/20';
       case 'DRAFT': return 'text-primary-light bg-primary-light/10 border-primary-light/20';
+      case 'INACTIVE': return 'text-red-500 bg-red-500/10 border-red-500/20';
       default: return 'text-slate-400 bg-slate-400/10 border-slate-400/20';
     }
   };
 
   return (
-    <div className="space-y-12 pb-24 font-outfit p-6 lg:p-10">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-8">
-        <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}>
-          <h1 className="text-5xl font-black tracking-tighter mb-3">Workshop Command</h1>
-          <p className="opacity-40 font-medium max-w-lg text-lg leading-relaxed">The operational command center for workshop delivery and content management.</p>
-        </motion.div>
-        {(user.role === 'COLLEGE_ADMIN' || user.role === 'SUPER_ADMIN') && (
-          <motion.button 
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={() => {
-                setEditingWorkshop(null);
-                resetForm();
-                setShowModal(true);
-            }} 
-            className="flex items-center justify-center gap-4 bg-primary-light hover:bg-primary-dark text-white px-10 py-5 rounded-[32px] font-black text-sm uppercase tracking-widest shadow-2xl transition-all cursor-pointer"
-          >
-            <Plus className="w-6 h-6" /> Create Workshop
-          </motion.button>
-        )}
+    <div className="space-y-10 pb-24 font-outfit p-6 lg:p-10">
+      {/* Header Section */}
+      <div className="space-y-8 bg-slate-500/5 p-8 rounded-[40px] border border-slate-200 dark:border-white/5 shadow-inner">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-8">
+          <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }}>
+            <h1 className="text-5xl font-black tracking-tighter mb-2">Workshop Hub</h1>
+            <p className="opacity-40 font-medium max-w-lg text-sm leading-relaxed">Central command for curriculum delivery and operational management.</p>
+          </motion.div>
+          {(user.role === 'COLLEGE_ADMIN' || user.role === 'SUPER_ADMIN' || user.role === 'INSTRUCTOR') && (
+            <motion.button 
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => {
+                  setEditingWorkshop(null);
+                  resetForm();
+                  setShowModal(true);
+              }} 
+              className="flex items-center justify-center gap-4 bg-primary-light hover:bg-primary-dark text-white px-8 py-4 rounded-3xl font-black text-xs uppercase tracking-widest shadow-2xl transition-all cursor-pointer"
+            >
+              <Plus className="w-5 h-5" /> Deploy Workshop
+            </motion.button>
+          )}
+        </div>
+
+        {/* Stats Row */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-6 pt-4 border-t border-slate-200 dark:border-white/5">
+          <div className="space-y-1">
+            <p className="text-[10px] font-black uppercase tracking-widest opacity-30 text-primary-light">Total Curriculum</p>
+            <div className="flex items-center gap-3">
+               <Layers className="w-5 h-5 opacity-40" />
+               <p className="text-2xl font-black">{workshops.length}</p>
+            </div>
+          </div>
+          <div className="space-y-1">
+            <p className="text-[10px] font-black uppercase tracking-widest opacity-30 text-green-500">Live Sessions</p>
+            <div className="flex items-center gap-3">
+               <Activity className="w-5 h-5 opacity-40 text-green-500" />
+               <p className="text-2xl font-black">{workshops.filter(w => w.status === 'ONGOING').length}</p>
+            </div>
+          </div>
+          <div className="space-y-1">
+            <p className="text-[10px] font-black uppercase tracking-widest opacity-30 text-primary-light">Instructors</p>
+            <div className="flex items-center gap-3">
+               <User className="w-5 h-5 opacity-40" />
+               <p className="text-2xl font-black">{new Set(workshops.map(w => w.instructorId?._id)).size}</p>
+            </div>
+          </div>
+          <div className="space-y-1">
+             <p className="text-[10px] font-black uppercase tracking-widest opacity-30 text-red-500">Inactive Nodes</p>
+             <div className="flex items-center gap-3">
+                <ShieldAlert className="w-5 h-5 opacity-40 text-red-500" />
+                <p className="text-2xl font-black">{workshops.filter(w => !w.isActive).length}</p>
+             </div>
+          </div>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
-        <div className="lg:col-span-8 space-y-6">
-          <h3 className="font-black text-2xl tracking-tight px-2">Active Curriculum</h3>
+      <div className="space-y-6">
+        <div className="flex items-center justify-between px-2">
+           <h3 className="font-black text-2xl tracking-tight">Active Transmissions</h3>
+           <div className="h-[1px] flex-1 bg-slate-200 dark:bg-white/5 mx-6 hidden md:block" />
+        </div>
           <div className="space-y-6">
             {loading ? (
               Array.from({ length: 3 }).map((_, i) => (
                 <div key={i} className="animate-pulse bg-slate-100 dark:bg-white/5 h-32 rounded-[48px]" />
               ))
             ) : (
-              workshops.map((workshop) => (
-                <motion.div 
-                  key={workshop._id} 
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="group bg-card-light dark:bg-card-dark border border-slate-200 dark:border-white/5 rounded-[48px] p-8 hover:border-primary-light/30 transition-all shadow-2xl relative overflow-hidden"
-                >
-                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-                    <div className="flex gap-6 items-start">
-                      <div className="w-16 h-16 rounded-[24px] bg-primary-light/10 flex items-center justify-center text-primary-light border border-white/5"><BookOpen className="w-8 h-8" /></div>
-                      <div className="space-y-2">
-                        <div className="flex items-center gap-3">
-                          <h4 className="text-2xl font-black tracking-tight">{workshop.title}</h4>
-                          <span className={`px-3 py-1 rounded-full text-[8px] font-black border uppercase tracking-widest ${getStatusColor(workshop.status)}`}>{workshop.status}</span>
-                        </div>
-                        <div className="flex items-center gap-4 pt-2 text-[10px] font-black uppercase opacity-40">
-                          <Calendar className="w-3.5 h-3.5" />
-                          {new Date(workshop.schedule.start).toLocaleDateString()}
-                          <span className="mx-2 shrink-0 opacity-20">|</span>
-                          <User className="w-3.5 h-3.5" />
-                          {workshop.instructorId?.name || "Unassigned"}
+              <div className="grid grid-cols-1 gap-6">
+                {workshops.map((workshop) => (
+                  <motion.div 
+                    key={workshop._id} 
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className={`group bg-card-light dark:bg-card-dark border ${workshop.isActive ? 'border-slate-200 dark:border-white/5' : 'border-red-500/20 opacity-60'} rounded-[48px] p-8 hover:border-primary-light/30 transition-all shadow-2xl relative overflow-hidden`}
+                  >
+                    {!workshop.isActive && (
+                      <div className="absolute top-0 right-0 bg-red-500 text-white px-6 py-2 text-[8px] font-black uppercase tracking-widest rounded-bl-3xl">
+                        Inactive
+                      </div>
+                    )}
+                    <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-8">
+                      <div className="flex gap-6 items-start">
+                        <div className="w-20 h-20 rounded-[32px] bg-primary-light/10 flex items-center justify-center text-primary-light border border-white/5 shadow-inner"><BookOpen className="w-10 h-10" /></div>
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-3">
+                            <h4 className="text-2xl font-black tracking-tight">{workshop.title}</h4>
+                            <span className={`px-3 py-1 rounded-full text-[8px] font-black border uppercase tracking-widest ${getStatusColor(workshop.status)}`}>{workshop.status}</span>
+                          </div>
+                          <div className="flex flex-wrap items-center gap-y-2 gap-x-4 pt-1 text-[10px] font-black uppercase opacity-40">
+                            <div className="flex items-center gap-1.5"><Calendar className="w-3.5 h-3.5" /> {new Date(workshop.schedule.start).toLocaleDateString()}</div>
+                            <span className="opacity-20 hidden md:block">|</span>
+                            <div className="flex items-center gap-1.5"><User className="w-3.5 h-3.5" /> {workshop.instructorId?.name || "Unassigned"}</div>
+                            <span className="opacity-20 hidden md:block">|</span>
+                            <div className="flex items-center gap-1.5"><ShieldAlert className="w-3.5 h-3.5 text-primary-light" /> Invite: {workshop.inviteToken || "N/A"}</div>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                    
-                    <div className="flex items-center gap-3">
-                      {(user.role === 'INSTRUCTOR' || user.role === 'TEACHER') && (
-                        <>
-                          {user.role === 'INSTRUCTOR' && (
-                            <button
-                              onClick={() => navigate(`/workshops/${workshop._id}/configure`)}
-                              className="flex items-center gap-3 bg-primary-light/10 hover:bg-primary-light text-primary-light hover:text-white px-6 py-4 rounded-3xl font-black text-[10px] uppercase tracking-widest cursor-pointer transition-all border border-primary-light/20"
-                            >
-                              <Edit3 className="w-4 h-4" />
-                              Design
-                            </button>
-                          )}
-                          <button onClick={() => navigate(`/workshops/${workshop._id}/live`)} className="p-4 bg-primary-light text-white rounded-3xl shadow-xl hover:scale-105 transition-all cursor-pointer"><ChevronRight className="w-6 h-6" /></button>
-                        </>
-                      )}
-                      {(user.role === 'COLLEGE_ADMIN' || user.role === 'SUPER_ADMIN') && (
-                        <div className="flex items-center gap-2">
-                           <button
-                            onClick={() => openEditModal(workshop)}
-                            className="p-3 hover:bg-primary-light/10 text-primary-light rounded-2xl transition-all cursor-pointer"
-                            title="Edit Settings"
-                          >
-                            <Settings className="w-5 h-5" />
-                          </button>
+                      
+                      <div className="flex flex-wrap items-center gap-4">
+                        {(user.role === 'INSTRUCTOR' || user.role === 'SUPER_ADMIN') && (
                           <button
-                            onClick={() => {
-                                setWorkshopToDelete(workshop);
-                                setShowDeleteModal(true);
-                            }}
-                            className="p-3 hover:bg-red-500/10 text-red-500 rounded-2xl transition-all cursor-pointer"
-                            title="Remove Workshop"
+                            onClick={() => toggleActive(workshop._id, workshop.isActive)}
+                            className={`px-4 py-3 rounded-2xl text-[9px] font-black uppercase tracking-widest transition-all cursor-pointer border ${workshop.isActive ? 'bg-green-500/10 text-green-500 border-green-500/20' : 'bg-red-500/10 text-red-500 border-red-500/20'}`}
                           >
-                            <Trash2 className="w-5 h-5" />
+                            {workshop.isActive ? 'Active' : 'Inactive'}
                           </button>
-                        </div>
-                      )}
+                        )}
+                        {(user.role === 'INSTRUCTOR' || user.role === 'TEACHER') && (
+                          <div className="flex items-center gap-3">
+                            {user.role === 'INSTRUCTOR' && (
+                              <button
+                                onClick={() => navigate(`/workshops/${workshop._id}/configure`)}
+                                className="flex items-center gap-3 bg-slate-500/5 hover:bg-primary-light text-slate-500 dark:text-white hover:text-white px-6 py-4 rounded-3xl font-black text-[10px] uppercase tracking-widest cursor-pointer transition-all border border-slate-200 dark:border-white/10"
+                              >
+                                <Wand2 className="w-4 h-4" />
+                                Design Curriculum
+                              </button>
+                            )}
+                            <button 
+                              onClick={() => navigate(`/workshops/${workshop._id}/live`)} 
+                              className="flex items-center gap-3 bg-primary-light text-white px-8 py-4 rounded-3xl font-black text-[10px] uppercase tracking-widest shadow-xl shadow-primary-light/20 hover:translate-y-[-2px] transition-all cursor-pointer"
+                            >
+                               <Airplay className="w-4 h-4" />
+                               Manage Class
+                            </button>
+                          </div>
+                        )}
+                        {(user.role === 'INSTRUCTOR' || user.role === 'SUPER_ADMIN') && (
+                          <div className="flex items-center gap-3 border-l border-slate-200 dark:border-white/5 pl-4 ml-1">
+                             <button
+                              onClick={() => openEditModal(workshop)}
+                              className="p-4 bg-slate-500/5 hover:bg-primary-light/10 text-slate-400 hover:text-primary-light rounded-2xl transition-all cursor-pointer border border-transparent hover:border-primary-light/20"
+                              title="Edit Settings"
+                            >
+                              <Pencil className="w-5 h-5" />
+                            </button>
+                            <button
+                              onClick={() => {
+                                  setWorkshopToDelete(workshop);
+                                  setShowDeleteModal(true);
+                              }}
+                              className="p-4 bg-slate-500/5 hover:bg-red-500/10 text-slate-400 hover:text-red-500 rounded-2xl transition-all cursor-pointer border border-transparent hover:border-red-500/20"
+                              title="Remove Workshop"
+                            >
+                              <Trash2 className="w-5 h-5" />
+                            </button>
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                </motion.div>
-              ))
+                  </motion.div>
+                ))}
+              </div>
             )}
             {!loading && workshops.length === 0 && (
-              <div className="py-20 text-center opacity-20 font-black uppercase tracking-[0.2em]">No workshops deployed</div>
+              <div className="py-24 text-center border-2 border-dashed border-slate-200 dark:border-white/5 rounded-[64px] flex flex-col items-center justify-center gap-6">
+                 <BookOpen className="w-16 h-16 opacity-10" />
+                 <p className="opacity-20 font-black uppercase tracking-[0.4em] text-sm">Deployment Ready: No Active Nodes Found</p>
+                 <button onClick={() => setShowModal(true)} className="px-8 py-4 bg-primary-light/10 text-primary-light rounded-full font-black text-[10px] uppercase tracking-widest hover:bg-primary-light hover:text-white transition-all cursor-pointer">Deploy Initial Node</button>
+              </div>
             )}
           </div>
         </div>
-        <div className="lg:col-span-4">
-          <div className="bg-gradient-to-br from-primary-light to-indigo-600 rounded-[56px] p-10 text-white shadow-2xl space-y-4">
-            <Layers className="w-12 h-12 opacity-40" />
-            <h3 className="text-3xl font-black tracking-tighter">Total Curriculum</h3>
-            <div className="text-6xl font-black">{workshops.length}</div>
-          </div>
-        </div>
-      </div>
 
       <UniversalModal
         isOpen={showModal}

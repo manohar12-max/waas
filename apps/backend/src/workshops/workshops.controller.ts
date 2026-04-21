@@ -56,7 +56,7 @@ export class WorkshopsController {
   }
 
   @Get()
-  @Roles(UserRole.COLLEGE_ADMIN, UserRole.TEACHER, UserRole.INSTRUCTOR, UserRole.STUDENT)
+  @Roles(UserRole.SUPER_ADMIN, UserRole.COLLEGE_ADMIN, UserRole.TEACHER, UserRole.INSTRUCTOR, UserRole.STUDENT)
   findAll(
     @GetUser('collegeId') collegeId: string,
     @GetUser('role') role: string,
@@ -74,7 +74,7 @@ export class WorkshopsController {
   }
 
   @Get(':id')
-  @Roles(UserRole.COLLEGE_ADMIN, UserRole.TEACHER, UserRole.INSTRUCTOR, UserRole.STUDENT)
+  @Roles(UserRole.SUPER_ADMIN, UserRole.COLLEGE_ADMIN, UserRole.TEACHER, UserRole.INSTRUCTOR, UserRole.STUDENT)
   findOne(@Param('id') id: string, @GetUser('collegeId') collegeId: string) {
     return this.workshopsService.findOne(id, collegeId);
   }
@@ -128,7 +128,7 @@ export class WorkshopsController {
   }
 
   @Patch(':id')
-  @Roles(UserRole.COLLEGE_ADMIN, UserRole.INSTRUCTOR)
+  @Roles(UserRole.INSTRUCTOR)
   update(
     @Param('id') id: string,
     @Body() updateWorkshopDto: any,
@@ -139,8 +139,14 @@ export class WorkshopsController {
   }
 
   @Delete(':id')
-  @Roles(UserRole.COLLEGE_ADMIN)
+  @Roles(UserRole.INSTRUCTOR)
   remove(@Param('id') id: string, @GetUser('collegeId') collegeId: string) {
     return this.workshopsService.delete(id, collegeId);
+  }
+
+  @Patch(':id/active')
+  @Roles(UserRole.INSTRUCTOR)
+  toggleActive(@Param('id') id: string, @Body('isActive') isActive: boolean) {
+    return this.workshopsService.update(id, { isActive });
   }
 }

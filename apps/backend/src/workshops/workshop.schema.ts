@@ -61,10 +61,13 @@ export class Workshop {
 
   @Prop({ 
     required: true, 
-    enum: ['DRAFT', 'ONGOING', 'COMPLETED'],
+    enum: ['DRAFT', 'ONGOING', 'COMPLETED', 'INACTIVE'],
     default: 'DRAFT'
   })
   status: string;
+
+  @Prop({ default: true })
+  isActive: boolean;
 
   @Prop({ unique: true, required: true })
   inviteToken: string;

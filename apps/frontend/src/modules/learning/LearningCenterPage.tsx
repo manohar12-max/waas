@@ -383,7 +383,18 @@ export default function LearningCenterPage() {
                  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setActiveDoc(null)} className="absolute inset-0 bg-slate-900/40 dark:bg-black/98 backdrop-blur-3xl" />
                  <motion.div initial={{ opacity: 0, scale: 0.98, y: 10 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.98, y: 10 }} className="relative w-full h-full max-w-7xl bg-white dark:bg-[#080810] rounded-[32px] md:rounded-[48px] overflow-hidden flex flex-col shadow-2xl border border-slate-200 dark:border-white/10">
                     <div className="p-6 md:p-8 flex items-center justify-between border-b border-slate-100 dark:border-white/5 bg-slate-50 dark:bg-[#0a0a14]"><div className="flex items-center gap-5 min-w-0"><div className={`w-12 h-12 md:w-14 md:h-14 rounded-2xl flex items-center justify-center shrink-0 ${activeDoc.type === 'PDF' ? 'bg-rose-500/10 text-rose-500' : 'bg-primary-light/10 text-primary-light'}`}><FileText className="w-6 h-6 md:w-7 md:h-7" /></div><div className="min-w-0"><h4 className="text-xl md:text-2xl font-black text-slate-900 dark:text-white truncate leading-tight">{activeDoc.title}</h4><p className="text-[9px] md:text-[10px] font-black text-slate-400 dark:text-white/40 uppercase tracking-[0.2em]">Restricted Viewer Mode</p></div></div><div className="flex items-center gap-3 md:gap-4"><a href={activeDoc.url} download className="p-4 md:p-5 bg-white dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 rounded-2xl text-slate-400 transition-colors"><Download className="w-5 h-5" /></a><button onClick={() => setActiveDoc(null)} className="p-4 md:p-5 bg-white dark:bg-white/5 hover:bg-rose-500 hover:text-white rounded-2xl transition-all text-slate-400"><X className="w-5 h-5" /></button></div></div>
-                    <div className="flex-1 bg-white"><DocViewer documents={[{ uri: activeDoc.url, fileName: activeDoc.title }]} pluginRenderers={DocViewerRenderers} config={{ header: { disableHeader: true }}} style={{ height: '100%' }} /></div>
+                    <div className="flex-1 bg-white overflow-y-auto custom-scrollbar">
+                       <DocViewer 
+                          documents={[{ uri: activeDoc.url, fileName: activeDoc.title }]} 
+                          pluginRenderers={DocViewerRenderers} 
+                          config={{ 
+                             header: { disableHeader: true },
+                             pdfVerticalScroll: true,
+                             pdfZoom: { defaultZoom: 1, zoomJump: 0.1 }
+                          } as any} 
+                          style={{ height: '100%' }} 
+                       />
+                    </div>
                  </motion.div>
              </div>
          )}

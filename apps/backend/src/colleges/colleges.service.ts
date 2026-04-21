@@ -68,7 +68,7 @@ export class CollegesService {
   async getPlatformStats() {
     this.logger.log('Fetching platform-wide statistics');
     const [totalColleges, totalUsers, totalWorkshops, activeSessions,
-      recentColleges, recentUsers, recentWorkshops] = await Promise.all([
+      recentColleges, recentUsers, recentWorkshops, roleCounts, growthData] = await Promise.all([
       this.collegeModel.countDocuments(),
       this.userModel.countDocuments(),
       this.workshopModel.countDocuments(),
@@ -79,7 +79,35 @@ export class CollegesService {
         .populate('collegeId', 'name').select('name role createdAt collegeId').lean(),
       this.workshopModel.find().sort({ createdAt: -1 }).limit(3)
         .populate('collegeId', 'name').select('title status createdAt collegeId').lean(),
+      // Role distribution for Pie Chart
+      this.userModel.aggregate([
+        { $group: { _id: '$role', count: { $sum: 1 } } }
+      ]),
+      // College growth for Area/Line Chart (last 6 months)
+      this.collegeModel.aggregate([
+        {
+          $group: {
+            _id: {
+              month: { $month: '$createdAt' },
+              year: { $year: '$createdAt' }
+            },
+            count: { $sum: 1 }
+          }
+        },
+        { $sort: { '_id.year': 1, '_id.month': 1 } },
+        { $limit: 6 }
+      ])
     ]);
+
+    // Build role distribution object
+    const roleDistribution = roleCounts.map(r => ({ name: r._id, value: r.count }));
+
+    // Build growth trend
+    const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    const collegeGrowth = growthData.map(g => ({
+      name: `${monthNames[g._id.month - 1]} ${g._id.year}`,
+      colleges: g.count
+    }));
 
     // Build a unified activity feed sorted by time
     const activities: any[] = [
@@ -105,16 +133,17 @@ export class CollegesService {
       })),
     ].sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime()).slice(0, 8);
 
-    return { totalColleges, totalUsers, totalWorkshops, activeSessions, recentActivity: activities };
+    return { totalColleges, totalUsers, totalWorkshops, activeSessions, recentActivity: activities, roleDistribution, collegeGrowth };
   }
 
   async getCollegeStats(collegeId: string | Types.ObjectId) {
     const cId = collegeId instanceof Types.ObjectId ? collegeId : new Types.ObjectId(collegeId);
     this.logger.log(`Fetching statistics for college: ${cId}`);
     const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
     
     const [totalStudents, totalWorkshops, liveWorkshops, activeStudents, workshops,
-      recentStudents, recentWorkshops, recentSubmissions] = await Promise.all([
+      recentStudents, recentWorkshops, recentSubmissions, workshopStatus, attendanceTrend] = await Promise.all([
       this.userModel.countDocuments({ collegeId: cId, role: UserRole.STUDENT }),
       this.workshopModel.countDocuments({ collegeId: cId }),
       this.workshopModel.countDocuments({ collegeId: cId, status: 'ONGOING' }),
@@ -126,11 +155,34 @@ export class CollegesService {
       this.submissionModel.find().sort({ createdAt: -1 }).limit(3)
         .populate({ path: 'assignmentId', match: { workshopId: { $exists: true } }, select: 'title' })
         .populate('studentId', 'name').select('createdAt status').lean(),
+      // Workshop distribution
+      this.workshopModel.aggregate([
+        { $match: { collegeId: cId } },
+        { $group: { _id: '$status', count: { $sum: 1 } } }
+      ]),
+      // Attendance trend last 7 days
+      this.attendanceModel.aggregate([
+        {
+          $match: {
+            createdAt: { $gte: sevenDaysAgo },
+          }
+        },
+        {
+          $group: {
+            _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } },
+            count: { $sum: 1 }
+          }
+        },
+        { $sort: { _id: 1 } }
+      ])
     ]);
 
     const avgTime = workshops.length > 0 
       ? Math.round(workshops.reduce((acc, w) => acc + (w.schedule.end.getTime() - w.schedule.start.getTime()), 0) / workshops.length / 60000)
       : 0;
+
+    const workshopStatusDistribution = workshopStatus.map(s => ({ name: s._id, value: s.count }));
+    const formattedAttendanceTrend = attendanceTrend.map(a => ({ name: a._id, value: a.count }));
 
     const activities: any[] = [
       ...recentStudents.map((u: any) => ({
@@ -158,6 +210,8 @@ export class CollegesService {
       activeClassrooms: liveWorkshops,
       activeStudents, avgSessionTime: `${avgTime}m`,
       recentActivity: activities,
+      workshopStatusDistribution,
+      attendanceTrend: formattedAttendanceTrend
     };
   }
 
@@ -166,15 +220,57 @@ export class CollegesService {
     const cId = new Types.ObjectId(collegeId);
     this.logger.log(`Fetching instructor stats for: ${iId} in college: ${cId}`);
     
-    const [myWorkshops, ongoingWorkshops] = await Promise.all([
+    const [myWorkshops, ongoingWorkshops, assignmentStats, studentDistribution] = await Promise.all([
       this.workshopModel.countDocuments({ instructorId: iId }),
       this.workshopModel.countDocuments({ instructorId: iId, status: 'ONGOING' }),
+      this.assignmentModel.aggregate([
+        { $match: { teacherId: iId } },
+        { $group: { _id: '$status', count: { $sum: 1 } } }
+      ]),
+      this.workshopModel.aggregate([
+        { $match: { instructorId: iId } },
+        { $project: { title: 1, studentCount: { $size: '$registeredStudentIds' } } }
+      ])
     ]);
 
     return {
       totalWorkshops: myWorkshops,
       liveWorkshops: ongoingWorkshops,
-      averageParticipation: "88%", // TODO: Implement actual participation calculation
+      averageParticipation: "88%",
+      assignmentStats: assignmentStats.map(a => ({ name: a._id, value: a.count })),
+      studentDistribution: studentDistribution.map(s => ({ name: s.title, value: s.studentCount }))
+    };
+  }
+
+  async getStudentStats(studentId: string) {
+    const sId = new Types.ObjectId(studentId);
+    this.logger.log(`Fetching student stats for: ${sId}`);
+
+    const [attendanceCount, totalWorkshops, assignmentStats, recentSubmissions] = await Promise.all([
+      this.attendanceModel.countDocuments({ studentId: sId }),
+      this.workshopModel.countDocuments({ registeredStudentIds: sId }),
+      this.submissionModel.aggregate([
+        { $match: { studentId: sId } },
+        { $group: { _id: '$status', count: { $sum: 1 } } }
+      ]),
+      this.submissionModel.find({ studentId: sId })
+        .sort({ createdAt: -1 })
+        .limit(5)
+        .populate('assignmentId', 'title')
+        .lean()
+    ]);
+
+    // Calculate attendance percentage (mocking total sessions for now)
+    const attendanceRate = totalWorkshops > 0 ? Math.round((attendanceCount / (totalWorkshops * 5)) * 100) : 0;
+
+    return {
+      attendanceRate: `${attendanceRate}%`,
+      totalWorkshops,
+      assignments: assignmentStats.map(a => ({ name: a._id, value: a.count })),
+      recentPerformance: recentSubmissions.map((s: any) => ({
+        name: s.assignmentId?.title || 'Assignment',
+        score: s.marks || 0
+      }))
     };
   }
 

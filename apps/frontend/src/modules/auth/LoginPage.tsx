@@ -20,11 +20,7 @@ export default function LoginPage() {
     const userStr = localStorage.getItem('user');
     if (token && userStr) {
       const user = JSON.parse(userStr);
-      if (user.role === 'STUDENT') navigate("/student/dashboard");
-      else if (user.role === 'SUPER_ADMIN') navigate("/colleges");
-      else if (user.role === 'INSTRUCTOR') navigate("/instructor/portal");
-      else if (user.role === 'TEACHER') navigate("/teacher/divisions");
-      else navigate("/dashboard");
+      navigate("/dashboard");
     }
   }, [navigate]);
 
@@ -63,7 +59,7 @@ export default function LoginPage() {
         localStorage.removeItem('college_status');
       }
 
-      if (user.role === 'STUDENT') navigate("/student/dashboard");
+      if (user.role === 'STUDENT') navigate("/dashboard");
       else if (user.role === 'SUPER_ADMIN') navigate("/colleges");
       else if (user.role === 'INSTRUCTOR') navigate("/instructor/portal");
       else if (user.role === 'TEACHER') navigate("/teacher/divisions");
