@@ -262,10 +262,12 @@ export class WorkshopsService {
 
   async findAll(collegeId: any, instructorId?: any, studentId?: any): Promise<WorkshopDocument[]> {
     try {
+      const query: any = {};
       const cId = this.toObjectId(collegeId);
-      if (!cId) return [];
-
-      const query: any = { collegeId: cId };
+      
+      if (cId) {
+        query.collegeId = cId;
+      }
       
       if (instructorId) {
         const iId = this.toObjectId(instructorId);

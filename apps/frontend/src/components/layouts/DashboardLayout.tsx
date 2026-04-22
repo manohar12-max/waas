@@ -88,6 +88,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   ];
 
   const impersonateCollegeId = localStorage.getItem('impersonate_college_id');
+  const impersonateCollegeName = localStorage.getItem('impersonate_college_name');
   const isImpersonating = user.role === 'SUPER_ADMIN' && impersonateCollegeId;
 
   const activeRoles = user.role ? [user.role] : [];
@@ -205,11 +206,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <div className="flex items-center justify-between bg-orange-500 dark:bg-orange-600 text-white p-4 font-bold text-sm tracking-wide shadow-lg z-40">
             <div className="flex items-center gap-2">
               <span className="animate-pulse w-2 h-2 rounded-full bg-white opacity-80" />
-              GOD MODE ACTIVE
+              GOD MODE ACTIVE — {impersonateCollegeName || 'Restricted Access'}
             </div>
             <button
               onClick={() => {
                 localStorage.removeItem('impersonate_college_id');
+                localStorage.removeItem('impersonate_college_name');
                 navigate('/colleges');
                 window.location.reload();
               }}

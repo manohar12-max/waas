@@ -47,7 +47,7 @@ export default function TeacherClassroom() {
               {division?.workshopId?.title}
             </span>
             <span className="flex items-center gap-2 text-xs font-bold opacity-40">
-              <BarChart3 className="w-4 h-4" /> 88% Compliance
+              <BarChart3 className="w-4 h-4" /> {division?.stats?.performance?.attendanceRate}% Compliance
             </span>
           </div>
         </div>
@@ -70,9 +70,9 @@ export default function TeacherClassroom() {
               </div>
               <h4 className="text-2xl font-black tracking-tight">Gradebook</h4>
               <p className="text-sm opacity-40 font-medium">Manage assignments and review student submissions.</p>
-              <div className="pt-4 border-t border-slate-100 dark:border-white/5 flex gap-4 text-[10px] font-black uppercase opacity-60">
-                  <span>4 Pending</span>
-                  <span>12 Submissions</span>
+               <div className="pt-4 border-t border-slate-100 dark:border-white/5 flex gap-4 text-[10px] font-black uppercase opacity-60">
+                  <span>{division?.stats?.assignments?.pending} Pending</span>
+                  <span>{division?.stats?.assignments?.submissions} Submissions</span>
               </div>
             </div>
 
@@ -84,8 +84,8 @@ export default function TeacherClassroom() {
               </div>
               <h4 className="text-2xl font-black tracking-tight">Supplements</h4>
               <p className="text-sm opacity-40 font-medium">Upload extra notes and division-specific resources.</p>
-              <div className="pt-4 border-t border-slate-100 dark:border-white/5 flex gap-4 text-[10px] font-black uppercase opacity-60">
-                  <span>3 Files</span>
+               <div className="pt-4 border-t border-slate-100 dark:border-white/5 flex gap-4 text-[10px] font-black uppercase opacity-60">
+                  <span>{division?.stats?.content?.total} Files</span>
                   <span>Visible to {division?.name}</span>
               </div>
             </div>
@@ -97,18 +97,30 @@ export default function TeacherClassroom() {
               <h3 className="text-2xl font-black tracking-tight">Attendance Log</h3>
               <button className="text-[10px] font-black uppercase tracking-widest text-primary-light cursor-pointer">Full History</button>
             </div>
-            <div className="space-y-4">
-              {/* Mock Attendance Entry */}
-              <div className="flex items-center justify-between p-6 bg-slate-50 dark:bg-white/5 rounded-[28px] border border-slate-100 dark:border-white/5">
-                <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 rounded-full bg-green-500/20 flex items-center justify-center text-green-500 font-black">JS</div>
-                  <div>
-                    <p className="font-bold text-slate-800 dark:text-white">John Smith</p>
-                    <p className="text-[10px] font-black opacity-30 uppercase tracking-tighter">Self Check-in @ 09:12 AM</p>
+             <div className="space-y-4">
+               {division?.stats?.recentAttendance?.map((entry: any, idx: number) => (
+                <div key={idx} className="flex items-center justify-between p-6 bg-slate-50 dark:bg-white/5 rounded-[28px] border border-slate-100 dark:border-white/5">
+                  <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 rounded-full bg-primary-light/20 flex items-center justify-center text-primary-light font-black">
+                      {entry.studentId?.name?.[0]}
+                    </div>
+                    <div>
+                      <p className="font-bold text-slate-800 dark:text-white">{entry.studentId?.name}</p>
+                      <p className="text-[10px] font-black opacity-30 uppercase tracking-tighter">
+                        {entry.verificationMethod} Check-in @ {new Date(entry.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </p>
+                    </div>
+                  </div>
+                  <div className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border ${
+                    entry.status === 'PRESENT' ? 'bg-green-500/10 text-green-500 border-green-500/10' : 'bg-red-500/10 text-red-500 border-red-500/10'
+                  }`}>
+                    {entry.status}
                   </div>
                 </div>
-                <div className="bg-green-500/10 text-green-500 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border border-green-500/10">PRESENT</div>
-              </div>
+               ))}
+               {(!division?.stats?.recentAttendance || division.stats.recentAttendance.length === 0) && (
+                 <p className="text-center py-10 opacity-30 text-xs font-black uppercase tracking-widest">No recent attendance records</p>
+               )}
             </div>
           </div>
         </div>
@@ -122,19 +134,27 @@ export default function TeacherClassroom() {
               <div className="space-y-2">
                 <div className="flex justify-between text-[10px] font-black uppercase tracking-widest opacity-40">
                   <span>Attendance Rate</span>
-                  <span>88%</span>
+                  <span>{division?.stats?.performance?.attendanceRate}%</span>
                 </div>
                 <div className="h-1.5 w-full bg-slate-200 dark:bg-white/10 rounded-full overflow-hidden">
-                  <div className="h-full bg-primary-light w-[88%]" />
+                  <motion.div 
+                    initial={{ width: 0 }}
+                    animate={{ width: `${division?.stats?.performance?.attendanceRate}%` }}
+                    className="h-full bg-primary-light" 
+                  />
                 </div>
               </div>
               <div className="space-y-2">
                 <div className="flex justify-between text-[10px] font-black uppercase tracking-widest opacity-40">
-                  <span>Assignment Stats</span>
-                  <span>65%</span>
+                  <span>Average Performance</span>
+                  <span>{division?.stats?.performance?.averageScore}%</span>
                 </div>
                 <div className="h-1.5 w-full bg-slate-200 dark:bg-white/10 rounded-full overflow-hidden">
-                  <div className="h-full bg-amber-500 w-[65%]" />
+                  <motion.div 
+                    initial={{ width: 0 }}
+                    animate={{ width: `${division?.stats?.performance?.averageScore}%` }}
+                    className="h-full bg-amber-500" 
+                  />
                 </div>
               </div>
             </div>

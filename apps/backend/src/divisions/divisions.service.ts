@@ -3,6 +3,11 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Division, DivisionDocument } from './division.schema';
 import { User, UserDocument } from '../users/user.schema';
+import { Workshop, WorkshopDocument } from '../workshops/workshop.schema';
+import { Attendance, AttendanceDocument } from '../workshops/attendance.schema';
+import { Assignment, AssignmentDocument } from '../assignments/assignment.schema';
+import { Submission, SubmissionDocument } from '../assignments/submission.schema';
+import { TeacherContent, TeacherContentDocument } from '../workshops/teacher-content.schema';
 
 @Injectable()
 export class DivisionsService {
@@ -11,6 +16,11 @@ export class DivisionsService {
   constructor(
     @InjectModel(Division.name) private divisionModel: Model<DivisionDocument>,
     @InjectModel(User.name) private userModel: Model<UserDocument>,
+    @InjectModel(Workshop.name) private workshopModel: Model<WorkshopDocument>,
+    @InjectModel(Attendance.name) private attendanceModel: Model<AttendanceDocument>,
+    @InjectModel(Assignment.name) private assignmentModel: Model<AssignmentDocument>,
+    @InjectModel(Submission.name) private submissionModel: Model<SubmissionDocument>,
+    @InjectModel(TeacherContent.name) private teacherContentModel: Model<TeacherContentDocument>,
   ) {}
 
   private toObjectId(id: any): Types.ObjectId | null {
@@ -96,16 +106,64 @@ export class DivisionsService {
   }
 
   async getStats(divisionId: any) {
-    this.logger.log(`Fetching statistics for division ${divisionId}`);
-    // TODO: Implement actual statistics logic based on assignments and attendance
+    const dId = this.toObjectId(divisionId);
+    if (!dId) return null;
+
+    // 1. Get Assignments for this division
+    const assignments = await this.assignmentModel.find({ divisionId: dId });
+    const assignmentIds = assignments.map(a => a._id);
+
+    // 2. Get Submissions for these assignments
+    const submissions = await this.submissionModel.find({ assignmentId: { $in: assignmentIds } });
+
+    // 3. Get Teacher Content count
+    const contentCount = await this.teacherContentModel.countDocuments({ divisionId: dId });
+
+    // 4. Get Division info to get Workshop and Students
+    const division = await this.divisionModel.findById(dId).populate('workshopId');
+    const workshop = division?.workshopId as any;
+    const totalStudents = workshop?.registeredStudentIds?.length || 0;
+
+    // 5. Get Attendance for this workshop
+    const attendance = await this.attendanceModel.find({ workshopId: workshop?._id })
+      .populate('studentId', 'name email')
+      .sort({ createdAt: -1 })
+      .limit(10)
+      .exec();
+
+    // 6. Calculate statistics
+    const submissionCount = submissions.length;
+    const pendingGrades = submissions.filter(s => !s.gradedAt).length;
+    
+    // Average score calculation
+    const gradedSubmissions = submissions.filter(s => s.gradedAt);
+    const averageScore = gradedSubmissions.length > 0 
+      ? Math.round(gradedSubmissions.reduce((acc, curr) => acc + curr.marks, 0) / gradedSubmissions.length)
+      : 0;
+
+    // Attendance rate
+    const uniquePresentStudents = new Set(attendance.filter(a => a.status === 'PRESENT').map(a => a.studentId?._id?.toString())).size;
+    const attendanceRate = totalStudents > 0 ? Math.round((uniquePresentStudents / totalStudents) * 100) : 0;
+
     return {
-      averageScore: 82,
-      attendanceRate: '94%',
-      activeStudents: 45
+      assignments: {
+        total: assignments.length,
+        submissions: submissionCount,
+        pending: pendingGrades
+      },
+      content: {
+        total: contentCount
+      },
+      performance: {
+        averageScore,
+        attendanceRate,
+        activeStudents: totalStudents
+      },
+      recentAttendance: attendance
     };
   }
 
-  async findOne(id: any, collegeId: any): Promise<DivisionDocument | null> {
+  async findOne(id: any, collegeId: any): Promise<any> {
     const dId = this.toObjectId(id);
     let cId = this.toObjectId(collegeId);
 
@@ -131,7 +189,12 @@ export class DivisionsService {
       this.logger.warn(`Division not found: ${dId}`);
       throw new NotFoundException('Division not found.');
     }
-    return division;
+
+    const stats = await this.getStats(dId);
+    return {
+      ...division.toObject(),
+      stats
+    };
   }
 
   async update(id: any, updateDto: any, collegeId: any): Promise<DivisionDocument | null> {

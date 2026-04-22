@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { Plus, School, Users, Activity, ShieldCheck, Edit3, Trash2, Settings } from 'lucide-react';
+import { Plus, School, Users, Activity, ShieldCheck, Edit3, Trash2, Settings, LogOut } from 'lucide-react';
 import UniversalModal from '../../components/UniversalModal';
 import { normalizeEmail } from '../../utils/normalization';
 import AnnouncementsWidget from '../../components/AnnouncementsWidget';
@@ -44,6 +44,7 @@ export default function SuperAdminDashboard() {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [collegeToDelete, setCollegeToDelete] = useState<{id: string, name: string} | null>(null);
   const [editingCollege, setEditingCollege] = useState<College | null>(null);
+  const impersonateCollegeId = localStorage.getItem('impersonate_college_id');
 
   const [stats, setStats] = useState({
     totalColleges: 0,
@@ -167,9 +168,16 @@ export default function SuperAdminDashboard() {
     }
   };
 
-  const handleImpersonate = (collegeId: string) => {
+  const handleImpersonate = (collegeId: string, collegeName: string) => {
     localStorage.setItem('impersonate_college_id', collegeId);
+    localStorage.setItem('impersonate_college_name', collegeName);
     navigate('/dashboard');
+    window.location.reload();
+  };
+
+  const handleExitIdentity = () => {
+    localStorage.removeItem('impersonate_college_id');
+    localStorage.removeItem('impersonate_college_name');
     window.location.reload();
   };
 
@@ -257,7 +265,7 @@ export default function SuperAdminDashboard() {
                   <motion.tr
                     key={college._id}
                     whileHover={{ backgroundColor: 'rgba(129, 140, 248, 0.05)' }}
-                    className="transition-colors group hover:bg-slate-50/50 dark:hover:bg-white/[0.02]"
+                    className={`transition-colors group ${college._id === impersonateCollegeId ? 'bg-orange-500/10 border-l-4 border-orange-500' : 'hover:bg-slate-50/50 dark:hover:bg-white/[0.02]'}`}
                   >
                     <td className="px-6 py-5">
                       <div className="flex items-center gap-3">
@@ -288,13 +296,23 @@ export default function SuperAdminDashboard() {
                     </td>
                     <td className="px-6 py-5">
                       <div className="flex items-center justify-end gap-2">
-                        <button
-                          onClick={() => handleImpersonate(college._id)}
-                          className="flex items-center gap-1.5 px-3 py-1.5 bg-orange-500/10 hover:bg-orange-500 hover:text-white text-orange-500 hover:shadow-lg hover:shadow-orange-500/20 rounded-lg transition-all cursor-pointer text-[10px] font-bold uppercase tracking-widest group"
-                        >
-                          <Activity className="w-3 h-3" />
-                          GOD MODE
-                        </button>
+                        {college._id === impersonateCollegeId ? (
+                          <button
+                            onClick={handleExitIdentity}
+                            className="flex items-center gap-1.5 px-3 py-1.5 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-all cursor-pointer text-[10px] font-bold uppercase tracking-widest shadow-lg shadow-red-500/20"
+                          >
+                            <LogOut className="w-3 h-3" />
+                            Exit Identity
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => handleImpersonate(college._id, college.name)}
+                            className="flex items-center gap-1.5 px-3 py-1.5 bg-orange-500/10 hover:bg-orange-500 hover:text-white text-orange-500 hover:shadow-lg hover:shadow-orange-500/20 rounded-lg transition-all cursor-pointer text-[10px] font-bold uppercase tracking-widest group"
+                          >
+                            <Activity className="w-3 h-3" />
+                            GOD MODE
+                          </button>
+                        )}
                         <button
                           onClick={() => openEditModal(college)}
                           className="p-2.5 hover:bg-primary-light/10 text-primary-light rounded-xl transition-all cursor-pointer"
