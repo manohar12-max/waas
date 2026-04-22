@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Day } from './schemas/day.schema';
@@ -19,6 +19,19 @@ export class SessionContentService {
     private readonly aiClient: AIServiceClient,
     private readonly pdfService: PDFService,
   ) {}
+
+  async validateRegistration(workshopId: string, studentId: string) {
+    const workshop = await this.workshopModel.findById(workshopId);
+    if (!workshop) throw new NotFoundException('Workshop not found');
+    
+    const isRegistered = workshop.registeredStudentIds.some(
+      (rid: any) => rid.toString() === studentId.toString()
+    );
+    
+    if (!isRegistered) {
+      throw new ForbiddenException('Access denied: You are not officially registered for this workshop.');
+    }
+  }
 
   async createDay(workshopId: string, date: Date, dayNumber: number) {
     const day = await this.dayModel.create({
@@ -88,10 +101,14 @@ export class SessionContentService {
     return this.sessionModel.find({ dayId: new Types.ObjectId(dayId) });
   }
 
-  async getFullWorkshopStructure(workshopId: string) {
+  async getFullWorkshopStructure(workshopId: string, userId?: string, role?: string) {
     const workshop = await this.workshopModel.findById(workshopId);
     if (!workshop) throw new NotFoundException('Workshop not found');
 
+    if (role === 'STUDENT' && userId) {
+      await this.validateRegistration(workshopId, userId);
+    }
+    
     // Auto-initialize days if they don't exist
     if (workshop.schedule?.start && workshop.schedule?.end) {
       const start = new Date(workshop.schedule.start);
@@ -279,9 +296,13 @@ export class SessionContentService {
     return session;
   }
 
-  async getSessionContent(sessionId: string, userRole?: string) {
+  async getSessionContent(sessionId: string, userRole?: string, userId?: string) {
     const session = await this.sessionModel.findById(sessionId);
     if (!session) throw new NotFoundException('Session not found');
+
+    if (userRole === 'STUDENT' && userId) {
+      await this.validateRegistration(session.workshopId.toString(), userId);
+    }
 
     const isInstructor = userRole === 'INSTRUCTOR' || userRole === 'COLLEGE_ADMIN' || userRole === 'TEACHER' || userRole === 'SUPER_ADMIN';
 

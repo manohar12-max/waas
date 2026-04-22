@@ -71,6 +71,7 @@ export class DivisionsService {
       return this.divisionModel
         .find({ collegeId: cId })
         .populate('teacherId', 'name email')
+        .populate('workshopId', 'title registeredStudentIds pendingStudentIds')
         .exec();
     } catch (error) {
       this.logger.error(`Failed to fetch divisions: ${error.message}`, error.stack);
@@ -86,7 +87,7 @@ export class DivisionsService {
       this.logger.log(`Fetching divisions for teacher ${tId}`);
       return this.divisionModel
         .find({ teacherId: tId })
-        .populate('workshopId', 'title')
+        .populate('workshopId', 'title inviteToken')
         .exec();
     } catch (error) {
       this.logger.error(`Failed to fetch teacher divisions: ${error.message}`, error.stack);
@@ -120,10 +121,10 @@ export class DivisionsService {
     }).populate('teacherId', 'name email')
       .populate({
         path: 'workshopId',
-        populate: {
-          path: 'registeredStudentIds',
-          select: 'name email createdAt'
-        }
+        populate: [
+          { path: 'registeredStudentIds', select: 'name email createdAt phone' },
+          { path: 'pendingStudentIds', select: 'name email createdAt phone' }
+        ]
       }).exec();
 
     if (!division) {

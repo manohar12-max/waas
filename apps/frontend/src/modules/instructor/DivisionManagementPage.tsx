@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, Users, Layout, X, Loader2, AlertCircle, Trash2, User } from 'lucide-react';
@@ -33,6 +34,8 @@ export default function DivisionManagementPage() {
   });
 
   const user = JSON.parse(localStorage.getItem('user') || '{}');
+
+  const navigate = useNavigate();
 
   useEffect(() => {
     fetchData();
@@ -100,7 +103,7 @@ export default function DivisionManagementPage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          {divisions.map((div) => (
+          {divisions.map((div: any) => (
             <motion.div key={div._id} className="bg-card-light dark:bg-card-dark border border-slate-200 dark:border-white/5 rounded-[56px] p-10 shadow-2xl">
               <div className="flex justify-between items-start mb-8">
                 <div className="w-16 h-16 bg-primary-light/10 rounded-[22px] flex items-center justify-center text-primary-light border border-primary-light/10">
@@ -108,10 +111,37 @@ export default function DivisionManagementPage() {
                 </div>
               </div>
               <h3 className="text-3xl font-black tracking-tight mb-2">{div.name}</h3>
-              <p className="text-sm opacity-30 leading-relaxed font-medium mb-10">{div.description || "Institutional batch cluster."}</p>
-              <div className="pt-8 border-t border-slate-100 dark:border-white/5 flex items-center gap-4">
-                <div className="w-10 h-10 rounded-2xl bg-white/5 flex items-center justify-center border border-white/10 text-[10px] font-black">{div.teacherId?.name?.[0] || <User />}</div>
-                <p className="text-sm font-bold">{div.teacherId?.name || "Unassigned"}</p>
+              <p className="text-sm font-bold text-primary-light uppercase tracking-tighter opacity-70 mb-4">
+                {div.workshopId?.title || "Curriculum Session"}
+              </p>
+              <p className="text-sm opacity-30 leading-relaxed font-medium mb-8">{div.description || "Institutional batch cluster."}</p>
+              
+              <div className="grid grid-cols-2 gap-4 mb-8">
+                <div className="bg-white/5 p-4 rounded-3xl border border-white/5">
+                  <span className="text-[8px] font-black uppercase opacity-30 tracking-[0.2em] block mb-1">Enrolled</span>
+                  <span className="text-lg font-black">{div.workshopId?.registeredStudentIds?.length || 0}</span>
+                </div>
+                <div className="bg-white/5 p-4 rounded-3xl border border-white/5">
+                  <span className="text-[8px] font-black uppercase opacity-30 tracking-[0.2em] block mb-1">Pending</span>
+                  <span className={`text-lg font-black ${div.workshopId?.pendingStudentIds?.length > 0 ? 'text-orange-500' : ''}`}>
+                    {div.workshopId?.pendingStudentIds?.length || 0}
+                  </span>
+                </div>
+              </div>
+
+              <div className="pt-8 border-t border-slate-100 dark:border-white/5 space-y-6">
+                <div className="flex items-center gap-4">
+                  <div className="w-10 h-10 rounded-2xl bg-white/5 flex items-center justify-center border border-white/10 text-[10px] font-black">{div.teacherId?.name?.[0] || <User />}</div>
+                  <p className="text-sm font-bold">{div.teacherId?.name || "Unassigned"}</p>
+                </div>
+
+                <button 
+                  onClick={() => div.workshopId?._id && navigate(`/instructor/workshop/${div.workshopId._id}/manage?tab=PENDING`)}
+                  className={`w-full py-4 rounded-3xl font-black text-[10px] uppercase tracking-widest transition-all cursor-pointer flex items-center justify-center gap-3 ${div.workshopId?.pendingStudentIds?.length > 0 ? 'bg-orange-500 text-white shadow-xl shadow-orange-500/20' : 'bg-slate-100 dark:bg-white/5 opacity-40 hover:opacity-100'}`}
+                >
+                  <Users className="w-4 h-4" />
+                  Student Registration {div.workshopId?.pendingStudentIds?.length > 0 ? `(${div.workshopId.pendingStudentIds.length})` : ''}
+                </button>
               </div>
             </motion.div>
           ))}

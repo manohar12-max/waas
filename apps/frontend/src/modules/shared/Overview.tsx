@@ -4,7 +4,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import {
   School, Users, BookOpen, Clock, ArrowUpRight, TrendingUp,
-  Building2, CheckCircle2, FileText, Loader2, BarChart3, PieChartIcon
+  Building2, CheckCircle2, FileText, Loader2, BarChart3, PieChartIcon,
+  Layers, Activity, ChevronRight
 } from 'lucide-react';
 import AnnouncementsWidget from '../../components/AnnouncementsWidget';
 import { StatsChart } from '../../components/StatsCharts';
@@ -96,24 +97,124 @@ const CollegeAdminDashboard = ({ stats, loading }: any) => (
   </div>
 );
 
-const InstructorDashboard = ({ stats, loading }: any) => (
-  <div className="space-y-8">
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-      <QuickStat label="My Workshops" value={loading ? '...' : stats?.totalWorkshops} icon={BookOpen} />
-      <QuickStat label="Ongoing Labs" value={loading ? '...' : stats?.liveWorkshops} icon={Clock} />
-      <QuickStat label="Participation Rate" value={loading ? '...' : stats?.averageParticipation} icon={TrendingUp} trend="+2%" />
-    </div>
+const InstructorDashboard = ({ stats, loading }: any) => {
+  const navigate = useNavigate();
+  
+  return (
+    <div className="space-y-12">
+      {/* Stats Row */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <QuickStat 
+          label="My Workshops" 
+          value={loading ? '...' : stats?.totalWorkshops} 
+          icon={BookOpen} 
+        />
+        <QuickStat 
+          label="Ongoing Labs" 
+          value={loading ? '...' : stats?.liveWorkshops} 
+          icon={Clock} 
+        />
+        <QuickStat 
+          label="Avg. Participation" 
+          value={loading ? '...' : stats?.averageParticipation} 
+          icon={TrendingUp} 
+          trend="+2%" 
+        />
+      </div>
 
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-      <div className="bg-card-light dark:bg-card-dark border border-slate-200 dark:border-white/5 p-8 rounded-[40px] shadow-2xl">
-        <StatsChart title="Assignment Submission Velocity" type="pie" data={stats?.assignmentStats} />
-      </div>
-      <div className="bg-card-light dark:bg-card-dark border border-slate-200 dark:border-white/5 p-8 rounded-[40px] shadow-2xl">
-        <StatsChart title="Student Distribution by Lab" type="bar" data={stats?.studentDistribution} />
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+        {/* Main Content Area */}
+        <div className="lg:col-span-8 space-y-10">
+          {/* Workshop Command Center */}
+          <div className="bg-card-light dark:bg-card-dark border border-slate-200 dark:border-white/5 p-8 rounded-[48px] shadow-2xl relative overflow-hidden">
+            <div className="absolute top-0 right-0 p-8 opacity-5">
+              <Layers className="w-32 h-32" />
+            </div>
+            
+            <div className="flex items-center justify-between mb-8 relative z-10">
+              <h3 className="font-black text-2xl tracking-tight flex items-center gap-3">
+                <Activity className="w-6 h-6 text-primary-light" />
+                Workshop Command Center
+              </h3>
+            </div>
+
+            <div className="space-y-4 relative z-10">
+              {loading ? (
+                <div className="flex items-center justify-center py-20"><Loader2 className="w-8 h-8 animate-spin opacity-20" /></div>
+              ) : stats?.workshops?.length > 0 ? (
+                stats.workshops.map((w: any) => (
+                  <div key={w._id} className="p-6 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/5 rounded-3xl hover:border-primary-light/30 transition-all group">
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                      <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 rounded-2xl bg-primary-light/10 flex items-center justify-center text-primary-light border border-white/5 group-hover:scale-110 transition-transform">
+                          <BookOpen className="w-6 h-6" />
+                        </div>
+                        <div>
+                          <h4 className="font-bold text-lg leading-tight">{w.title}</h4>
+                          <div className="flex items-center gap-3 mt-1">
+                            <span className={`px-2 py-0.5 rounded-lg text-[8px] font-black uppercase tracking-widest border ${
+                              w.status === 'ACTIVE' ? 'bg-green-500/10 text-green-500 border-green-500/20' : 
+                              w.status === 'UPCOMING' ? 'bg-primary-light/10 text-primary-light border-primary-light/20' : 
+                              'bg-slate-500/10 text-slate-500 border-slate-500/20'
+                            }`}>
+                              {w.status}
+                            </span>
+                            <span className="text-[10px] font-bold opacity-30 uppercase tracking-wider">{w.studentCount} Students</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button 
+                          onClick={() => navigate(`/instructor/workshop/${w._id}/manage`)}
+                          className="px-6 py-3 bg-primary-light text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-primary-light/20 hover:bg-primary-dark transition-all"
+                        >
+                          Manage
+                        </button>
+                        <button 
+                          onClick={() => navigate(`/workshops/${w._id}/live`)}
+                          className="p-3 bg-slate-200 dark:bg-white/10 rounded-xl hover:bg-primary-light hover:text-white transition-all"
+                        >
+                          <ChevronRight className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="py-20 text-center opacity-20 border-2 border-dashed border-slate-200 dark:border-white/5 rounded-3xl">
+                  <p className="text-[10px] font-black uppercase tracking-widest">No assigned workshops found</p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Charts Row */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div className="bg-card-light dark:bg-card-dark border border-slate-200 dark:border-white/5 p-8 rounded-[40px] shadow-2xl">
+              <StatsChart title="Submission Status Breakdown" type="pie" data={stats?.assignmentStats} />
+            </div>
+            <div className="bg-card-light dark:bg-card-dark border border-slate-200 dark:border-white/5 p-8 rounded-[40px] shadow-2xl">
+              <StatsChart title="Student Distribution by Lab" type="bar" data={stats?.studentDistribution} />
+            </div>
+          </div>
+        </div>
+
+        {/* Sidebar Info/Quick Actions could go here if needed, but the main feed is already in Overview */}
+        <div className="lg:col-span-4 space-y-8">
+           <div className="p-8 bg-gradient-to-br from-indigo-600 to-primary-light rounded-[48px] text-white shadow-2xl relative overflow-hidden group">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 blur-3xl -mr-16 -mt-16 group-hover:scale-150 transition-transform duration-1000" />
+              <Activity className="w-12 h-12 opacity-40 mb-6" />
+              <h3 className="text-2xl font-black tracking-tight leading-tight mb-2">Operational<br/>Insights</h3>
+              <p className="text-sm opacity-80 leading-relaxed font-medium">
+                Your average student engagement is {stats?.averageParticipation || 'stable'}. 
+                Consider reviewing pending submissions for the {stats?.workshops?.[0]?.title || 'active'} lab.
+              </p>
+           </div>
+        </div>
       </div>
     </div>
-  </div>
-);
+  );
+};
 
 const StudentDashboardView = ({ stats, loading }: any) => {
   const navigate = useNavigate();
@@ -245,7 +346,8 @@ export default function Overview() {
       const token = localStorage.getItem('token');
       let endpoint = '/stats/college';
       if (user.role === 'SUPER_ADMIN') endpoint = '/stats/platform';
-      if (user.role === 'INSTRUCTOR' || user.role === 'TEACHER') endpoint = '/stats/instructor';
+      if (user.role === 'INSTRUCTOR') endpoint = '/stats/instructor';
+      if (user.role === 'TEACHER') endpoint = '/stats/teacher';
       if (user.role === 'STUDENT') endpoint = '/stats/student';
 
       const res = await axios.get(`${API}${endpoint}`, {

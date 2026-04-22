@@ -105,7 +105,8 @@ export default function StudentRegistrationPage() {
             <p className="opacity-40 font-bold uppercase tracking-widest text-[10px]">Enrollment Successful</p>
           </div>
           <p className="text-sm opacity-60 leading-relaxed font-medium">
-            You are now registered for <b>{workshop?.title}</b>. Your instructor will mark your attendance on the event day.
+            Your registration for <b>{workshop?.title}</b> has been received and is <b>pending approval</b>. 
+            Once an instructor approves your request, you will be officially enrolled.
           </p>
           <button
             onClick={() => navigate('/login')}

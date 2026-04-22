@@ -90,8 +90,15 @@ export class WorkshopsService {
         this.logger.warn(`Enrollment failed: Student ${email} already in workshop ${workshop.title}`);
         throw new ConflictException('You are already registered for this workshop.');
       }
+
+      const isPending = (workshop.pendingStudentIds || []).some(
+        (id: any) => id.toString() === student!._id.toString()
+      );
+      if (isPending) {
+        throw new ConflictException('Your registration is pending approval.');
+      }
       
-      this.logger.log(`Existing student ${email} enrolling in new workshop: ${workshop.title}`);
+      this.logger.log(`Existing student ${email} applying for new workshop: ${workshop.title}`);
     } else {
       // 3. Create Identity if not exists
       this.logger.log(`Creating new identity for student: ${email}`);
@@ -113,15 +120,16 @@ export class WorkshopsService {
       this.logger.log(`New student identity created: ${student.email} [ID: ${student._id}]`);
     }
 
-    // 4. Link to Workshop
+    // 4. Link to Workshop (as Pending)
     await this.workshopModel.findByIdAndUpdate(workshop._id, {
-      $addToSet: { registeredStudentIds: student._id }
+      $addToSet: { pendingStudentIds: student._id }
     });
 
-    this.logger.log(`Student ${student.email} enrolled in workshop: ${workshop.title}`);
+    this.logger.log(`Student ${student.email} registration pending for workshop: ${workshop.title}`);
 
     return {
       success: true,
+      pending: true,
       workshop: workshop.title,
       student: student.name
     };
@@ -252,15 +260,21 @@ export class WorkshopsService {
   }
 
 
-  async findAll(collegeId: any, instructorId?: any): Promise<WorkshopDocument[]> {
+  async findAll(collegeId: any, instructorId?: any, studentId?: any): Promise<WorkshopDocument[]> {
     try {
       const cId = this.toObjectId(collegeId);
       if (!cId) return [];
 
       const query: any = { collegeId: cId };
+      
       if (instructorId) {
         const iId = this.toObjectId(instructorId);
         if (iId) query.instructorId = iId;
+      }
+
+      if (studentId) {
+        const sId = this.toObjectId(studentId);
+        if (sId) query.registeredStudentIds = sId;
       }
 
       return this.workshopModel
@@ -318,23 +332,51 @@ export class WorkshopsService {
     ).exec();
   }
 
-  async findOne(id: any, collegeId: any): Promise<WorkshopDocument | null> {
+  async findOne(id: any, collegeId: any, userId?: any, role?: string): Promise<WorkshopDocument | null> {
     const wId = this.toObjectId(id);
     const cId = this.toObjectId(collegeId);
-    if (!wId || !cId) throw new NotFoundException('Workshop not found or institutional access denied.');
+    if (!wId) throw new NotFoundException('Workshop not found.');
 
-    const workshop = await this.workshopModel.findOne({
-      _id: wId,
-      collegeId: cId,
-    })
+    const query: any = { _id: wId };
+    
+    // For non-super-admins, we usually restrict by collegeId 
+    // EXCEPT for instructors who should always see their assigned workshops
+    if (role !== UserRole.SUPER_ADMIN) {
+      if (role === UserRole.INSTRUCTOR && userId) {
+        // Allow if it's THEIR workshop OR same college
+        query.$or = [
+          { collegeId: cId },
+          { instructorId: this.toObjectId(userId) }
+        ];
+      } else if (cId) {
+        query.collegeId = cId;
+      }
+    }
+
+    const workshop = await this.workshopModel.findOne(query)
       .populate('instructorId', 'name email')
-      .populate('registeredStudentIds', 'name email createdAt')
+      .populate('registeredStudentIds', 'name email createdAt phone')
+      .populate('pendingStudentIds', 'name email createdAt phone')
       .exec();
 
     if (!workshop) {
-      this.logger.warn(`Workshop not found: ${wId} for college ${cId}`);
-      throw new NotFoundException('Workshop resource deleted or moved.');
+      this.logger.warn(`Workshop not found: ${wId}`);
+      throw new NotFoundException('Workshop not found.');
     }
+
+    // Access Control for Students
+    if (role === UserRole.STUDENT && userId) {
+      const isRegistered = workshop.registeredStudentIds.some(
+        (sid: any) => {
+          const idStr = sid._id ? sid._id.toString() : sid.toString();
+          return idStr === userId.toString();
+        }
+      );
+      if (!isRegistered) {
+        throw new ForbiddenException('You are not registered for this workshop or your registration is pending approval.');
+      }
+    }
+
     return workshop;
   }
 
@@ -348,6 +390,48 @@ export class WorkshopsService {
       { $addToSet: { registeredStudentIds: sId } },
       { new: true }
     ).exec();
+  }
+
+  async approveStudent(workshopId: string, studentId: string) {
+    const wId = this.toObjectId(workshopId);
+    const sId = this.toObjectId(studentId);
+    this.logger.log(`Approving student ${sId} for workshop ${wId}`);
+
+    return this.workshopModel.findByIdAndUpdate(wId, {
+      $pull: { pendingStudentIds: sId },
+      $addToSet: { registeredStudentIds: sId }
+    }, { new: true }).populate('registeredStudentIds pendingStudentIds');
+  }
+
+  async bulkApproveStudents(workshopId: string, studentIds: string[]) {
+    const wId = this.toObjectId(workshopId);
+    const sIds = studentIds.map(id => this.toObjectId(id)).filter(id => !!id);
+    this.logger.log(`Bulk approving ${sIds.length} students for workshop ${wId}`);
+
+    return this.workshopModel.findByIdAndUpdate(wId, {
+      $pull: { pendingStudentIds: { $in: sIds } },
+      $addToSet: { registeredStudentIds: { $each: sIds } }
+    }, { new: true }).populate('registeredStudentIds pendingStudentIds');
+  }
+
+  async rejectStudent(workshopId: string, studentId: string) {
+    const wId = this.toObjectId(workshopId);
+    const sId = this.toObjectId(studentId);
+    this.logger.log(`Rejecting student ${sId} for workshop ${wId}`);
+
+    return this.workshopModel.findByIdAndUpdate(wId, {
+      $pull: { pendingStudentIds: sId }
+    }, { new: true }).populate('registeredStudentIds pendingStudentIds');
+  }
+
+  async bulkRejectStudents(workshopId: string, studentIds: string[]) {
+    const wId = this.toObjectId(workshopId);
+    const sIds = studentIds.map(id => this.toObjectId(id)).filter(id => !!id);
+    this.logger.log(`Bulk rejecting ${sIds.length} students for workshop ${wId}`);
+
+    return this.workshopModel.findByIdAndUpdate(wId, {
+      $pull: { pendingStudentIds: { $in: sIds } }
+    }, { new: true }).populate('registeredStudentIds pendingStudentIds');
   }
 
   async delete(id: any, collegeId: any): Promise<any> {
@@ -375,6 +459,23 @@ export class WorkshopsService {
     ).exec();
   }
 
+  async validateStudentRegistration(workshopId: string, studentId: string) {
+    const wId = this.toObjectId(workshopId);
+    const sId = this.toObjectId(studentId);
+    if (!wId || !sId) throw new BadRequestException('Invalid ID format.');
+
+    const workshop = await this.workshopModel.findById(wId);
+    if (!workshop) throw new NotFoundException('Workshop not found.');
+    
+    const isRegistered = workshop.registeredStudentIds.some(
+      (rid: any) => rid.toString() === sId.toString()
+    );
+
+    if (!isRegistered) {
+      throw new ForbiddenException('You are not registered for this workshop or your registration is pending approval.');
+    }
+  }
+
   async recordAttendance(workshopId: any, studentId: any, verifiedBy: any, method: string): Promise<any> {
     const wId = this.toObjectId(workshopId);
     const sId = this.toObjectId(studentId);
@@ -386,6 +487,20 @@ export class WorkshopsService {
     }
 
     this.logger.log(`Recording attendance: workshop ${wId}, student ${sId}, method ${method}`);
+
+    // Verify Registration
+    const workshop = await this.workshopModel.findById(wId);
+    if (!workshop) throw new NotFoundException('Workshop not found.');
+    
+    const isRegistered = workshop.registeredStudentIds.some(
+      (rid: any) => rid.toString() === sId!.toString()
+    );
+
+    if (!isRegistered) {
+      this.logger.warn(`Attendance failed: Student ${sId} not registered for workshop ${wId}`);
+      throw new ForbiddenException('Student is not officially registered for this workshop.');
+    }
+
     return this.attendanceModel.findOneAndUpdate(
       { workshopId: wId, studentId: sId },
       {

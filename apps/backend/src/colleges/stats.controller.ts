@@ -24,12 +24,21 @@ export class StatsController {
   }
 
   @Get('instructor')
-  @Roles(UserRole.INSTRUCTOR, UserRole.TEACHER)
+  @Roles(UserRole.INSTRUCTOR)
   async getInstructorStats(
     @GetUser('_id') userId: string,
     @GetUser('collegeId') collegeId: string
   ) {
     return this.collegesService.getInstructorStats(userId, collegeId);
+  }
+
+  @Get('teacher')
+  @Roles(UserRole.TEACHER)
+  async getTeacherStats(
+    @GetUser('_id') userId: string,
+    @GetUser('collegeId') collegeId: string
+  ) {
+    return this.collegesService.getTeacherStats(userId, collegeId);
   }
 
   @Get('student')

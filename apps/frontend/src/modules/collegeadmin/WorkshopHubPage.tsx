@@ -18,7 +18,8 @@ import {
   Activity,
   Wand2,
   Cpu,
-  Airplay
+  Airplay,
+  Copy
 } from 'lucide-react';
 import UniversalModal from '../../components/UniversalModal';
 
@@ -323,7 +324,25 @@ export default function WorkshopHubPage() {
                             <span className="opacity-20 hidden md:block">|</span>
                             <div className="flex items-center gap-1.5"><User className="w-3.5 h-3.5" /> {workshop.instructorId?.name || "Unassigned"}</div>
                             <span className="opacity-20 hidden md:block">|</span>
-                            <div className="flex items-center gap-1.5"><ShieldAlert className="w-3.5 h-3.5 text-primary-light" /> Invite: {workshop.inviteToken || "N/A"}</div>
+                            <div className="flex items-center gap-1.5 group/invite relative">
+                              <ShieldAlert className="w-3.5 h-3.5 text-primary-light" /> 
+                              <span className="opacity-60">Invite:</span> 
+                              <span className="font-mono">{workshop.inviteToken || "N/A"}</span>
+                              {workshop.inviteToken && (
+                                <button 
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    const link = `${window.location.origin}/register?invite=${workshop.inviteToken}`;
+                                    navigator.clipboard.writeText(link);
+                                    alert("Invitation link copied!");
+                                  }}
+                                  className="ml-2 p-1 hover:bg-primary-light/10 rounded-md transition-colors cursor-pointer"
+                                  title="Copy Registration Link"
+                                >
+                                  <Copy className="w-3 h-3 text-primary-light" />
+                                </button>
+                              )}
+                            </div>
                           </div>
                         </div>
                       </div>
