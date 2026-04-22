@@ -72,7 +72,7 @@ export class CollegesService {
       this.collegeModel.countDocuments(),
       this.userModel.countDocuments(),
       this.workshopModel.countDocuments(),
-      this.workshopModel.countDocuments({ status: 'ONGOING' }),
+      this.workshopModel.countDocuments({ status: 'ACTIVE' }),
       // Recent activity sources
       this.collegeModel.find().sort({ createdAt: -1 }).limit(3).select('name createdAt').lean(),
       this.userModel.find({ role: { $ne: 'SUPER_ADMIN' } }).sort({ createdAt: -1 }).limit(4)
@@ -146,7 +146,7 @@ export class CollegesService {
       recentStudents, recentWorkshops, recentSubmissions, workshopStatus, attendanceTrend] = await Promise.all([
       this.userModel.countDocuments({ collegeId: cId, role: UserRole.STUDENT }),
       this.workshopModel.countDocuments({ collegeId: cId }),
-      this.workshopModel.countDocuments({ collegeId: cId, status: 'ONGOING' }),
+      this.workshopModel.countDocuments({ collegeId: cId, status: 'ACTIVE' }),
       this.attendanceModel.distinct('studentId', { createdAt: { $gte: oneHourAgo } }).then(ids => ids.length),
       this.workshopModel.find({ collegeId: cId }).select('schedule').exec(),
       // Recent activity
@@ -192,7 +192,7 @@ export class CollegesService {
       })),
       ...recentWorkshops.map((w: any) => ({
         type: 'workshop', icon: 'book',
-        label: `Workshop ${w.status === 'ONGOING' ? 'started' : 'created'} — ${w.title}`,
+        label: `Workshop ${w.status === 'ACTIVE' ? 'started' : 'created'} — ${w.title}`,
         time: w.createdAt,
       })),
       ...recentSubmissions
@@ -222,7 +222,7 @@ export class CollegesService {
     
     const [myWorkshops, ongoingWorkshops, assignmentStats, studentDistribution] = await Promise.all([
       this.workshopModel.countDocuments({ instructorId: iId }),
-      this.workshopModel.countDocuments({ instructorId: iId, status: 'ONGOING' }),
+      this.workshopModel.countDocuments({ instructorId: iId, status: 'ACTIVE' }),
       this.assignmentModel.aggregate([
         { $match: { teacherId: iId } },
         { $group: { _id: '$status', count: { $sum: 1 } } }

@@ -40,7 +40,7 @@ interface Workshop {
     start: string;
     end: string;
   };
-  status: 'DRAFT' | 'ONGOING' | 'COMPLETED' | 'INACTIVE';
+  status: 'UPCOMING' | 'ACTIVE' | 'INACTIVE';
   inviteToken?: string;
   isActive: boolean;
 }
@@ -54,6 +54,7 @@ export default function WorkshopHubPage() {
   const [error, setError] = useState("");
   const [editingWorkshop, setEditingWorkshop] = useState<Workshop | null>(null);
   const [workshopToDelete, setWorkshopToDelete] = useState<Workshop | null>(null);
+  const [filter, setFilter] = useState<'ALL' | 'ACTIVE' | 'UPCOMING' | 'INACTIVE'>('ALL');
   const navigate = useNavigate();
 
   const [newWorkshop, setNewWorkshop] = useState({
@@ -201,12 +202,17 @@ export default function WorkshopHubPage() {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'ONGOING': return 'text-green-500 bg-green-500/10 border-green-500/20';
-      case 'DRAFT': return 'text-primary-light bg-primary-light/10 border-primary-light/20';
+      case 'ACTIVE': return 'text-green-500 bg-green-500/10 border-green-500/20';
+      case 'UPCOMING': return 'text-primary-light bg-primary-light/10 border-primary-light/20';
       case 'INACTIVE': return 'text-red-500 bg-red-500/10 border-red-500/20';
       default: return 'text-slate-400 bg-slate-400/10 border-slate-400/20';
     }
   };
+
+  const filteredWorkshops = workshops.filter(w => {
+    if (filter === 'ALL') return true;
+    return w.status === filter;
+  });
 
   return (
     <div className="space-y-10 pb-24 font-outfit p-6 lg:p-10">
@@ -246,7 +252,7 @@ export default function WorkshopHubPage() {
             <p className="text-[10px] font-black uppercase tracking-widest opacity-30 text-green-500">Live Sessions</p>
             <div className="flex items-center gap-3">
                <Activity className="w-5 h-5 opacity-40 text-green-500" />
-               <p className="text-2xl font-black">{workshops.filter(w => w.status === 'ONGOING').length}</p>
+               <p className="text-2xl font-black">{workshops.filter(w => w.status === 'ACTIVE').length}</p>
             </div>
           </div>
           <div className="space-y-1">
@@ -267,9 +273,23 @@ export default function WorkshopHubPage() {
       </div>
 
       <div className="space-y-6">
-        <div className="flex items-center justify-between px-2">
-           <h3 className="font-black text-2xl tracking-tight">Active Transmissions</h3>
-           <div className="h-[1px] flex-1 bg-slate-200 dark:bg-white/5 mx-6 hidden md:block" />
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 px-2">
+           <h3 className="font-black text-2xl tracking-tight">Transmission Flow</h3>
+           <div className="flex gap-2 p-1.5 bg-slate-100 dark:bg-white/5 rounded-2xl border border-slate-200 dark:border-white/5">
+              {(['ALL', 'ACTIVE', 'UPCOMING', 'INACTIVE'] as const).map((t) => (
+                <button
+                  key={t}
+                  onClick={() => setFilter(t)}
+                  className={`px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all cursor-pointer ${
+                    filter === t 
+                      ? 'bg-primary-light text-white shadow-lg' 
+                      : 'opacity-40 hover:opacity-100'
+                  }`}
+                >
+                  {t}
+                </button>
+              ))}
+           </div>
         </div>
           <div className="space-y-6">
             {loading ? (
@@ -278,7 +298,7 @@ export default function WorkshopHubPage() {
               ))
             ) : (
               <div className="grid grid-cols-1 gap-6">
-                {workshops.map((workshop) => (
+                {filteredWorkshops.map((workshop) => (
                   <motion.div 
                     key={workshop._id} 
                     initial={{ opacity: 0, y: 20 }}

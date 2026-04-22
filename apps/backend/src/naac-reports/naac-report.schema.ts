@@ -66,6 +66,16 @@ export class NaacReport {
   @Prop({ default: '' })
   outcomes: string;
 
+  // ── Intermediate AI Drafts (for user review before final generation) ──
+  @Prop({ default: '' })
+  draftNoticeSummary: string;
+
+  @Prop({ default: '' })
+  draftImagesSummary: string;
+
+  @Prop({ default: '' })
+  draftMaterialsSummary: string;
+
   // ── Generated NAAC Report ──────────────────────────────────────
   @Prop({ type: Object, default: null })
   generatedReport: {
@@ -87,6 +97,12 @@ export class NaacReport {
 
   @Prop({ default: null })
   approvedAt: Date;
+
+  @Prop({ default: 'IDLE', enum: ['IDLE', 'QUEUED', 'ANALYZING', 'GENERATING', 'COMPLETED', 'FAILED', 'STOPPED'] })
+  aiStatus: 'IDLE' | 'QUEUED' | 'ANALYZING' | 'GENERATING' | 'COMPLETED' | 'FAILED' | 'STOPPED';
+
+  @Prop({ default: 0 })
+  aiProgress: number;
 
   @Prop({ default: '' })
   declineReason: string;

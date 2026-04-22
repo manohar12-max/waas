@@ -8,6 +8,9 @@ import {
 } from 'lucide-react';
 import DocViewer, { DocViewerRenderers } from "@cyntler/react-doc-viewer";
 import { SlideViewer, UnitAssetsItem } from '../instructor/components/SlideViewer';
+import FeedbackForm from './components/FeedbackForm';
+import { MessageSquarePlus } from 'lucide-react';
+
 
 interface Material {
   title: string;
@@ -58,6 +61,14 @@ export default function LearningCenterPage() {
   const [activeSlideshow, setActiveSlideshow] = useState<UnitAssetsItem[] | null>(null);
   const [activeQuiz, setActiveQuiz] = useState<any[] | null>(null);
   const [contentTab, setContentTab] = useState<'INSTITUTIONAL' | 'AI'>('INSTITUTIONAL');
+  const [feedbackModal, setFeedbackModal] = useState<{
+    type: 'SESSION' | 'WORKSHOP';
+    workshopId: string;
+    sessionId?: string;
+    title: string;
+  } | null>(null);
+  const [submittedFeedback, setSubmittedFeedback] = useState<Set<string>>(new Set());
+
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -125,6 +136,17 @@ export default function LearningCenterPage() {
       const filteredWorkshops = fullWorkshops.filter(w => w.days.length > 0);
       setWorkshops(filteredWorkshops);
       if (filteredWorkshops.length > 0) setActiveWorkshop(filteredWorkshops[0]);
+
+      // Fetch user's feedback status
+      const feedbackRes = await axios.get(`${import.meta.env.VITE_API_URL}/feedback/my`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const feedbackIds = new Set<string>();
+      feedbackRes.data.forEach((f: any) => {
+        if (f.sessionId) feedbackIds.add(f.sessionId);
+        if (f.workshopId && f.type === 'WORKSHOP') feedbackIds.add(f.workshopId);
+      });
+      setSubmittedFeedback(feedbackIds);
     } catch (err) {
       console.error('Failed to fetch learning materials:', err);
     } finally {
@@ -191,6 +213,24 @@ export default function LearningCenterPage() {
                </div>
 
                <div className="flex flex-col sm:flex-row items-center gap-6">
+                   {(isStudent || userRole === 'TEACHER') && activeWorkshop && (
+                      submittedFeedback.has(activeWorkshop._id) ? (
+                        <div className="px-6 py-2.5 bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 rounded-[15px] text-[10px] font-black uppercase tracking-widest flex items-center gap-2 cursor-default">
+                           <CheckCircle2 className="w-4 h-4" /> Workshop Feedback Done
+                        </div>
+                      ) : (
+                        <button 
+                           onClick={() => setFeedbackModal({
+                              type: 'WORKSHOP',
+                              workshopId: activeWorkshop._id,
+                              title: activeWorkshop.title
+                           })}
+                           className="px-6 py-2.5 bg-indigo-500/10 text-indigo-500 border border-indigo-500/20 rounded-[15px] text-[10px] font-black uppercase tracking-widest hover:bg-indigo-500 hover:text-white transition-all flex items-center gap-2"
+                        >
+                           <MessageSquarePlus className="w-4 h-4" /> Workshop Feedback
+                        </button>
+                      )
+                   )}
                   {/* Tabbed Navigation */}
                   <div className="bg-white dark:bg-white/5 p-1.5 rounded-[20px] flex items-center border border-slate-200 dark:border-white/10 shadow-sm dark:shadow-none">
                      <button 
@@ -276,7 +316,28 @@ export default function LearningCenterPage() {
                                        <div key={session._id} className="relative pl-10 border-l-2 border-slate-200 dark:border-white/5 space-y-10">
                                           <div className="absolute left-[-9px] top-0 w-4 h-4 rounded-full bg-slate-50 dark:bg-[#020208] border-2 border-primary-light shadow-[0_0_10px_rgba(99,102,241,0.3)]" />
                                           <div className="space-y-4">
-                                             <h3 className="text-2xl font-black tracking-tight flex items-center gap-4 text-slate-800 dark:text-white">Session {si + 1}: {session.title} <span className="px-3 py-1 bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg text-[8px] font-black uppercase tracking-widest opacity-60 italic">Module {si + 1}</span></h3>
+                                             <div className="flex items-center justify-between">
+                                                <h3 className="text-2xl font-black tracking-tight flex items-center gap-4 text-slate-800 dark:text-white">Session {si + 1}: {session.title} <span className="px-3 py-1 bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg text-[8px] font-black uppercase tracking-widest opacity-60 italic">Module {si + 1}</span></h3>
+                                                {(isStudent || userRole === 'TEACHER') && (
+                                                   submittedFeedback.has(session._id) ? (
+                                                      <div className="flex items-center gap-2 px-4 py-2 bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 rounded-xl text-[10px] font-black uppercase tracking-widest cursor-default">
+                                                         <CheckCircle2 className="w-3.5 h-3.5" /> Feedback Done
+                                                      </div>
+                                                   ) : (
+                                                      <button 
+                                                         onClick={() => setFeedbackModal({
+                                                            type: 'SESSION',
+                                                             workshopId: workshop._id,
+                                                             sessionId: session._id,
+                                                             title: session.title
+                                                         })}
+                                                         className="flex items-center gap-2 px-4 py-2 bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-primary-light hover:border-primary-light/30 transition-all"
+                                                      >
+                                                         <MessageSquarePlus className="w-3.5 h-3.5" /> Give Feedback
+                                                      </button>
+                                                   )
+                                                )}
+                                             </div>
                                              <p className="text-slate-500 dark:text-white/40 font-medium max-w-2xl leading-relaxed text-sm">{session.description || "Instructional block objectives are listed below."}</p>
                                           </div>
                                           
@@ -286,7 +347,7 @@ export default function LearningCenterPage() {
                                                 <div className="space-y-6">
                                                    <div className="flex items-center gap-3"><div className="w-8 h-8 bg-indigo-500/10 text-indigo-500 rounded-lg flex items-center justify-center"><BookOpen className="w-4 h-4" /></div><h4 className="text-sm font-black tracking-widest italic uppercase text-slate-400 dark:text-white/40">Institutional Assets</h4></div>
                                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                                      {session.materials.filter(m => m.isPublished).map((mat, mi) => (
+                                                      {session.materials.filter(m => !isStudent ? true : m.isPublished).map((mat, mi) => (
                                                          <div key={mi} className="bg-white dark:bg-white/[0.03] border border-slate-200 dark:border-white/5 rounded-[24px] p-6 flex flex-col justify-between group hover:bg-slate-50 dark:hover:bg-white/[0.05] transition-all shadow-sm dark:shadow-none min-h-[160px]">
                                                             <div className="flex items-start gap-4">
                                                                <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${mat.type === 'PDF' ? 'bg-rose-500/10 text-rose-500' : 'bg-primary-light/10 text-primary-light'}`}>
@@ -303,8 +364,8 @@ export default function LearningCenterPage() {
                                                             </div>
                                                          </div>
                                                       ))}
-                                                      {session.materials.filter(m => m.isPublished).length === 0 && (
-                                                         <div className="col-span-full border border-dashed border-slate-200 dark:border-white/5 rounded-[24px] p-10 text-center opacity-30 italic font-medium text-xs">No institutional assets shared for this session.</div>
+                                                      {session.materials.filter(m => !isStudent ? true : m.isPublished).length === 0 && (
+                                                         <div className="col-span-full border border-dashed border-slate-200 dark:border-white/5 rounded-[24px] p-10 text-center opacity-30 italic font-medium text-xs">No institutional assets available for this session.</div>
                                                       )}
                                                    </div>
                                                 </div>
@@ -409,6 +470,23 @@ export default function LearningCenterPage() {
          {activeQuiz && (
             <QuizModal mcqs={activeQuiz} onClose={() => setActiveQuiz(null)} />
          )}
+
+          <FeedbackForm 
+             isOpen={!!feedbackModal}
+             type={feedbackModal?.type || 'SESSION'}
+             workshopId={feedbackModal?.workshopId || ''}
+             sessionId={feedbackModal?.sessionId}
+             title={feedbackModal?.title || ''}
+             onClose={() => setFeedbackModal(null)} 
+             onSuccess={() => {
+                const submittedId = feedbackModal?.type === 'SESSION' ? feedbackModal?.sessionId : feedbackModal?.workshopId;
+                if (submittedId) {
+                   setSubmittedFeedback(prev => new Set([...prev, submittedId]));
+                }
+                setFeedbackModal(null);
+                alert('Feedback submitted successfully! Thank you.');
+             }}
+          />
       </AnimatePresence>
     </div>
   );

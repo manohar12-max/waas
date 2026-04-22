@@ -17,7 +17,9 @@ import {
   Moon,
   Library,
   Terminal,
-  ClipboardList
+  ClipboardList,
+  Star,
+  Award
 } from 'lucide-react';
 import { useTheme } from '../ThemeProvider';
 import ProfilePanel from '../ProfilePanel';
@@ -80,6 +82,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     ...(rules.sandbox_enabled ? [{ icon: Terminal, label: 'Coding Sandbox', path: '/sandbox', roles: ['SUPER_ADMIN', 'COLLEGE_ADMIN', 'TEACHER', 'INSTRUCTOR', 'STUDENT'] }] : []),
     { icon: Layout, label: 'My Divisions', path: '/teacher/divisions', roles: ['TEACHER'] },
     { icon: ClipboardList, label: 'NAAC Reports', path: '/naac-reports', roles: ['SUPER_ADMIN', 'COLLEGE_ADMIN'] },
+    { icon: Award, label: 'NAAC Repository', path: '/naac-reports/view', roles: ['SUPER_ADMIN', 'COLLEGE_ADMIN'] },
+    { icon: Star, label: 'Feedback Analytics', path: '/feedback-analytics', roles: ['SUPER_ADMIN', 'COLLEGE_ADMIN', 'INSTRUCTOR'] },
     { icon: Settings, label: 'Global Rules', path: '/dashboard/settings', roles: ['SUPER_ADMIN', 'COLLEGE_ADMIN'] },
   ];
 

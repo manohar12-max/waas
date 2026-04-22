@@ -61,8 +61,8 @@ export class Workshop {
 
   @Prop({ 
     required: true, 
-    enum: ['DRAFT', 'ONGOING', 'COMPLETED', 'INACTIVE'],
-    default: 'DRAFT'
+    enum: ['UPCOMING', 'ACTIVE', 'INACTIVE'],
+    default: 'UPCOMING'
   })
   status: string;
 

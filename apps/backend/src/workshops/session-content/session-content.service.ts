@@ -283,7 +283,7 @@ export class SessionContentService {
     const session = await this.sessionModel.findById(sessionId);
     if (!session) throw new NotFoundException('Session not found');
 
-    const isInstructor = userRole === 'INSTRUCTOR' || userRole === 'COLLEGE_ADMIN';
+    const isInstructor = userRole === 'INSTRUCTOR' || userRole === 'COLLEGE_ADMIN' || userRole === 'TEACHER' || userRole === 'SUPER_ADMIN';
 
     // Status Guard: Only allow if approved AND (if AI was involved) finalized
     // EXCEPT for instructors/admins who are reviewing content

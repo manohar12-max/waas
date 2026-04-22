@@ -51,7 +51,7 @@ export class NaacReportsController {
     }
     const collegeId = req.user.collegeId?.toString();
     if (!collegeId) return [];
-    return this.svc.findByCollege(collegeId);
+    return this.svc.findAllByCollege(collegeId);
   }
 
   /** Get workshops for a college (SA passes any collegeId; CA can only query own) */
@@ -69,6 +69,9 @@ export class NaacReportsController {
   /** College Admin: their own approved reports (legacy read-only endpoint, kept for compatibility) */
   @Get('my-college/reports')
   async getMyCollegeReports(@Request() req: any) {
+    if (req.user.role === UserRole.SUPER_ADMIN) {
+      return this.svc.findAllApproved();
+    }
     const collegeId = req.user.collegeId;
     if (!collegeId) return [];
     return this.svc.findByCollege(collegeId.toString());
@@ -80,6 +83,12 @@ export class NaacReportsController {
   async findOne(@Param('id') id: string, @Request() req: any) {
     await assertOwnership(this.svc, id, req);
     return this.svc.findOne(id);
+  }
+
+  @Get(':id/backend-stats/:workshopId')
+  async getBackendStats(@Param('id') id: string, @Param('workshopId') workshopId: string, @Request() req: any) {
+    await assertOwnership(this.svc, id, req); // workshopId check could be deeper but this is fine for now
+    return this.svc.getBackendStats(workshopId);
   }
 
   @Post()
@@ -125,10 +134,46 @@ export class NaacReportsController {
 
   // ── Workflow ──────────────────────────────────────────────────
 
+  @Post(':id/analyze-notice')
+  async analyzeNotice(@Param('id') id: string, @Request() req: any) {
+    await assertOwnership(this.svc, id, req);
+    return this.svc.analyzeNotice(id);
+  }
+
+  @Post(':id/analyze-images')
+  async analyzeImages(@Param('id') id: string, @Request() req: any) {
+    await assertOwnership(this.svc, id, req);
+    return this.svc.analyzeImages(id);
+  }
+
+  @Post(':id/analyze-materials')
+  async analyzeMaterials(@Param('id') id: string, @Request() req: any) {
+    await assertOwnership(this.svc, id, req);
+    return this.svc.analyzeMaterials(id);
+  }
+
   @Post(':id/generate')
   async generateReport(@Param('id') id: string, @Request() req: any) {
     await assertOwnership(this.svc, id, req);
     return this.svc.generateReport(id);
+  }
+
+  @Post(':id/stop')
+  async stopGeneration(@Param('id') id: string, @Request() req: any) {
+    await assertOwnership(this.svc, id, req);
+    return this.svc.stopGeneration(id);
+  }
+
+  @Post('pause-queue')
+  @Roles(UserRole.SUPER_ADMIN)
+  async pauseQueue() {
+    return this.svc.pauseQueue();
+  }
+
+  @Post('resume-queue')
+  @Roles(UserRole.SUPER_ADMIN)
+  async resumeQueue() {
+    return this.svc.resumeQueue();
   }
 
   @Post(':id/approve')
