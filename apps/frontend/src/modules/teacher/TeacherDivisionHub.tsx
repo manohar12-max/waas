@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { 
   Users, Calendar, FileText, Activity, 
   ChevronRight, ArrowUpRight, GraduationCap,
-  Loader2, UserPlus
+  Loader2, UserPlus, Copy, ShieldCheck
 } from 'lucide-react';
 
 export default function TeacherDivisionHub() {
@@ -86,6 +86,22 @@ export default function TeacherDivisionHub() {
               </div>
 
               <div className="flex flex-col gap-3">
+                {div.workshopId?.inviteToken && (
+                  <button 
+                    onClick={() => {
+                      const link = `${window.location.origin}/register?invite=${div.workshopId.inviteToken}`;
+                      navigator.clipboard.writeText(link);
+                      alert("Invitation Link Copied! Share this with your students.");
+                    }}
+                    className="w-full flex items-center justify-between bg-primary-light/5 hover:bg-primary-light/10 border border-primary-light/20 p-5 rounded-3xl transition-all group/btn cursor-pointer shadow-sm"
+                  >
+                    <div className="flex items-center gap-4">
+                      <ShieldCheck className="w-5 h-5 text-primary-light" />
+                      <span className="font-bold text-sm tracking-tight text-primary-light">Share Invitation Link</span>
+                    </div>
+                    <Copy className="w-4 h-4 text-primary-light opacity-40 group-hover/btn:opacity-100 transition-all" />
+                  </button>
+                )}
                 <button 
                   onClick={() => navigate(`/teacher/divisions/${div._id}/registry`)} 
                   className="w-full flex items-center justify-between bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 p-5 rounded-3xl transition-all group/btn cursor-pointer"

@@ -18,7 +18,6 @@ import TeacherDivisionHub from './modules/teacher/TeacherDivisionHub';
 import TeacherRegistry from './modules/teacher/TeacherRegistry';
 import TeacherClassroom from './modules/teacher/TeacherClassroom';
 import LearningCenterPage from './modules/learning/LearningCenterPage';
-import InstructorPortal from './modules/instructor/InstructorPortal';
 import InstructorWorkshopManage from './modules/instructor/InstructorWorkshopManage';
 import InstructorSessionMaterials from './modules/instructor/InstructorSessionMaterials';
 import AssignmentManagement from './modules/teacher/AssignmentManagement';
@@ -40,6 +39,7 @@ function App() {
         <Routes>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/check-in/:id" element={<AttendanceCheckinPage />} />
+          <Route path="/register" element={<StudentRegistrationPage />} />
           <Route path="/submit/:id" element={<AssignmentSubmissionPage />} />
           <Route path="/expired" element={<ExpiredPage />} />
           <Route path="/" element={<Navigate to="/login" replace />} />
@@ -139,11 +139,7 @@ function App() {
             } />
 
             {/* Instructor Routes */}
-            <Route path="/instructor/portal" element={
-              <ProtectedRoute allowedRoles={['INSTRUCTOR']}>
-                <InstructorPortal />
-              </ProtectedRoute>
-            } />
+            <Route path="/instructor/portal" element={<Navigate to="/dashboard" replace />} />
 
             <Route path="/instructor/workshop/:id/manage" element={
               <ProtectedRoute allowedRoles={['INSTRUCTOR']}>

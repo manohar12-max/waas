@@ -42,9 +42,44 @@ export class WorkshopsController {
     return this.workshopsService.createStudentForWorkshop(workshopId, studentData, collegeId);
   }
 
-  // Deprecated: Public enrollment is now restricted to avoid self-creation
+  @Post(':id/approve-student/:studentId')
+  @Roles(UserRole.TEACHER, UserRole.INSTRUCTOR, UserRole.COLLEGE_ADMIN)
+  approveStudent(
+    @Param('id') workshopId: string,
+    @Param('studentId') studentId: string
+  ) {
+    return this.workshopsService.approveStudent(workshopId, studentId);
+  }
+
+  @Post(':id/bulk-approve')
+  @Roles(UserRole.TEACHER, UserRole.INSTRUCTOR, UserRole.COLLEGE_ADMIN)
+  bulkApprove(
+    @Param('id') workshopId: string,
+    @Body('studentIds') studentIds: string[]
+  ) {
+    return this.workshopsService.bulkApproveStudents(workshopId, studentIds);
+  }
+
+  @Post(':id/reject-student/:studentId')
+  @Roles(UserRole.TEACHER, UserRole.INSTRUCTOR, UserRole.COLLEGE_ADMIN)
+  rejectStudent(
+    @Param('id') workshopId: string,
+    @Param('studentId') studentId: string
+  ) {
+    return this.workshopsService.rejectStudent(workshopId, studentId);
+  }
+
+  @Post(':id/bulk-reject')
+  @Roles(UserRole.TEACHER, UserRole.INSTRUCTOR, UserRole.COLLEGE_ADMIN)
+  bulkReject(
+    @Param('id') workshopId: string,
+    @Body('studentIds') studentIds: string[]
+  ) {
+    return this.workshopsService.bulkRejectStudents(workshopId, studentIds);
+  }
+
+  @Public()
   @Post('enroll')
-  @Roles(UserRole.SUPER_ADMIN) 
   enrollStudent(@Body() enrollDto: any) {
     return this.workshopsService.enrollStudent(enrollDto);
   }
@@ -63,7 +98,8 @@ export class WorkshopsController {
     @GetUser('_id') userId: string
   ) {
     const instructorId = role === UserRole.INSTRUCTOR ? userId : undefined;
-    return this.workshopsService.findAll(collegeId, instructorId);
+    const studentId = role === UserRole.STUDENT ? userId : undefined;
+    return this.workshopsService.findAll(collegeId, instructorId, studentId);
   }
 
   /** Super Admin: get all workshops for a specific college */
@@ -75,8 +111,13 @@ export class WorkshopsController {
 
   @Get(':id')
   @Roles(UserRole.SUPER_ADMIN, UserRole.COLLEGE_ADMIN, UserRole.TEACHER, UserRole.INSTRUCTOR, UserRole.STUDENT)
-  findOne(@Param('id') id: string, @GetUser('collegeId') collegeId: string) {
-    return this.workshopsService.findOne(id, collegeId);
+  findOne(
+    @Param('id') id: string, 
+    @GetUser('collegeId') collegeId: string,
+    @GetUser('_id') userId: string,
+    @GetUser('role') role: string
+  ) {
+    return this.workshopsService.findOne(id, collegeId, userId, role);
   }
 
   @Patch(':id/status')

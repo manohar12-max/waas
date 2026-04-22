@@ -54,8 +54,13 @@ export class LearningContentController {
   @Roles(UserRole.TEACHER, UserRole.INSTRUCTOR, UserRole.STUDENT)
   async getAggregated(
     @Param('workshopId') workshopId: string,
+    @GetUser('role') role: string,
+    @GetUser('_id') userId: string,
     @Query('divisionId') divisionId?: string,
   ) {
+    if (role === UserRole.STUDENT) {
+      await this.workshopsService.validateStudentRegistration(workshopId, userId);
+    }
     return this.workshopsService.getAggregatedContent(workshopId, divisionId);
   }
 

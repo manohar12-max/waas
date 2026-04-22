@@ -74,6 +74,9 @@ export class Workshop {
 
   @Prop({ type: [Types.ObjectId], ref: 'User', default: [] })
   registeredStudentIds: Types.ObjectId[];
+  
+  @Prop({ type: [Types.ObjectId], ref: 'User', default: [] })
+  pendingStudentIds: Types.ObjectId[];
 
   @Prop({
     type: {
