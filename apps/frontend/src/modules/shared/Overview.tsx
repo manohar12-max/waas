@@ -164,12 +164,7 @@ const InstructorDashboard = ({ stats, loading }: any) => {
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
-                        <button 
-                          onClick={() => navigate(`/instructor/workshop/${w._id}/manage`)}
-                          className="px-6 py-3 bg-primary-light text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-primary-light/20 hover:bg-primary-dark transition-all"
-                        >
-                          Manage
-                        </button>
+
                         <button 
                           onClick={() => navigate(`/workshops/${w._id}/live`)}
                           className="p-3 bg-slate-200 dark:bg-white/10 rounded-xl hover:bg-primary-light hover:text-white transition-all"
