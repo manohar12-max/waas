@@ -27,8 +27,9 @@ export class SessionContentController {
   }
 
   @Get('workshop/:workshopId')
-  @Roles(UserRole.INSTRUCTOR, UserRole.COLLEGE_ADMIN, UserRole.STUDENT)
+  @Roles(UserRole.INSTRUCTOR, UserRole.COLLEGE_ADMIN, UserRole.STUDENT, UserRole.TEACHER)
   async getWorkshopStructure(@Param('workshopId') workshopId: string) {
+
     return this.service.getFullWorkshopStructure(workshopId);
   }
 
@@ -95,8 +96,9 @@ export class SessionContentController {
   }
 
   @Get(':id/content')
-  @Roles(UserRole.INSTRUCTOR, UserRole.COLLEGE_ADMIN, UserRole.STUDENT)
+  @Roles(UserRole.INSTRUCTOR, UserRole.COLLEGE_ADMIN, UserRole.STUDENT, UserRole.TEACHER)
   async getSessionContent(
+
     @Param('id') sessionId: string,
     @GetUser('role') role: string
   ) {

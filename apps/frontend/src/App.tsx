@@ -30,6 +30,8 @@ import ExpiredPage from './modules/shared/ExpiredPage';
 import NaacReportManager from './modules/naac/NaacReportManager';
 import CollegeNaacReports from './modules/naac/CollegeNaacReports';
 import GlobalRules from './modules/shared/GlobalRules';
+import InstructorFeedbackPage from './modules/instructor/FeedbackAnalyticsPage';
+
 
 function App() {
   return (
@@ -200,6 +202,13 @@ function App() {
                 <CollegeNaacReports />
               </ProtectedRoute>
             } />
+
+            <Route path="/feedback-analytics" element={
+              <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'COLLEGE_ADMIN', 'INSTRUCTOR']}>
+                <InstructorFeedbackPage />
+              </ProtectedRoute>
+            } />
+
 
           </Route>
 

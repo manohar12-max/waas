@@ -10,6 +10,8 @@ import { TeacherController } from './teacher.controller';
 import { User, UserSchema } from '../users/user.schema';
 import { WorkshopMediaPost, WorkshopMediaPostSchema } from './media-post.schema';
 import { TeacherContent, TeacherContentSchema } from './teacher-content.schema';
+import { Session, SessionSchema } from './session-content/schemas/session.schema';
+import { Day, DaySchema } from './session-content/schemas/day.schema';
 import { DivisionsModule } from '../divisions/divisions.module';
 
 import { MediaFeedController } from './media-feed.controller';
@@ -23,6 +25,8 @@ import { LearningContentController } from './learning-content.controller';
       { name: User.name, schema: UserSchema },
       { name: WorkshopMediaPost.name, schema: WorkshopMediaPostSchema },
       { name: TeacherContent.name, schema: TeacherContentSchema },
+      { name: Session.name, schema: SessionSchema },
+      { name: Day.name, schema: DaySchema },
     ]),
     DivisionsModule,
   ],

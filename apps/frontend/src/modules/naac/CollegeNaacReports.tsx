@@ -3,7 +3,7 @@ import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   FileText, BookOpen, Users, Award, CheckCircle2, Calendar,
-  ChevronDown, ChevronUp, Download, ClipboardList, Loader2
+  ChevronDown, ChevronUp, Download, ClipboardList, Loader2, Trash2
 } from 'lucide-react';
 
 const API = import.meta.env.VITE_API_URL;
@@ -11,7 +11,7 @@ const API = import.meta.env.VITE_API_URL;
 interface GeneratedReport {
   titlePage: { workshopName: string; college: string; department: string; dateRange: string; naacCriterion: string };
   introduction: string;
-  sessionDetails: { resourcePersons: any[]; officilaNoticeUploaded: boolean; attendanceSheetUploaded: boolean; photosCount: number };
+  sessionDetails: { resourcePersons: any[]; officialNoticeUploaded: boolean; attendanceSheetUploaded: boolean; photosCount: number };
   participantProfile: { local: number; outstation: number; total: number; summary: string };
   feedbackSummary: string;
   outcome: string;
@@ -20,7 +20,7 @@ interface GeneratedReport {
 
 interface Report {
   _id: string;
-  workshopName: string;
+  workshopTitle: string;
   department: string;
   startDate: string;
   endDate: string;
@@ -49,6 +49,19 @@ export default function CollegeNaacReports() {
   const printReport = (id: string) => {
     setExpanded(id);
     setTimeout(() => window.print(), 300);
+  };
+
+  const handleDeleteReport = async (id: string) => {
+    if (!window.confirm('Permanently delete this NAAC report? This cannot be undone.')) return;
+    try {
+      const token = localStorage.getItem('token');
+      await axios.delete(`${API}/naac-reports/${id}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      fetchReports();
+    } catch {
+      alert('Failed to delete report');
+    }
   };
 
   return (
@@ -87,7 +100,7 @@ export default function CollegeNaacReports() {
                       <span className="text-[9px] font-black px-2 py-0.5 rounded-full bg-green-500/20 text-green-500 uppercase tracking-widest">✓ Approved</span>
                       <span className="text-[9px] opacity-30 font-bold">{new Date(report.approvedAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}</span>
                     </div>
-                    <h2 className="font-black text-lg leading-snug">{report.workshopName}</h2>
+                    <h2 className="font-black text-lg leading-snug">{report.workshopTitle}</h2>
                     <p className="text-sm opacity-50">{report.department}</p>
                     <p className="text-xs opacity-40 flex items-center gap-1">
                       <Calendar className="w-3 h-3" />
@@ -101,6 +114,9 @@ export default function CollegeNaacReports() {
                     )}
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
+                    <button onClick={() => handleDeleteReport(report._id)} className="p-2.5 rounded-xl hover:bg-red-500/10 text-red-500 transition-colors cursor-pointer group/trash" title="Delete Report">
+                      <Trash2 className="w-4 h-4 opacity-40 group-hover/trash:opacity-100" />
+                    </button>
                     <button onClick={() => printReport(report._id)}
                       className="p-2.5 bg-primary-light/10 text-primary-light rounded-xl hover:bg-primary-light/20 transition-colors cursor-pointer"
                       title="Print / Download"
@@ -168,7 +184,7 @@ export default function CollegeNaacReports() {
                           </div>
                           <div className="flex items-center gap-6 flex-wrap">
                             {[
-                              { done: r.sessionDetails.officilaNoticeUploaded, label: 'Official notice attached' },
+                              { done: r.sessionDetails.officialNoticeUploaded, label: 'Official notice attached' },
                               { done: r.sessionDetails.attendanceSheetUploaded, label: 'Attendance sheet attached' },
                               { done: r.sessionDetails.photosCount > 0, label: `${r.sessionDetails.photosCount} photo(s) attached` },
                             ].map(s => (

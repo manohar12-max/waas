@@ -87,7 +87,7 @@ export default function StudentDashboard() {
         headers: { Authorization: `Bearer ${token}` }
       });
       // Filter for ONGOING workshops
-      setLiveWorkshops(response.data.filter((w: any) => w.status === 'ONGOING'));
+      setLiveWorkshops(response.data.filter((w: any) => w.status === 'ACTIVE'));
     } catch (err) {
       console.error(err);
     } finally {

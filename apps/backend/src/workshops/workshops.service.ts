@@ -8,6 +8,8 @@ import { Attendance, AttendanceDocument } from './attendance.schema';
 import { User, UserDocument, UserRole } from '../users/user.schema';
 import { WorkshopMediaPost, WorkshopMediaPostDocument } from './media-post.schema';
 import { TeacherContent, TeacherContentDocument } from './teacher-content.schema';
+import { Session } from './session-content/schemas/session.schema';
+import { Day } from './session-content/schemas/day.schema';
 import { GlobalRulesService } from '../global-rules/global-rules.service';
 
 @Injectable()
@@ -20,6 +22,8 @@ export class WorkshopsService {
     @InjectModel(User.name) private userModel: Model<UserDocument>,
     @InjectModel(WorkshopMediaPost.name) private mediaPostModel: Model<WorkshopMediaPostDocument>,
     @InjectModel(TeacherContent.name) private teacherContentModel: Model<TeacherContentDocument>,
+    @InjectModel(Session.name) private sessionModel: Model<any>,
+    @InjectModel(Day.name) private dayModel: Model<any>,
     private globalRules: GlobalRulesService,
   ) {
     cloudinary.config({
@@ -446,14 +450,24 @@ export class WorkshopsService {
     ).exec();
   }
 
-  async getAttendanceForWorkshop(workshopId: any): Promise<any[]> {
-    const wId = this.toObjectId(workshopId);
-    if (!wId) return [];
+  async getAttendanceForWorkshop(workshopId: any | any[]): Promise<any[]> {
+    const ids = Array.isArray(workshopId) ? workshopId : [workshopId];
+    const objectIds = ids.map(id => this.toObjectId(id)).filter(id => !!id);
+    if (objectIds.length === 0) return [];
 
     return this.attendanceModel
-      .find({ workshopId: wId })
+      .find({ workshopId: { $in: objectIds } })
       .populate('studentId', 'name email phone')
       .exec();
+  }
+
+  async findManyByTitle(title: string, collegeId: any): Promise<WorkshopDocument[]> {
+    const cId = this.toObjectId(collegeId);
+    if (!cId) return [];
+    return this.workshopModel.find({ 
+      title: { $regex: new RegExp(`^${title}$`, 'i') },
+      collegeId: cId 
+    }).exec();
   }
 
   // --- Media Feed Methods ---
@@ -636,5 +650,41 @@ export class WorkshopsService {
       { $set: updateDto },
       { new: true }
     ).exec();
+  }
+
+  /** Unified material getter for NAAC reporting */
+  async getAllWorkshopMaterials(workshopId: string) {
+    const wId = this.toObjectId(workshopId);
+    
+    // 1. Get static curriculum materials from the workshop document
+    const workshop = await this.workshopModel.findById(wId);
+    const staticMaterials = (workshop?.content || []).flatMap(section => section.materials || []);
+    this.logger.log(`Workshop ${wId} found: ${!!workshop}. Static mats: ${staticMaterials.length}`);
+
+    // 2. Get dynamic educator-uploaded session materials
+    const dynamicMaterials = await this.teacherContentModel.find({ workshopId: wId }).exec();
+    this.logger.log(`Dynamic educator mats found: ${dynamicMaterials.length}`);
+
+    // 3. Get materials from AI-generated curriculum sessions
+    const aiSessions = await this.sessionModel.find({ 
+      $or: [
+        { workshopId: wId },
+        { workshopId: workshopId }
+      ]
+    }).exec();
+    this.logger.log(`Querying Sessions for workshopId: ${workshopId}. Found: ${aiSessions.length}`);
+    if (aiSessions.length === 0) {
+        const sample = await this.sessionModel.findOne().exec();
+        this.logger.log(`DEBUG: Sample Session from DB workshopId type: ${typeof sample?.workshopId}. Value: ${sample?.workshopId}`);
+    }
+    const aiSessionMaterials = aiSessions.flatMap(s => s.materials || []);
+    this.logger.log(`AI Curriculum sessions found: ${aiSessions.length}. AI mats: ${aiSessionMaterials.length}`);
+
+    // 4. Merge and return
+    return [
+      ...staticMaterials.map(m => ({ title: m.title, url: m.url, type: m.type })),
+      ...dynamicMaterials.map(m => ({ title: m.title, url: m.url, type: m.type })),
+      ...aiSessionMaterials.map(m => ({ title: m.title, url: m.url, type: m.type }))
+    ];
   }
 }

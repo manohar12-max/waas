@@ -17,6 +17,11 @@ import { SessionContentModule } from './workshops/session-content/session-conten
 import { SandboxModule } from './sandbox/sandbox.module';
 import { ServeStaticModule } from '@nestjs/serve-static';
 import { join } from 'path';
+import { FeedbackModule } from './feedback/feedback.module';
+import { AIModule } from './infrastructure/ai/ai.module';
+import { PDFModule } from './infrastructure/pdf/pdf.module';
+import { BullModule } from '@nestjs/bullmq';
+
 
 @Module({
   imports: [
@@ -34,6 +39,16 @@ import { join } from 'path';
       }),
       inject: [ConfigService],
     }),
+    BullModule.forRootAsync({
+      imports: [ConfigModule],
+      useFactory: async (configService: ConfigService) => ({
+        connection: {
+          host: configService.get<string>('REDIS_HOST') || 'localhost',
+          port: configService.get<number>('REDIS_PORT') || 6379,
+        },
+      }),
+      inject: [ConfigService],
+    }),
     UsersModule,
     AuthModule,
     CollegesModule,
@@ -46,9 +61,12 @@ import { join } from 'path';
     AnnouncementsModule,
     NaacReportsModule,
     GlobalRulesModule,
+    FeedbackModule,
+    AIModule,
+    PDFModule,
   ],
+
   controllers: [AppController],
   providers: [AppService],
 })
 export class AppModule {}
-

@@ -141,7 +141,7 @@ const StudentDashboardView = ({ stats, loading }: any) => {
       const response = await axios.get(`${API}/workshops`, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
-      setLiveWorkshops(response.data.filter((w: any) => w.status === 'ONGOING'));
+      setLiveWorkshops(response.data.filter((w: any) => w.status === 'ACTIVE'));
     } catch (err) { console.error(err); }
   };
 

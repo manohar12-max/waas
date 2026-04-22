@@ -37,8 +37,9 @@ export default function InstructorPortal() {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'ONGOING': return 'text-green-500 bg-green-500/10 border-green-500/20';
-      case 'DRAFT': return 'text-primary-light bg-primary-light/10 border-primary-light/20';
+      case 'ACTIVE': return 'text-green-500 bg-green-500/10 border-green-500/20';
+      case 'UPCOMING': return 'text-primary-light bg-primary-light/10 border-primary-light/20';
+      case 'INACTIVE': return 'text-red-500 bg-red-500/10 border-red-500/20';
       default: return 'text-slate-400 bg-slate-400/10 border-slate-400/20';
     }
   };

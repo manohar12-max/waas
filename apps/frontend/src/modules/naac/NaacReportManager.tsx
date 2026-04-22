@@ -1,12 +1,14 @@
 import { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
+import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   ClipboardList, ChevronRight, Search, Upload, FileText, Image as ImageIcon,
   BookOpen, Users, Award, CheckCircle2, Circle, Loader2, Eye,
   ThumbsUp, ThumbsDown, X, Plus, Trash2, Calendar, Download,
-  RefreshCw, AlertTriangle, Building2
+  RefreshCw, AlertTriangle, Building2, Sparkles, Play, StopCircle, CornerUpLeft
 } from 'lucide-react';
+import UniversalModal from '../../components/UniversalModal';
 
 const API = import.meta.env.VITE_API_URL;
 const auth = () => ({ Authorization: `Bearer ${localStorage.getItem('token')}` });
@@ -14,7 +16,7 @@ const auth = () => ({ Authorization: `Bearer ${localStorage.getItem('token')}` }
 /* ─── Types ─────────────────────────────────────────── */
 interface College { _id: string; name: string; status: string; }
 interface Workshop { _id: string; title: string; schedule: { start: string; end: string }; status: string; instructorId?: { name: string }; }
-interface Report { _id: string; workshopTitle: string; status: string; collegeId: { _id: string; name: string }; startDate: string; endDate: string; officialNoticeUrl: string; activityReport: string; attendanceSheetUrl: string; photoUrls: string[]; feedbackSummary: string; resourcePersons: any[]; localParticipants: number; outstationParticipants: number; outcomes: string; naacCriterion: string; generatedReport: any; declineReason: string; approvedAt: string; department: string; }
+interface Report { _id: string; workshopTitle: string; status: string; collegeId: { _id: string; name: string }; startDate: string; endDate: string; officialNoticeUrl: string; activityReport: string; attendanceSheetUrl: string; photoUrls: string[]; feedbackSummary: string; resourcePersons: any[]; localParticipants: number; outstationParticipants: number; outcomes: string; naacCriterion: string; generatedReport: any; declineReason: string; approvedAt: string; department: string; aiStatus?: 'IDLE' | 'QUEUED' | 'ANALYZING' | 'GENERATING' | 'COMPLETED' | 'FAILED' | 'STOPPED'; aiProgress?: number; workshopId: any; draftNoticeSummary?: string; draftImagesSummary?: string; draftMaterialsSummary?: string; }
 
 const STATUS: Record<string, string> = {
   DRAFT: 'bg-slate-400/20 text-slate-400',
@@ -48,6 +50,7 @@ function StepBadge({ n, label, active }: { n: number; label: string; active: boo
 
 /* ─── Main Component ─────────────────────────────────── */
 export default function NaacReportManager() {
+  const navigate = useNavigate();
   // Data
   const [colleges, setColleges] = useState<College[]>([]);
   const [workshops, setWorkshops] = useState<Workshop[]>([]);
@@ -57,6 +60,10 @@ export default function NaacReportManager() {
   const [selectedCollege, setSelectedCollege] = useState<College | null>(null);
   const [collegeSearch, setCollegeSearch] = useState('');
   const [workshopSearch, setWorkshopSearch] = useState('');
+  const [analyzingStep, setAnalyzingStep] = useState<null | 'notice' | 'images' | 'materials'>(null);
+  const [showAnalysisModal, setShowAnalysisModal] = useState(false);
+  const [wizardStep, setWizardStep] = useState<1 | 2 | 3 | 4>(1); // 1:Notice, 2:Images, 3:Materials, 4:Gen
+  const [draftText, setDraftText] = useState('');
 
   // Flow step: 1=pick college, 2=pick workshop, 3=upload+generate
   const [step, setStep] = useState<1 | 2 | 3>(1);
@@ -84,6 +91,13 @@ export default function NaacReportManager() {
     resourcePersons: [{ name: '', designation: '', topic: '' }],
   });
 
+  const [backendStats, setBackendStats] = useState({
+    attendanceCount: 0,
+    feedbackCount: 0,
+    feedbackAverage: 0,
+    hasFeedbackComments: false
+  });
+
   const noticeRef = useRef<HTMLInputElement>(null);
   const attendanceRef = useRef<HTMLInputElement>(null);
   const photosRef = useRef<HTMLInputElement>(null);
@@ -104,6 +118,29 @@ export default function NaacReportManager() {
       fetchColleges();
     }
   }, []);
+
+  // Polling for background generation
+  useEffect(() => {
+    let interval: any;
+    if (activeReport && (activeReport.aiStatus === 'QUEUED' || activeReport.aiStatus === 'ANALYZING' || activeReport.aiStatus === 'GENERATING')) {
+      interval = setInterval(async () => {
+        try {
+          const res = await axios.get(`${API}/naac-reports/${activeReport._id}`, { headers: auth() });
+          setActiveReport(res.data);
+          if (res.data.aiStatus === 'COMPLETED') {
+            setPreviewData(res.data);
+            setShowPreview(true);
+            setShowAnalysisModal(false);
+            fetchReports();
+            clearInterval(interval);
+          }
+        } catch (err) {
+          console.error('Polling failed:', err);
+        }
+      }, 3000);
+    }
+    return () => clearInterval(interval);
+  }, [activeReport?.aiStatus]);
 
   /* ── Fetch ─────────────────────────────────────────── */
   const fetchColleges = async () => {
@@ -177,6 +214,20 @@ export default function NaacReportManager() {
     });
     setStep(3);
     fetchReports();
+    fetchBackendStats(r);
+  };
+
+  const fetchBackendStats = async (r: Report) => {
+    try {
+      const res = await axios.get(`${API}/naac-reports/${r._id}/backend-stats/${(r as any).workshopId?._id || (r as any).workshopId}`, { headers: auth() });
+      setBackendStats(res.data);
+      // Auto-update participants if 0
+      if (!r.localParticipants) {
+        setForm(f => ({ ...f, localParticipants: res.data.attendanceCount }));
+      }
+    } catch (err) {
+      console.error('Failed to fetch backend stats:', err);
+    }
   };
 
   /* ── Save raw data ───────────────────────────────────── */
@@ -218,24 +269,103 @@ export default function NaacReportManager() {
   /* ── Checklist ───────────────────────────────────────── */
   const checks = {
     notice: !!activeReport?.officialNoticeUrl,
-    activity: form.activityReport.length >= 50,
-    attendance: !!activeReport?.attendanceSheetUrl,
     photos: (activeReport?.photoUrls?.length || 0) >= 1,
-    feedback: form.feedbackSummary.length >= 20,
+    backend: backendStats.attendanceCount > 0,
+    feedback: backendStats.feedbackCount > 0 || form.feedbackSummary.trim().length >= 10,
   };
-  const allDone = Object.values(checks).every(Boolean);
+  const allDone = checks.notice && checks.photos && checks.feedback;
+
+  /* ── Wizard Flow ───────────────────────────────────── */
+  const startWizard = async () => {
+    setShowAnalysisModal(true);
+    setWizardStep(1);
+    await analyzeNotice();
+  };
+
+  const analyzeNotice = async () => {
+    if (!activeReport?.officialNoticeUrl) return nextWizardStep();
+    setAnalyzingStep('notice');
+    try {
+      const res = await axios.post(`${API}/naac-reports/${activeReport._id}/analyze-notice`, {}, { headers: auth() });
+      setDraftText(res.data?.text || '');
+    } catch (err) {
+      console.error('Notice scrutiny failed:', err);
+    } finally { setAnalyzingStep(null); }
+  };
+
+  const analyzeImages = async () => {
+    if (!activeReport || !activeReport.photoUrls?.length) return nextWizardStep();
+    setAnalyzingStep('images');
+    try {
+      const res = await axios.post(`${API}/naac-reports/${activeReport._id}/analyze-images`, {}, { headers: auth() });
+      setDraftText(res.data?.text || '');
+    } catch (err) {
+      console.error('Image scrutiny failed:', err);
+    } finally { setAnalyzingStep(null); }
+  };
+
+  const analyzeMaterials = async () => {
+    if (!activeReport) return;
+    setAnalyzingStep('materials');
+    try {
+      const res = await axios.post(`${API}/naac-reports/${activeReport._id}/analyze-materials`, {}, { headers: auth() });
+      setDraftText(res.data?.text || '');
+    } catch (err) {
+      console.error('Material scrutiny failed:', err);
+    } finally { setAnalyzingStep(null); }
+  };
+
+  const saveWizardDraft = async () => {
+    if (!activeReport) return;
+    setSaving(true);
+    try {
+      const field = wizardStep === 1 ? 'draftNoticeSummary' : wizardStep === 2 ? 'draftImagesSummary' : 'draftMaterialsSummary';
+      await axios.patch(`${API}/naac-reports/${activeReport._id}/raw-data`, { [field]: draftText }, { headers: auth() });
+      if (wizardStep === 1) setForm(f => ({ ...f, activityReport: draftText.substring(0, 1000) }));
+    } catch {} finally { setSaving(false); }
+  };
+
+  const nextWizardStep = async () => {
+    await saveWizardDraft();
+    if (wizardStep === 1) {
+      setWizardStep(2);
+      setDraftText('');
+      await analyzeImages();
+    } else if (wizardStep === 2) {
+      setWizardStep(3);
+      setDraftText('');
+      await analyzeMaterials();
+    } else if (wizardStep === 3) {
+      setWizardStep(4);
+      setDraftText('');
+      handleGenerate();
+    }
+  };
 
   /* ── Generate ────────────────────────────────────────── */
   const handleGenerate = async () => {
     await saveData();
     setGenerating(true);
+    setShowAnalysisModal(true);
+    setWizardStep(4);
     try {
       const res = await axios.post(`${API}/naac-reports/${activeReport!._id}/generate`, {}, { headers: auth() });
-      setPreviewData(res.data);
       setActiveReport(res.data);
-      setShowPreview(true);
       fetchReports();
+      // Auto-close modal after starting
+      setTimeout(() => setShowAnalysisModal(false), 2000);
     } catch {} finally { setGenerating(false); }
+  };
+
+  const handleStop = async () => {
+    if (!activeReport) return;
+    try {
+      const res = await axios.post(`${API}/naac-reports/${activeReport._id}/stop`, {}, { headers: auth() });
+      setActiveReport(res.data);
+      fetchReports();
+    } catch (err) {
+      console.error('Failed to stop:', err);
+    }
   };
 
   /* ── Approve / Decline ───────────────────────────────── */
@@ -260,6 +390,16 @@ export default function NaacReportManager() {
   const handleCancel = async () => {
     if (previewData) await axios.post(`${API}/naac-reports/${previewData._id}/cancel-review`, {}, { headers: auth() });
     setShowPreview(false); setShowDecline(false); fetchReports();
+  };
+
+  const handleDeleteReport = async (id: string) => {
+    if (!window.confirm('Are you sure you want to delete this report? This cannot be undone.')) return;
+    try {
+      await axios.delete(`${API}/naac-reports/${id}`, { headers: auth() });
+      fetchReports();
+    } catch {
+      alert('Failed to delete report.');
+    }
   };
 
   /* ─── Filtered lists ─────────────────────────────────── */
@@ -288,9 +428,14 @@ export default function NaacReportManager() {
               : 'Select a college, then its workshop, then upload your raw evidence'}
           </p>
         </div>
-        <button onClick={() => { fetchColleges(); fetchReports(); }} className="p-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-white/5 cursor-pointer transition-colors">
-          <RefreshCw className="w-4 h-4 opacity-40" />
-        </button>
+        <div className="flex items-center gap-2">
+          <button onClick={() => navigate('/naac-reports/view')} className="flex items-center gap-2 px-4 py-2.5 bg-green-500/10 text-green-500 hover:bg-green-500 hover:text-white rounded-xl font-black text-[10px] uppercase tracking-widest transition-all cursor-pointer border border-green-500/20 shadow-lg shadow-green-500/5">
+            <Award className="w-3.5 h-3.5" /> View Approved Repository
+          </button>
+          <button onClick={() => { fetchColleges(); fetchReports(); }} className="p-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-white/5 cursor-pointer transition-colors">
+            <RefreshCw className="w-4 h-4 opacity-40" />
+          </button>
+        </div>
       </div>
 
       {/* Progress trail — hide College step for COLLEGE_ADMIN */}
@@ -351,24 +496,97 @@ export default function NaacReportManager() {
           </div>
 
           {/* Existing reports quick-resume */}
-          {reports.length > 0 && (
+
             <div className="space-y-3">
-              <h2 className="text-xs font-black uppercase opacity-40 tracking-widest px-1">Resume an existing draft</h2>
+              <h2 className="text-xs font-black uppercase opacity-40 tracking-widest px-1">Recent Reports</h2>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {reports.filter(r => r.status !== 'APPROVED').map(r => (
-                  <button key={r._id} onClick={() => resumeReport(r)}
-                    className="text-left p-4 bg-white dark:bg-card-dark border border-slate-200 dark:border-white/10 hover:border-primary-light/30 rounded-2xl transition-all cursor-pointer"
-                  >
-                    <p className="font-black text-sm line-clamp-1">{r.workshopTitle}</p>
-                    <p className="text-[10px] opacity-40 mt-0.5">{r.collegeId?.name}</p>
-                    <span className={`inline-block mt-2 text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-widest ${STATUS[r.status]}`}>
-                      {r.status.replace('_', ' ')}
-                    </span>
-                  </button>
-                ))}
+                 {reports.map(r => {
+                   const isAIBusy = r.aiStatus === 'GENERATING' || r.aiStatus === 'QUEUED' || r.aiStatus === 'ANALYZING';
+                   const progress = r.aiProgress || 0;
+                   const eta = Math.max(0, Math.ceil(((100 - progress) / 10) * 3));
+                   const hasReport = !!r.generatedReport;
+                   const isApproved = r.status === 'APPROVED';
+                   
+                   return (
+                     <div key={r._id} className="relative bg-white dark:bg-card-dark border border-slate-200 dark:border-white/10 hover:border-primary-light/30 rounded-3xl transition-all overflow-hidden group p-5 space-y-4 shadow-sm">
+                       <div className="flex justify-between items-start">
+                         <div className="cursor-pointer flex-1" onClick={() => {
+                           if (isApproved) { setPreviewData(r); setShowPreview(true); }
+                           else {
+                             resumeReport(r);
+                             if (isAIBusy) { setWizardStep(4); setShowAnalysisModal(true); }
+                           }
+                         }}>
+                            <p className="font-black text-sm line-clamp-1">{r.workshopTitle}</p>
+                            <p className="text-[10px] opacity-40 mt-0.5">{r.collegeId?.name}</p>
+                         </div>
+                         <div className="flex items-center gap-2">
+                            <span className={`text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-widest ${STATUS[r.status]}`}>
+                              {r.status.replace('_', ' ')}
+                            </span>
+                            <button onClick={(e) => { e.stopPropagation(); handleDeleteReport(r._id); }} className="p-1.5 rounded-lg hover:bg-red-500/10 text-red-500 transition-colors cursor-pointer" title="Delete Report">
+                              <Trash2 className="w-3.5 h-3.5 opacity-40 hover:opacity-100" />
+                            </button>
+                         </div>
+                       </div>
+
+                       {isAIBusy ? (
+                         <div className="space-y-3">
+                           <div className="flex items-center justify-between text-[9px] font-bold uppercase tracking-widest">
+                             <span className="text-primary-light animate-pulse flex items-center gap-1">
+                               <Loader2 className="w-3 h-3 animate-spin" /> 
+                               {r.aiStatus === 'QUEUED' ? 'Waiting in Queue...' : r.aiStatus === 'ANALYZING' ? 'Reading Materials...' : 'Synthesizing Report...'}
+                             </span>
+                             <span className="opacity-40">ETA: ~{eta}s</span>
+                           </div>
+                           <div className="h-1.5 w-full bg-slate-100 dark:bg-white/5 rounded-full overflow-hidden">
+                             <motion.div 
+                               initial={{ width: 0 }} 
+                               animate={{ width: `${progress}%` }} 
+                               className="h-full bg-primary-light"
+                             />
+                           </div>
+                           <div className="flex gap-2">
+                             <button 
+                               onClick={(e) => { e.stopPropagation(); setActiveReport(r); handleStop(); }}
+                               className="flex-1 py-1.5 bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white rounded-xl font-black text-[9px] uppercase tracking-widest transition-all cursor-pointer"
+                             >
+                               Stop
+                             </button>
+                             <button 
+                               onClick={(e) => { e.stopPropagation(); resumeReport(r); setWizardStep(4); setShowAnalysisModal(true); }}
+                               className="flex-1 py-1.5 bg-slate-100 dark:bg-white/10 hover:bg-slate-200 rounded-xl font-black text-[9px] uppercase tracking-widest transition-all cursor-pointer"
+                             >
+                               Details
+                             </button>
+                           </div>
+                         </div>
+                       ) : (
+                         <div className="flex gap-2">
+                            {isApproved || hasReport ? (
+                              <button onClick={() => { setPreviewData(r); setShowPreview(true); }} className="flex-1 py-2 bg-green-500/10 text-green-500 hover:bg-green-500 hover:text-white rounded-xl font-black text-[9px] uppercase tracking-widest transition-all cursor-pointer flex items-center justify-center gap-1.5">
+                                <Eye className="w-3 h-3" /> View Report
+                              </button>
+                            ) : null}
+                            
+                            {!isApproved && (
+                              <button onClick={() => resumeReport(r)} className="flex-1 py-2 bg-primary-light/10 text-primary-light hover:bg-primary-light hover:text-white rounded-xl font-black text-[9px] uppercase tracking-widest transition-all cursor-pointer">
+                                {hasReport ? 'Edit Draft' : 'Complete Setup'}
+                              </button>
+                            )}
+
+                            {r.status === 'DRAFT' && r.draftMaterialsSummary && (
+                              <button onClick={() => { setActiveReport(r); handleGenerate(); }} className="px-3 py-2 border border-slate-200 dark:border-white/10 rounded-xl hover:bg-slate-50 dark:hover:bg-white/5 cursor-pointer" title="Generate Report">
+                                <Play className="w-3.5 h-3.5 opacity-40 hover:opacity-100" />
+                              </button>
+                            )}
+                         </div>
+                       )}
+                     </div>
+                   );
+                 })}
               </div>
             </div>
-          )}
         </motion.div>
       )}
 
@@ -433,7 +651,7 @@ export default function NaacReportManager() {
                       )}
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
-                      <span className={`text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-widest ${ws.status === 'ONGOING' ? 'bg-green-500/20 text-green-400' : ws.status === 'COMPLETED' ? 'bg-blue-500/20 text-blue-400' : 'bg-slate-400/20 text-slate-400'}`}>
+                      <span className={`text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-widest ${ws.status === 'ACTIVE' ? 'bg-green-500/20 text-green-400' : ws.status === 'INACTIVE' ? 'bg-red-500/20 text-red-400' : 'bg-slate-400/20 text-slate-400'}`}>
                         {ws.status}
                       </span>
                       {creating ? <Loader2 className="w-4 h-4 animate-spin opacity-40" /> : <ChevronRight className="w-4 h-4 opacity-20 group-hover:opacity-60 transition-opacity" />}
@@ -472,38 +690,70 @@ export default function NaacReportManager() {
           )}
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* LEFT col */}
-            <div className="space-y-5">
-              {/* Checklist */}
-              <div className="bg-white dark:bg-card-dark border border-slate-200 dark:border-white/10 rounded-3xl p-6">
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="font-black text-sm uppercase tracking-widest opacity-60">NAAC Evidence Checklist</h3>
-                  <span className={`text-[9px] font-black px-2 py-0.5 rounded-full tracking-widest ${allDone ? 'bg-green-500/20 text-green-500' : 'bg-slate-400/20 text-slate-400'}`}>
-                    {Object.values(checks).filter(Boolean).length}/5 done
-                  </span>
-                </div>
+            <div className="md:col-span-2">
+              {/* Floating Progress Tracker if generating */}
+              {(activeReport.aiStatus === 'GENERATING' || activeReport.aiStatus === 'QUEUED' || activeReport.aiStatus === 'ANALYZING') && (
+                <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} 
+                  className="mb-6 bg-primary-light/5 border border-primary-light/10 rounded-3xl p-5 overflow-hidden relative"
+                >
+                  <div className="flex justify-between items-center mb-3 relative z-10">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-primary-light/10 flex items-center justify-center">
+                         <Loader2 className="w-5 h-5 text-primary-light animate-spin" />
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-black uppercase tracking-widest opacity-40">AI Brain Processing</p>
+                        <h4 className="text-sm font-black text-slate-800 dark:text-white">
+                          {activeReport.aiStatus === 'QUEUED' ? 'Waiting for slot...' : activeReport.aiStatus === 'ANALYZING' ? 'Reading evidence...' : 'Writing report...'}
+                        </h4>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                       <span className="text-2xl font-black text-primary-light">{activeReport.aiProgress || 0}%</span>
+                    </div>
+                  </div>
+                  <div className="h-1.5 bg-slate-100 dark:bg-white/5 rounded-full overflow-hidden relative z-10">
+                    <motion.div 
+                      initial={{ width: 0 }}
+                      animate={{ width: `${activeReport.aiProgress || 0}%` }}
+                      className="h-full bg-primary-light shadow-[0_0_10px_rgba(var(--color-primary-light),0.5)]"
+                    />
+                  </div>
+                </motion.div>
+              )}
+            </div>
 
+            {/* LEFT col: Evidence checklist + Resource persons */}
+            <div className="space-y-6">
+              {/* Evidence Checklist */}
+              <div className="bg-white dark:bg-card-dark border border-slate-200 dark:border-white/10 rounded-3xl p-6 space-y-4">
+                <h3 className="font-black text-xs uppercase tracking-widest opacity-50">NAAC Evidence Checklist</h3>
+                
                 <CheckRow done={checks.notice} label="Official Notice / Circular">
-                  {activeReport.officialNoticeUrl && <a href={activeReport.officialNoticeUrl} target="_blank" className="text-[10px] text-primary-light underline cursor-pointer">View</a>}
-                  <button onClick={() => noticeRef.current?.click()} disabled={uploading === 'notice'}
-                    className="flex items-center gap-1 text-[10px] font-black px-2.5 py-1.5 bg-slate-100 dark:bg-white/10 rounded-xl cursor-pointer hover:bg-primary-light/10 transition-colors uppercase tracking-widest">
-                    {uploading === 'notice' ? <Loader2 className="w-3 h-3 animate-spin" /> : <Upload className="w-3 h-3" />} Upload
-                  </button>
+                  <div className="flex gap-2">
+                    {activeReport.officialNoticeUrl && (
+                      <button onClick={() => window.open(activeReport.officialNoticeUrl, '_blank')} className="text-[9px] font-bold text-primary-light hover:underline underline-offset-4 flex items-center gap-1 cursor-pointer">
+                        View PDF
+                      </button>
+                    )}
+                    <button onClick={() => noticeRef.current?.click()} disabled={uploading === 'notice'}
+                      className="flex items-center gap-1 text-[10px] font-black px-2.5 py-1.5 bg-primary-light/10 text-primary-light rounded-xl cursor-pointer hover:bg-primary-light/20 transition-colors uppercase tracking-widest">
+                      {uploading === 'notice' ? <Loader2 className="w-3 h-3 animate-spin" /> : activeReport.officialNoticeUrl ? <RefreshCw className="w-3 h-3" /> : <Upload className="w-3 h-3" />} {activeReport.officialNoticeUrl ? 'Replace' : 'Upload'}
+                    </button>
+                  </div>
                   <input ref={noticeRef} type="file" accept=".pdf,image/*" className="hidden" onChange={e => uploadFile('notice', e.target.files)} />
                 </CheckRow>
 
-                <CheckRow done={checks.activity} label={`Activity Report (${form.activityReport.length} chars)`} />
-
-                <CheckRow done={checks.attendance} label="Attendance Sheet">
-                  {activeReport.attendanceSheetUrl && <a href={activeReport.attendanceSheetUrl} target="_blank" className="text-[10px] text-primary-light underline cursor-pointer">View</a>}
-                  <button onClick={() => attendanceRef.current?.click()} disabled={uploading === 'attendance'}
-                    className="flex items-center gap-1 text-[10px] font-black px-2.5 py-1.5 bg-slate-100 dark:bg-white/10 rounded-xl cursor-pointer hover:bg-primary-light/10 transition-colors uppercase tracking-widest">
-                    {uploading === 'attendance' ? <Loader2 className="w-3 h-3 animate-spin" /> : <Upload className="w-3 h-3" />} Upload
-                  </button>
-                  <input ref={attendanceRef} type="file" accept=".pdf,image/*" className="hidden" onChange={e => uploadFile('attendance', e.target.files)} />
+                <CheckRow done={checks.backend} label="Backend Data (Attendance & Feedback)">
+                  <div className="flex gap-2">
+                    <div className="flex flex-col items-end">
+                      <span className="text-[10px] font-bold text-green-500">{backendStats.attendanceCount} Students</span>
+                      <span className="text-[10px] opacity-40">{backendStats.feedbackCount} Feedbacks</span>
+                    </div>
+                  </div>
                 </CheckRow>
 
-                <CheckRow done={checks.photos} label={`Geotagged Photos (${activeReport.photoUrls?.length || 0} uploaded)`}>
+                <CheckRow done={checks.photos} label={`Event Photos (${activeReport.photoUrls?.length || 0} uploaded)`}>
                   <button onClick={() => photosRef.current?.click()} disabled={uploading === 'photos'}
                     className="flex items-center gap-1 text-[10px] font-black px-2.5 py-1.5 bg-slate-100 dark:bg-white/10 rounded-xl cursor-pointer hover:bg-primary-light/10 transition-colors uppercase tracking-widest">
                     {uploading === 'photos' ? <Loader2 className="w-3 h-3 animate-spin" /> : <ImageIcon className="w-3 h-3" />} Upload
@@ -511,7 +761,7 @@ export default function NaacReportManager() {
                   <input ref={photosRef} type="file" accept="image/*" multiple className="hidden" onChange={e => uploadFile('photos', e.target.files)} />
                 </CheckRow>
 
-                <CheckRow done={checks.feedback} label={`Feedback Summary (${form.feedbackSummary.length} chars)`} />
+                <CheckRow done={checks.feedback} label={`Feedback Analysis (${backendStats.feedbackCount} responses)`} />
               </div>
 
               {/* Participant counts */}
@@ -567,22 +817,37 @@ export default function NaacReportManager() {
             {/* RIGHT col: text inputs + actions */}
             <div className="space-y-5">
               <div className="bg-white dark:bg-card-dark border border-slate-200 dark:border-white/10 rounded-3xl p-6 space-y-4">
-                <h3 className="font-black text-xs uppercase tracking-widest opacity-50">Written Evidence</h3>
+                <h3 className="font-black text-xs uppercase tracking-widest opacity-50">AI Report Inputs</h3>
+
+                <div className="p-4 bg-primary-light/5 border border-primary-light/10 rounded-2xl space-y-2">
+                   <p className="text-xs font-bold text-primary-light flex items-center gap-2">
+                     <RefreshCw className="w-3 h-3" /> AI will automatically use:
+                   </p>
+                   <ul className="text-[10px] space-y-1 opacity-70 list-disc ml-4">
+                     <li>Student Attendance (${backendStats.attendanceCount} records)</li>
+                     <li>Student Feedback Analysis (${backendStats.feedbackCount} responses)</li>
+                     <li>Extracted text from Official Notice/Circular</li>
+                     <li>Workshop Title & Institutional Metadata</li>
+                   </ul>
+                </div>
 
                 <div>
-                  <label className="text-[10px] font-black uppercase opacity-40 block mb-1">Activity Report * <span className="normal-case">(min 50 chars)</span></label>
-                  <textarea value={form.activityReport} onChange={e => setForm(f => ({ ...f, activityReport: e.target.value }))} rows={6}
-                    placeholder="Describe the workshop theme, objectives, and outcomes (250–500 words recommended)…"
+                  <label className="text-[10px] font-black uppercase opacity-40 block mb-1">Activity Highlights <span className="normal-case">(optional - help AI with specific details)</span></label>
+                  <textarea value={form.activityReport} onChange={e => setForm(f => ({ ...f, activityReport: e.target.value }))} rows={4}
+                    placeholder="E.g. Guest speaker shared insights on cloud security. Team building activity was a hit..."
                     className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl p-3 text-sm focus:ring-2 focus:ring-primary-light outline-none resize-none"
                   />
                 </div>
 
                 <div>
-                  <label className="text-[10px] font-black uppercase opacity-40 block mb-1">Feedback Summary * <span className="normal-case">(min 20 chars)</span></label>
+                  <label className="text-[10px] font-black uppercase opacity-40 block mb-1">
+                    Feedback Summary {backendStats.feedbackCount === 0 && <span className="text-red-500 font-black">(REQUIRED)</span>}
+                  </label>
                   <textarea value={form.feedbackSummary} onChange={e => setForm(f => ({ ...f, feedbackSummary: e.target.value }))} rows={3}
-                    placeholder="Summary of participant feedback and follow-up actions…"
+                    placeholder={backendStats.feedbackCount > 0 ? "Add specific observations to supplement student feedback..." : "Summary of participant feedback and follow-up actions..."}
                     className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl p-3 text-sm focus:ring-2 focus:ring-primary-light outline-none resize-none"
                   />
+                  {backendStats.feedbackCount > 0 && <p className="text-[9px] opacity-40 mt-1 italic">Backend found {backendStats.feedbackCount} student responses. AI will combine them with your notes.</p>}
                 </div>
 
                 <div>
@@ -601,37 +866,214 @@ export default function NaacReportManager() {
                 </div>
               </div>
 
-              {/* Action buttons */}
-              <div className="space-y-3">
+               {/* AI Action Area */}
+               <div className="space-y-3">
                 <button onClick={saveData} disabled={saving}
                   className="w-full py-3 border border-primary-light/40 text-primary-light hover:bg-primary-light/10 rounded-2xl font-black text-sm uppercase tracking-widest cursor-pointer transition-all flex items-center justify-center gap-2 disabled:opacity-50">
                   {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : null} Save Progress
                 </button>
 
-                <button onClick={handleGenerate}
-                  disabled={!allDone || generating || activeReport.status === 'PENDING_REVIEW'}
-                  className="w-full py-4 bg-primary-light hover:bg-primary-light/90 text-white rounded-2xl font-black text-sm uppercase tracking-widest cursor-pointer transition-all shadow-xl shadow-primary-light/20 flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed">
-                  {generating ? <Loader2 className="w-5 h-5 animate-spin" /> : <Eye className="w-5 h-5" />}
-                  {generating ? 'Generating…' : 'Generate NAAC Report'}
-                </button>
-
-                {!allDone && <p className="text-center text-[10px] font-bold uppercase opacity-30 tracking-widest">Complete all 5 checklist items to generate</p>}
-
-                {activeReport.status === 'PENDING_REVIEW' && (
-                  <button onClick={() => { setPreviewData(activeReport); setShowPreview(true); }}
-                    className="w-full py-3 border border-yellow-500/30 text-yellow-500 hover:bg-yellow-500/10 rounded-2xl font-black text-sm uppercase tracking-widest cursor-pointer transition-all flex items-center justify-center gap-2">
-                    <Eye className="w-4 h-4" /> Review Generated Report
+                {activeReport.aiStatus === 'GENERATING' || activeReport.aiStatus === 'QUEUED' || activeReport.aiStatus === 'ANALYZING' ? (
+                  <div className="bg-red-500/5 border border-red-500/10 rounded-2xl p-4 flex flex-col gap-3">
+                    <div className="flex items-center justify-between">
+                       <div className="flex items-center gap-2 text-red-500 uppercase tracking-widest font-black text-[10px]">
+                         <motion.div animate={{ opacity: [1, 0.4, 1] }} transition={{ duration: 1.5, repeat: Infinity }} className="w-2 h-2 rounded-full bg-red-500" />
+                         Processing Task...
+                       </div>
+                       <span className="font-black text-red-500 text-sm">{activeReport.aiProgress || 0}%</span>
+                    </div>
+                    <button onClick={handleStop}
+                      className="w-full py-3 bg-red-500 hover:bg-red-600 text-white rounded-xl font-black text-xs uppercase tracking-widest cursor-pointer transition-all flex items-center justify-center gap-2">
+                      <StopCircle className="w-4 h-4" /> Stop Generation
+                    </button>
+                  </div>
+                ) : (
+                  <button onClick={startWizard}
+                    disabled={!allDone || generating}
+                    className="w-full py-4 bg-primary-light hover:bg-primary-light/90 text-white rounded-2xl font-black text-sm uppercase tracking-widest cursor-pointer transition-all shadow-xl shadow-primary-light/20 flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed">
+                    {generating ? <Loader2 className="w-5 h-5 animate-spin" /> : <Eye className="w-5 h-5" />}
+                    {generating ? 'AI Processing…' : 'Start Multi-Step Generation'}
                   </button>
                 )}
-                {activeReport.status === 'APPROVED' && (
+
+                {!allDone && <p className="text-center text-[10px] font-bold uppercase opacity-30 tracking-widest">Upload Circular & Photos to generate</p>}
+
+                {(activeReport.status === 'PENDING_REVIEW' || activeReport.status === 'APPROVED') && (
                   <button onClick={() => { setPreviewData(activeReport); setShowPreview(true); }}
-                    className="w-full py-3 border border-green-500/30 text-green-500 hover:bg-green-500/10 rounded-2xl font-black text-sm uppercase tracking-widest cursor-pointer transition-all flex items-center justify-center gap-2">
-                    <Eye className="w-4 h-4" /> View Approved Report
+                    className={`w-full py-3 border rounded-2xl font-black text-sm uppercase tracking-widest cursor-pointer transition-all flex items-center justify-center gap-2 ${activeReport.status === 'APPROVED' ? 'border-green-500/30 text-green-500 hover:bg-green-500/10' : 'border-yellow-500/30 text-yellow-500 hover:bg-yellow-500/10'}`}>
+                    <Eye className="w-4 h-4" /> {activeReport.status === 'APPROVED' ? 'View Approved Report' : 'Review Generated Report'}
                   </button>
                 )}
               </div>
             </div>
           </div>
+
+      <UniversalModal
+        isOpen={showAnalysisModal}
+        onClose={() => { handleStop(); setShowAnalysisModal(false); }}
+        title="AI Scrutiny Wizard"
+        description={wizardStep === 4 ? `Generating Final Report` : `Stage ${wizardStep} of 3: AI Extraction`}
+        icon={<Sparkles />}
+        maxWidth="max-w-4xl"
+      >
+        <div className="space-y-6">
+          <div className="flex items-center gap-2 mb-2">
+            {[1, 2, 3, 4].map(s => (
+              <div key={s} className="flex-1 flex items-center gap-2">
+                <div className={`h-1.5 rounded-full flex-1 transition-all duration-500 ${wizardStep > s ? 'bg-green-500' : wizardStep === s ? 'bg-primary-light animate-pulse' : 'bg-slate-200 dark:bg-white/5'}`} />
+              </div>
+            ))}
+          </div>
+
+          <div className="bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/5 rounded-2xl p-6 min-h-[400px] flex flex-col justify-between">
+            {wizardStep < 4 ? (
+              <>
+                <div className="flex items-center justify-between mb-4">
+                  <span className="text-[10px] font-black text-primary-light uppercase tracking-widest">
+                    {analyzingStep ? 'AI is processing evidence...' : 'Review AI Extraction'}
+                  </span>
+                  {analyzingStep && <Loader2 className="w-4 h-4 text-primary-light animate-spin" />}
+                </div>
+
+                <div className="flex-1 relative mb-6">
+                  <textarea
+                    value={draftText}
+                    onChange={(e) => setDraftText(e.target.value)}
+                    placeholder="Mining data from your workshop uploads..."
+                    className="w-full h-full min-h-[300px] bg-transparent border-none text-slate-700 dark:text-slate-300 text-sm leading-relaxed resize-none focus:ring-0 font-mono scrollbar-hide"
+                  />
+                </div>
+
+                <div className="flex items-center justify-between pt-6 border-t border-slate-200 dark:border-white/5">
+                  <p className="text-[10px] text-slate-500 font-bold max-w-[60%] italic">
+                    Review and edit the summaries above to guide the AI report generation.
+                  </p>
+                  <div className="flex items-center gap-3">
+                    {wizardStep > 1 && (
+                      <button onClick={() => setWizardStep(prev => (prev - 1) as any)} className="px-4 py-2 text-xs font-black uppercase opacity-40 hover:opacity-100 transition-opacity cursor-pointer">
+                        Back
+                      </button>
+                    )}
+                    <button 
+                      onClick={nextWizardStep}
+                      disabled={!!analyzingStep || saving}
+                      className="px-6 py-3 bg-primary-light text-white rounded-xl font-black text-xs uppercase tracking-widest shadow-lg shadow-primary-light/20 hover:scale-105 active:scale-95 transition-all disabled:opacity-40 cursor-pointer"
+                    >
+                      {saving ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Approve & Continue'}
+                    </button>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div className="py-2 space-y-8 flex flex-col justify-center h-full">
+                {/* Overall Progress Bar */}
+                <div className="space-y-4">
+                  <div className="flex justify-between items-end mb-2">
+                    <div className="space-y-1">
+                      <span className={`text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-widest ${STATUS[activeReport?.aiStatus || 'QUEUED']}`}>
+                        {activeReport?.aiStatus?.replace('_', ' ') || 'QUEUED'}
+                      </span>
+                      <h3 className="font-black text-xl text-slate-900 dark:text-white">
+                        {activeReport?.aiStatus === 'QUEUED' ? 'Waiting in Queue...' : activeReport?.aiStatus === 'ANALYZING' ? 'Analyzing Materials...' : 'Generating Report...'}
+                      </h3>
+                    </div>
+                    <div className="text-right">
+                       <span className="text-3xl font-black text-primary-light">{(activeReport?.aiProgress || 0)}%</span>
+                       <p className="text-[10px] font-bold opacity-40 uppercase">Completion Rate</p>
+                    </div>
+                  </div>
+
+                  <div className="h-3 bg-slate-100 dark:bg-white/5 rounded-full overflow-hidden border border-slate-200/50 dark:border-white/10 p-0.5">
+                    <motion.div 
+                      initial={{ width: 0 }}
+                      animate={{ width: `${activeReport?.aiProgress || 0}%` }}
+                      className="h-full bg-gradient-to-r from-primary-light to-blue-500 rounded-full shadow-[0_0_15px_rgba(var(--color-primary-light),0.4)]"
+                    />
+                  </div>
+
+                  <div className="flex justify-between text-[9px] font-black uppercase tracking-widest opacity-40">
+                    <span>Aggregating Data</span>
+                    <span>Synthesis</span>
+                    <span>Final Standards</span>
+                  </div>
+                </div>
+                
+                <div className="space-y-3">
+                  {[
+                    { label: 'Synthesizing Approved Context', progress: 10 },
+                    { label: 'Generating Professional Narrative', progress: 50 },
+                    { label: 'Finalizing NAAC Standard Format', progress: 90 }
+                  ].map((step, i) => {
+                    const currentProgress = activeReport?.aiProgress || 0;
+                    const isDone = currentProgress > step.progress || activeReport?.aiStatus === 'COMPLETED' || activeReport?.status === 'PENDING_REVIEW';
+                    const isCurrent = currentProgress >= step.progress && activeReport?.aiStatus === 'GENERATING' && !isDone;
+                    
+                    return (
+                      <div key={i} className={`flex items-center justify-between p-4 rounded-xl border transition-all ${isDone ? 'bg-green-500/5 border-green-500/10' : isCurrent ? 'bg-primary-light/5 border-primary-light/10 shadow-[0_0_20px_rgba(var(--color-primary-light),0.05)]' : 'border-slate-200 dark:border-white/5 opacity-30'}`}>
+                        <div className="flex items-center gap-3">
+                          {isDone ? <CheckCircle2 className="w-5 h-5 text-green-500" /> : isCurrent ? <Loader2 className="w-5 h-5 text-primary-light animate-spin" /> : <Circle className="w-5 h-5 opacity-20" />}
+                          <span className={`text-xs font-black uppercase tracking-wider ${isDone ? 'text-green-500' : isCurrent ? 'text-slate-900 dark:text-white' : 'text-slate-500'}`}>{step.label}</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <div className="flex flex-col items-center gap-3">
+                  {activeReport?.aiStatus === 'GENERATING' || activeReport?.aiStatus === 'QUEUED' || activeReport?.aiStatus === 'ANALYZING' ? (
+                    <div className="flex flex-col items-center gap-4 w-full">
+                      <div className="p-4 bg-slate-50 dark:bg-white/5 rounded-2xl w-full text-center space-y-1">
+                        <p className="text-xs font-black text-slate-800 dark:text-white uppercase tracking-widest">
+                          Estimated Time Remaining
+                        </p>
+                        <p className="text-2xl font-black text-primary-light animate-pulse">
+                          ~{Math.max(1, Math.ceil(((100 - (activeReport?.aiProgress || 0)) / 10) * 3))} Seconds
+                        </p>
+                      </div>
+                      
+                      <button onClick={handleStop} className="flex items-center gap-2 px-8 py-3 bg-red-500/10 text-red-500 hover:bg-red-500 rounded-xl hover:text-white font-black text-xs uppercase tracking-widest transition-all cursor-pointer">
+                        <StopCircle className="w-4 h-4" /> Stop Generation
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-3">
+                      {activeReport?.status === 'PENDING_REVIEW' || activeReport?.aiStatus === 'COMPLETED' ? (
+                        <div className="flex flex-col items-center gap-4">
+                          <div className="flex items-center gap-3 px-6 py-3 bg-green-500/10 text-green-500 rounded-full border border-green-500/20 animate-bounce">
+                             <CheckCircle2 className="w-5 h-5" />
+                             <span className="font-black text-xs uppercase tracking-widest">Report Ready for Review!</span>
+                          </div>
+                          <button 
+                            onClick={() => { setPreviewData(activeReport); setShowPreview(true); }} 
+                            className="flex items-center gap-2 px-10 py-5 bg-green-500 hover:bg-green-600 text-white rounded-2xl font-black text-sm uppercase tracking-widest shadow-xl shadow-green-500/20 transform hover:scale-105 active:scale-95 transition-all cursor-pointer"
+                          >
+                            <Eye className="w-5 h-5" /> Review & Approve Report
+                          </button>
+                        </div>
+                      ) : (
+                        <button onClick={handleGenerate} className="flex items-center gap-2 px-10 py-5 bg-primary-light text-white rounded-2xl font-black text-sm uppercase tracking-widest shadow-xl shadow-primary-light/20 hover:scale-105 active:scale-95 transition-all cursor-pointer">
+                          <Play className="w-5 h-5" /> {activeReport?.aiStatus === 'FAILED' ? 'Retry Generation' : 'Start Multi-Step Generation'}
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="flex justify-center pt-4 border-t border-slate-100 dark:border-white/5">
+            <button 
+              onClick={() => setShowAnalysisModal(false)} 
+              className="text-[10px] font-black uppercase tracking-widest opacity-30 hover:opacity-100 transition-opacity flex items-center gap-2 cursor-pointer"
+            >
+              {wizardStep === 4 && (activeReport?.aiStatus === 'GENERATING' || activeReport?.aiStatus === 'QUEUED') 
+                ? '✕ Close & Continue in Background' 
+                : '✕ Save & Close'}
+            </button>
+          </div>
+        </div>
+      </UniversalModal>
         </motion.div>
       )}
 
@@ -660,7 +1102,21 @@ export default function NaacReportManager() {
                         <h1 className="text-2xl font-black">{g.titlePage.workshopName}</h1>
                         <p className="font-bold opacity-60">{g.titlePage.department}</p>
                         <p className="opacity-50">{g.titlePage.college}</p>
-                        <p className="text-sm opacity-40 flex items-center justify-center gap-1.5"><Calendar className="w-3.5 h-3.5" /> {g.titlePage.dateRange}</p>
+                        <p className="text-sm opacity-40 flex items-center justify-center gap-1.5">
+                          <Calendar className="w-3.5 h-3.5" /> 
+                          {(() => {
+                            const raw = g.titlePage.dateRange;
+                            if (!raw || !raw.includes(' to ')) return raw;
+                            const parts = raw.split(' to ');
+                            const clean = parts.map((p: string) => {
+                              try {
+                                const d = new Date(p);
+                                return isNaN(d.getTime()) ? p : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+                              } catch { return p; }
+                            });
+                            return clean.join(' - ');
+                          })()}
+                        </p>
                       </div>
 
                       <div className="space-y-2">
