@@ -262,16 +262,30 @@ export class WorkshopsService {
 
   async findAll(collegeId: any, instructorId?: any, studentId?: any): Promise<WorkshopDocument[]> {
     try {
+      // Auto-update statuses based on current time before fetching
+      await this.autoUpdateStatuses(collegeId);
+
       const query: any = {};
       const cId = this.toObjectId(collegeId);
       
-      if (cId) {
+      if (cId && !instructorId) {
         query.collegeId = cId;
       }
       
       if (instructorId) {
         const iId = this.toObjectId(instructorId);
-        if (iId) query.instructorId = iId;
+        if (iId) {
+          // Instructors should see workshops where they are the instructor,
+          // optionally restricted by college if provided.
+          if (cId) {
+            query.$or = [
+              { instructorId: iId },
+              { collegeId: cId }
+            ];
+          } else {
+            query.instructorId = iId;
+          }
+        }
       }
 
       if (studentId) {
@@ -293,6 +307,7 @@ export class WorkshopsService {
   /** Super Admin: get all workshops for a specific college by raw string ID */
   async findAllByCollegeId(collegeId: string): Promise<WorkshopDocument[]> {
     try {
+      await this.autoUpdateStatuses(collegeId);
       const cId = this.toObjectId(collegeId);
       if (!cId) return [];
       return this.workshopModel
@@ -322,15 +337,34 @@ export class WorkshopsService {
     }
   }
 
-  async update(id: any, updateDto: any): Promise<WorkshopDocument | null> {
+  async update(id: any, updateDto: any, collegeId?: any): Promise<WorkshopDocument | null> {
     const wId = this.toObjectId(id);
+    const cId = this.toObjectId(collegeId);
     if (!wId) throw new BadRequestException('Invalid Workshop ID.');
 
-    this.logger.log(`Updating workshop: ${wId}`);
+    const workshop = await this.workshopModel.findById(wId);
+    if (!workshop) throw new NotFoundException('Workshop not found.');
+
+    // Security check: If a collegeId is provided, the workshop must belong to it
+    if (cId && workshop.collegeId && workshop.collegeId.toString() !== cId.toString()) {
+      this.logger.warn(`Update denied: Workshop ${wId} does not belong to college ${cId}`);
+      throw new ForbiddenException('You do not have permission to update this workshop.');
+    }
+
+    this.logger.log(`Updating workshop: ${wId} with payload: ${JSON.stringify(updateDto)}`);
+
+    // Cast IDs to ObjectIds to prevent query mismatches in the future
+    if (updateDto.instructorId) {
+      updateDto.instructorId = this.toObjectId(updateDto.instructorId);
+    }
+    
+    // Safety: Remove collegeId from payload to prevent accidental institutional reassignment
+    delete updateDto.collegeId;
+
     return this.workshopModel.findByIdAndUpdate(
       wId,
       { $set: updateDto },
-      { new: true }
+      { returnDocument: 'after' }
     ).exec();
   }
 
@@ -366,6 +400,27 @@ export class WorkshopsService {
       throw new NotFoundException('Workshop not found.');
     }
 
+    // Auto-update this specific workshop's status if needed (Day-Aware)
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+    
+    let calculatedStatus = workshop.status;
+    if (workshop.schedule?.start && workshop.schedule?.end) {
+      const start = new Date(workshop.schedule.start);
+      const end = new Date(workshop.schedule.end);
+      
+      if (start > endOfToday) calculatedStatus = 'UPCOMING';
+      else if (end < startOfToday) calculatedStatus = 'INACTIVE';
+      else calculatedStatus = 'ACTIVE';
+
+      if (workshop.status !== calculatedStatus) {
+        this.logger.log(`Syncing workshop ${wId} status to ${calculatedStatus} (Day-Aware)`);
+        await this.workshopModel.updateOne({ _id: wId }, { $set: { status: calculatedStatus } });
+        workshop.status = calculatedStatus;
+      }
+    }
+
     // Access Control for Students
     if (role === UserRole.STUDENT && userId) {
       const isRegistered = workshop.registeredStudentIds.some(
@@ -390,7 +445,7 @@ export class WorkshopsService {
     return this.workshopModel.findOneAndUpdate(
       { inviteToken },
       { $addToSet: { registeredStudentIds: sId } },
-      { new: true }
+      { returnDocument: 'after' }
     ).exec();
   }
 
@@ -402,7 +457,7 @@ export class WorkshopsService {
     return this.workshopModel.findByIdAndUpdate(wId, {
       $pull: { pendingStudentIds: sId },
       $addToSet: { registeredStudentIds: sId }
-    }, { new: true }).populate('registeredStudentIds pendingStudentIds');
+    }, { returnDocument: 'after' }).populate('registeredStudentIds pendingStudentIds');
   }
 
   async bulkApproveStudents(workshopId: string, studentIds: string[]) {
@@ -413,7 +468,86 @@ export class WorkshopsService {
     return this.workshopModel.findByIdAndUpdate(wId, {
       $pull: { pendingStudentIds: { $in: sIds } },
       $addToSet: { registeredStudentIds: { $each: sIds } }
-    }, { new: true }).populate('registeredStudentIds pendingStudentIds');
+    }, { returnDocument: 'after' }).populate('registeredStudentIds pendingStudentIds');
+  }
+
+  async remove(id: string, collegeId?: string, instructorId?: string): Promise<any> {
+    const wId = this.toObjectId(id);
+    const cId = this.toObjectId(collegeId);
+    const iId = this.toObjectId(instructorId);
+    
+    if (!wId) throw new BadRequestException('Invalid Workshop ID.');
+
+    const workshop = await this.workshopModel.findById(wId);
+    if (!workshop) throw new NotFoundException('Workshop not found.');
+
+    // Security: Check College linkage
+    if (cId && workshop.collegeId && workshop.collegeId.toString() !== cId.toString()) {
+      throw new ForbiddenException('Access denied: Workshop belongs to another institution.');
+    }
+
+    // Security: Check Instructor ownership if restricted
+    if (iId && workshop.instructorId && workshop.instructorId.toString() !== iId.toString()) {
+      throw new ForbiddenException('Access denied: You can only delete workshops you lead.');
+    }
+
+    this.logger.log(`Deleting workshop: ${wId} (Verified for College: ${cId}, Instructor: ${iId})`);
+    
+    // Cascading deletion could be added here for assignments, etc.
+    return this.workshopModel.deleteOne({ _id: wId }).exec();
+  }
+
+  private async autoUpdateStatuses(collegeId?: any): Promise<void> {
+    const now = new Date();
+    
+    // Day-aware boundaries
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+
+    const cId = this.toObjectId(collegeId);
+    const baseQuery: any = cId ? { collegeId: cId } : {};
+
+    try {
+      // 1. Force to ACTIVE if the day has arrived or we are in the range
+      // A workshop is ACTIVE if: start <= endOfToday AND end >= startOfToday
+      await this.workshopModel.updateMany(
+        { 
+          ...baseQuery, 
+          status: { $ne: 'ACTIVE' }, 
+          'schedule.start': { $lte: endOfToday }, 
+          'schedule.end': { $gte: startOfToday } 
+        },
+        { $set: { status: 'ACTIVE' } }
+      ).exec();
+
+      // 2. Force to INACTIVE if the end day has passed
+      await this.workshopModel.updateMany(
+        { 
+          ...baseQuery, 
+          status: { $ne: 'INACTIVE' }, 
+          'schedule.end': { $lt: startOfToday } 
+        },
+        { $set: { status: 'INACTIVE' } }
+      ).exec();
+
+      // 3. Force to UPCOMING if the start day is in the future
+      await this.workshopModel.updateMany(
+        { 
+          ...baseQuery, 
+          status: { $ne: 'UPCOMING' }, 
+          'schedule.start': { $gt: endOfToday } 
+        },
+        { $set: { status: 'UPCOMING' } }
+      ).exec();
+      
+      // 4. Catch-all for missing status
+      await this.workshopModel.updateMany(
+        { ...baseQuery, status: { $nin: ['UPCOMING', 'ACTIVE', 'INACTIVE'] } },
+        { $set: { status: 'UPCOMING' } }
+      ).exec();
+    } catch (err) {
+      this.logger.error(`Status auto-update failed: ${err.message}`);
+    }
   }
 
   async rejectStudent(workshopId: string, studentId: string) {
@@ -423,7 +557,7 @@ export class WorkshopsService {
 
     return this.workshopModel.findByIdAndUpdate(wId, {
       $pull: { pendingStudentIds: sId }
-    }, { new: true }).populate('registeredStudentIds pendingStudentIds');
+    }, { returnDocument: 'after' }).populate('registeredStudentIds pendingStudentIds');
   }
 
   async bulkRejectStudents(workshopId: string, studentIds: string[]) {
@@ -433,7 +567,7 @@ export class WorkshopsService {
 
     return this.workshopModel.findByIdAndUpdate(wId, {
       $pull: { pendingStudentIds: { $in: sIds } }
-    }, { new: true }).populate('registeredStudentIds pendingStudentIds');
+    }, { returnDocument: 'after' }).populate('registeredStudentIds pendingStudentIds');
   }
 
   async delete(id: any, collegeId: any): Promise<any> {
@@ -457,7 +591,7 @@ export class WorkshopsService {
     return this.workshopModel.findOneAndUpdate(
       { _id: wId, collegeId: cId },
       { $set: { status } },
-      { new: true }
+      { returnDocument: 'after' }
     ).exec();
   }
 
@@ -513,7 +647,7 @@ export class WorkshopsService {
           verifiedBy: vId
         }
       },
-      { upsert: true, new: true }
+      { upsert: true, returnDocument: 'after' }
     ).exec();
   }
 
@@ -563,7 +697,7 @@ export class WorkshopsService {
     return this.attendanceModel.findOneAndUpdate(
       { _id: aId },
       { $set: { status, verifiedBy: tId } },
-      { new: true }
+      { returnDocument: 'after' }
     ).exec();
   }
 
@@ -612,7 +746,7 @@ export class WorkshopsService {
     return this.mediaPostModel.findByIdAndUpdate(
       this.toObjectId(id),
       { $set: updateDto },
-      { new: true }
+      { returnDocument: 'after' }
     ).exec();
   }
 
@@ -765,7 +899,7 @@ export class WorkshopsService {
     return this.teacherContentModel.findByIdAndUpdate(
       this.toObjectId(id),
       { $set: updateDto },
-      { new: true }
+      { returnDocument: 'after' }
     ).exec();
   }
 

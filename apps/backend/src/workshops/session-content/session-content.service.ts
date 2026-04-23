@@ -139,12 +139,31 @@ export class SessionContentService {
 
     const days = await this.getDaysByWorkshop(workshopId);
     const result: any[] = [];
+    const isStaff = role === 'INSTRUCTOR' || role === 'TEACHER' || role === 'COLLEGE_ADMIN' || role === 'SUPER_ADMIN';
+
     for (const day of days) {
-      const sessions = await this.getSessionsByDay(day._id.toString() as string);
-      result.push({
-        ...day.toObject(),
-        sessions,
-      });
+      let sessions = await this.getSessionsByDay(day._id.toString() as string);
+      
+      // Strict Backend Filtering for Students ONLY
+      if (!isStaff) {
+        sessions = sessions.filter(s => {
+          const hasPublishedMaterials = s.materials?.some(m => m.isPublished);
+          return s.status === 'approved' || hasPublishedMaterials;
+        }).map(s => {
+          // Deep clone and filter materials to remove drafts
+          const sessionObj = s.toObject();
+          sessionObj.materials = sessionObj.materials.filter(m => m.isPublished);
+          return sessionObj;
+        }) as any;
+      }
+
+      // Only include the day if it has visible sessions
+      if (isStaff || sessions.length > 0) {
+        result.push({
+          ...day.toObject(),
+          sessions,
+        });
+      }
     }
     return result;
   }
@@ -339,7 +358,7 @@ export class SessionContentService {
     await this.contentModel.findOneAndUpdate(
       query,
       update,
-      { upsert: true, new: true }
+      { upsert: true, returnDocument: 'after' }
     );
   }
 
@@ -383,7 +402,7 @@ export class SessionContentService {
       const updatedSession = await this.sessionModel.findByIdAndUpdate(
         sessionId, 
         { $set: { materials: updatedMaterials } }, 
-        { new: true }
+        { returnDocument: 'after' }
       );
       return updatedSession;
     }

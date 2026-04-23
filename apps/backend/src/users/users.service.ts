@@ -100,7 +100,7 @@ export class UsersService {
     if (data.password) {
       data.password = await bcrypt.hash(data.password, 10);
     }
-    const updated = await this.userModel.findByIdAndUpdate(uId, data, { new: true }).exec();
+    const updated = await this.userModel.findByIdAndUpdate(uId, data, { returnDocument: 'after' }).exec();
     if (!updated) throw new BadRequestException('User not found');
     return updated;
   }

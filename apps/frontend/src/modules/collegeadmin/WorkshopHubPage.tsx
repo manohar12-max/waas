@@ -63,7 +63,9 @@ export default function WorkshopHubPage() {
     description: '',
     instructorId: '',
     schedule: { start: '', end: '' },
-    registrationPeriod: { start: '', end: '' }
+    registrationPeriod: { start: '', end: '' },
+    status: 'UPCOMING' as 'UPCOMING' | 'ACTIVE' | 'INACTIVE',
+    isActive: true
   });
 
   const [instructors, setInstructors] = useState<any[]>([]);
@@ -112,6 +114,18 @@ export default function WorkshopHubPage() {
 
     if (!instructorId) {
       setError("Please select a Technical Instructor lead.");
+      setSubmitting(false);
+      return;
+    }
+
+    // Date Validation
+    if (new Date(newWorkshop.schedule.end) < new Date(newWorkshop.schedule.start)) {
+      setError("Event end date cannot be before start date.");
+      setSubmitting(false);
+      return;
+    }
+    if (new Date(newWorkshop.registrationPeriod.end) < new Date(newWorkshop.registrationPeriod.start)) {
+      setError("Registration end date cannot be before start date.");
       setSubmitting(false);
       return;
     }
@@ -179,7 +193,9 @@ export default function WorkshopHubPage() {
       description: '',
       instructorId: '',
       schedule: { start: '', end: '' },
-      registrationPeriod: { start: '', end: '' }
+      registrationPeriod: { start: '', end: '' },
+      status: 'UPCOMING',
+      isActive: true
     });
   };
 
@@ -189,16 +205,41 @@ export default function WorkshopHubPage() {
       title: workshop.title,
       description: workshop.description || '',
       instructorId: workshop.instructorId?._id || '',
-      schedule: { 
-        start: workshop.schedule.start ? new Date(workshop.schedule.start).toISOString().slice(0, 16) : '', 
-        end: workshop.schedule.end ? new Date(workshop.schedule.end).toISOString().slice(0, 16) : '' 
+      schedule: {
+        start: workshop.schedule.start ? new Date(workshop.schedule.start).toISOString().slice(0, 16) : '',
+        end: workshop.schedule.end ? new Date(workshop.schedule.end).toISOString().slice(0, 16) : ''
       },
       registrationPeriod: { 
         start: workshop.registrationPeriod?.start ? new Date(workshop.registrationPeriod.start).toISOString().slice(0, 16) : '', 
         end: workshop.registrationPeriod?.end ? new Date(workshop.registrationPeriod.end).toISOString().slice(0, 16) : '' 
-      }
+      },
+      status: workshop.status as any,
+      isActive: workshop.isActive
     });
     setShowModal(true);
+  };
+
+  const getRegistrationStatus = (period: any) => {
+    if (!period?.start || !period?.end) return { label: 'Not Set', color: 'text-slate-400 bg-slate-400/10' };
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+    
+    const start = new Date(period.start);
+    const end = new Date(period.end);
+
+    if (start > endOfToday) return { label: 'Reg. Upcoming', color: 'text-indigo-400 bg-indigo-500/10 border-indigo-500/20' };
+    if (end < startOfToday) return { label: 'Reg. Closed', color: 'text-red-400 bg-red-500/10 border-red-500/20' };
+    return { label: 'Registration Started', color: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20' };
+  };
+
+  const getEventStatusText = (status: string) => {
+    switch (status) {
+      case 'ACTIVE': return { label: 'Event Started', color: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20' };
+      case 'UPCOMING': return { label: 'Event Upcoming', color: 'text-primary-light bg-primary-light/10 border-primary-light/20' };
+      case 'INACTIVE': return { label: 'Event Ended', color: 'text-red-400 bg-red-500/10 border-red-500/20' };
+      default: return { label: status, color: 'text-slate-400 bg-slate-400/10 border-slate-400/20' };
+    }
   };
 
   const getStatusColor = (status: string) => {
@@ -225,14 +266,14 @@ export default function WorkshopHubPage() {
             <p className="opacity-40 font-medium max-w-lg text-sm leading-relaxed">Central command for curriculum delivery and operational management.</p>
           </motion.div>
           {(user.role === 'COLLEGE_ADMIN' || user.role === 'SUPER_ADMIN' || user.role === 'INSTRUCTOR') && (
-            <motion.button 
+            <motion.button
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               onClick={() => {
-                  setEditingWorkshop(null);
-                  resetForm();
-                  setShowModal(true);
-              }} 
+                setEditingWorkshop(null);
+                resetForm();
+                setShowModal(true);
+              }}
               className="flex items-center justify-center gap-4 bg-primary-light hover:bg-primary-dark text-white px-8 py-4 rounded-3xl font-black text-xs uppercase tracking-widest shadow-2xl transition-all cursor-pointer"
             >
               <Plus className="w-5 h-5" /> Deploy Workshop
@@ -245,179 +286,172 @@ export default function WorkshopHubPage() {
           <div className="space-y-1">
             <p className="text-[10px] font-black uppercase tracking-widest opacity-30 text-primary-light">Total Curriculum</p>
             <div className="flex items-center gap-3">
-               <Layers className="w-5 h-5 opacity-40" />
-               <p className="text-2xl font-black">{workshops.length}</p>
+              <Layers className="w-5 h-5 opacity-40" />
+              <p className="text-2xl font-black">{workshops.length}</p>
             </div>
           </div>
           <div className="space-y-1">
             <p className="text-[10px] font-black uppercase tracking-widest opacity-30 text-green-500">Live Sessions</p>
             <div className="flex items-center gap-3">
-               <Activity className="w-5 h-5 opacity-40 text-green-500" />
-               <p className="text-2xl font-black">{workshops.filter(w => w.status === 'ACTIVE').length}</p>
+              <Activity className="w-5 h-5 opacity-40 text-green-500" />
+              <p className="text-2xl font-black">{workshops.filter(w => w.status === 'ACTIVE').length}</p>
             </div>
           </div>
           <div className="space-y-1">
             <p className="text-[10px] font-black uppercase tracking-widest opacity-30 text-primary-light">Instructors</p>
             <div className="flex items-center gap-3">
-               <User className="w-5 h-5 opacity-40" />
-               <p className="text-2xl font-black">{new Set(workshops.map(w => w.instructorId?._id)).size}</p>
+              <User className="w-5 h-5 opacity-40" />
+              <p className="text-2xl font-black">{new Set(workshops.map(w => w.instructorId?._id)).size}</p>
             </div>
           </div>
           <div className="space-y-1">
-             <p className="text-[10px] font-black uppercase tracking-widest opacity-30 text-red-500">Inactive Nodes</p>
-             <div className="flex items-center gap-3">
-                <ShieldAlert className="w-5 h-5 opacity-40 text-red-500" />
-                <p className="text-2xl font-black">{workshops.filter(w => !w.isActive).length}</p>
-             </div>
+            <p className="text-[10px] font-black uppercase tracking-widest opacity-30 text-red-500">Inactive Nodes</p>
+            <div className="flex items-center gap-3">
+              <ShieldAlert className="w-5 h-5 opacity-40 text-red-500" />
+              <p className="text-2xl font-black">{workshops.filter(w => !w.isActive).length}</p>
+            </div>
           </div>
         </div>
       </div>
 
       <div className="space-y-6">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 px-2">
-           <h3 className="font-black text-2xl tracking-tight">Transmission Flow</h3>
-           <div className="flex gap-2 p-1.5 bg-slate-100 dark:bg-white/5 rounded-2xl border border-slate-200 dark:border-white/5">
-              {(['ALL', 'ACTIVE', 'UPCOMING', 'INACTIVE'] as const).map((t) => (
-                <button
-                  key={t}
-                  onClick={() => setFilter(t)}
-                  className={`px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all cursor-pointer ${
-                    filter === t 
-                      ? 'bg-primary-light text-white shadow-lg' 
-                      : 'opacity-40 hover:opacity-100'
+          <h3 className="font-black text-2xl tracking-tight">Transmission Flow</h3>
+          <div className="flex gap-2 p-1.5 bg-slate-100 dark:bg-white/5 rounded-2xl border border-slate-200 dark:border-white/5">
+            {(['ALL', 'ACTIVE', 'UPCOMING', 'INACTIVE'] as const).map((t) => (
+              <button
+                key={t}
+                onClick={() => setFilter(t)}
+                className={`px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all cursor-pointer ${filter === t
+                    ? 'bg-primary-light text-white shadow-lg'
+                    : 'opacity-40 hover:opacity-100'
                   }`}
-                >
-                  {t}
-                </button>
-              ))}
-           </div>
+              >
+                {t}
+              </button>
+            ))}
+          </div>
         </div>
-          <div className="space-y-6">
-            {loading ? (
-              Array.from({ length: 3 }).map((_, i) => (
-                <div key={i} className="animate-pulse bg-slate-100 dark:bg-white/5 h-32 rounded-[48px]" />
-              ))
-            ) : (
-              <div className="grid grid-cols-1 gap-6">
-                {filteredWorkshops.map((workshop) => (
-                  <motion.div 
-                    key={workshop._id} 
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className={`group bg-card-light dark:bg-card-dark border ${workshop.isActive ? 'border-slate-200 dark:border-white/5' : 'border-red-500/20 opacity-60'} rounded-[48px] p-8 hover:border-primary-light/30 transition-all shadow-2xl relative overflow-hidden`}
-                  >
-                    {!workshop.isActive && (
-                      <div className="absolute top-0 right-0 bg-red-500 text-white px-6 py-2 text-[8px] font-black uppercase tracking-widest rounded-bl-3xl">
-                        Inactive
-                      </div>
-                    )}
-                    <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-8">
-                      <div className="flex gap-6 items-start">
-                        <div className="w-20 h-20 rounded-[32px] bg-primary-light/10 flex items-center justify-center text-primary-light border border-white/5 shadow-inner"><BookOpen className="w-10 h-10" /></div>
-                        <div className="space-y-2">
-                          <div className="flex items-center gap-3">
-                            <h4 className="text-2xl font-black tracking-tight">{workshop.title}</h4>
-                            <span className={`px-3 py-1 rounded-full text-[8px] font-black border uppercase tracking-widest ${getStatusColor(workshop.status)}`}>{workshop.status}</span>
+        <div className="space-y-6">
+          {loading ? (
+            Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="animate-pulse bg-slate-100 dark:bg-white/5 h-32 rounded-[48px]" />
+            ))
+          ) : (
+            <div className="grid grid-cols-1 gap-6">
+              {filteredWorkshops.map((workshop) => (
+                <motion.div
+                  key={workshop._id}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="group bg-card-light dark:bg-card-dark border border-slate-200 dark:border-white/5 rounded-[48px] p-8 hover:border-primary-light/30 transition-all shadow-2xl relative overflow-hidden"
+                >
+                  <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-8">
+                    <div className="flex gap-6 items-start">
+                      <div className="w-20 h-20 rounded-[32px] bg-primary-light/10 flex items-center justify-center text-primary-light border border-white/5 shadow-inner"><BookOpen className="w-10 h-10" /></div>
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-3">
+                          <h4 className="text-2xl font-black tracking-tight">{workshop.title}</h4>
+                          <div className="flex gap-2">
+                             <span className={`px-3 py-1 rounded-full text-[8px] font-black border uppercase tracking-widest transition-all ${getRegistrationStatus(workshop.registrationPeriod).color}`}>
+                               {getRegistrationStatus(workshop.registrationPeriod).label}
+                             </span>
+                             <span className={`px-3 py-1 rounded-full text-[8px] font-black border uppercase tracking-widest transition-all ${getEventStatusText(workshop.status).color}`}>
+                               {getEventStatusText(workshop.status).label}
+                             </span>
                           </div>
-                          <div className="flex flex-wrap items-center gap-y-2 gap-x-4 pt-1 text-[10px] font-black uppercase opacity-40">
-                            <div className="flex items-center gap-1.5"><Calendar className="w-3.5 h-3.5" /> {new Date(workshop.schedule.start).toLocaleDateString()}</div>
-                            <span className="opacity-20 hidden md:block">|</span>
-                            <div className="flex items-center gap-1.5"><User className="w-3.5 h-3.5" /> {workshop.instructorId?.name || "Unassigned"}</div>
-                            <span className="opacity-20 hidden md:block">|</span>
-                            <div className="flex items-center gap-1.5 group/invite relative">
-                              <ShieldAlert className="w-3.5 h-3.5 text-primary-light" /> 
-                              <span className="opacity-60">Invite:</span> 
-                              <span className="font-mono">{workshop.inviteToken || "N/A"}</span>
-                              {workshop.inviteToken && (
-                                <button 
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    const link = `${window.location.origin}/register?invite=${workshop.inviteToken}`;
-                                    navigator.clipboard.writeText(link);
-                                    alert("Invitation link copied!");
-                                  }}
-                                  className="ml-2 p-1 hover:bg-primary-light/10 rounded-md transition-colors cursor-pointer"
-                                  title="Copy Registration Link"
-                                >
-                                  <Copy className="w-3 h-3 text-primary-light" />
-                                </button>
-                              )}
-                            </div>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-y-2 gap-x-4 pt-1 text-[10px] font-black uppercase opacity-40">
+                          <div className="flex items-center gap-1.5"><Calendar className="w-3.5 h-3.5" /> {new Date(workshop.schedule.start).toLocaleDateString()}</div>
+                          <span className="opacity-20 hidden md:block">|</span>
+                          <div className="flex items-center gap-1.5"><User className="w-3.5 h-3.5" /> {workshop.instructorId?.name || "Unassigned"}</div>
+                          <span className="opacity-20 hidden md:block">|</span>
+                          <div className="flex items-center gap-1.5 group/invite relative">
+                            <ShieldAlert className="w-3.5 h-3.5 text-primary-light" />
+                            <span className="opacity-60">Invite:</span>
+                            <span className="font-mono">{workshop.inviteToken || "N/A"}</span>
+                            {workshop.inviteToken && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  const link = `${window.location.origin}/register?invite=${workshop.inviteToken}`;
+                                  navigator.clipboard.writeText(link);
+                                  alert("Invitation link copied!");
+                                }}
+                                className="ml-2 p-1 hover:bg-primary-light/10 rounded-md transition-colors cursor-pointer"
+                                title="Copy Registration Link"
+                              >
+                                <Copy className="w-3 h-3 text-primary-light" />
+                              </button>
+                            )}
                           </div>
                         </div>
                       </div>
-                      
-                      <div className="flex flex-wrap items-center gap-4">
-                        {(user.role === 'INSTRUCTOR' || user.role === 'SUPER_ADMIN') && (
-                          <button
-                            onClick={() => toggleActive(workshop._id, workshop.isActive)}
-                            className={`px-4 py-3 rounded-2xl text-[9px] font-black uppercase tracking-widest transition-all cursor-pointer border ${workshop.isActive ? 'bg-green-500/10 text-green-500 border-green-500/20' : 'bg-red-500/10 text-red-500 border-red-500/20'}`}
-                          >
-                            {workshop.isActive ? 'Active' : 'Inactive'}
-                          </button>
-                        )}
-                        {(user.role === 'INSTRUCTOR' || user.role === 'TEACHER') && (
-                          <div className="flex items-center gap-3">
-                            {user.role === 'INSTRUCTOR' && (
-                              <button
-                                onClick={() => navigate(`/workshops/${workshop._id}/configure`)}
-                                className="flex items-center gap-3 bg-slate-500/5 hover:bg-primary-light text-slate-500 dark:text-white hover:text-white px-6 py-4 rounded-3xl font-black text-[10px] uppercase tracking-widest cursor-pointer transition-all border border-slate-200 dark:border-white/10"
-                              >
-                                <Wand2 className="w-4 h-4" />
-                                Design Curriculum
-                              </button>
-                            )}
-                            <button 
-                              onClick={() => navigate(`/workshops/${workshop._id}/live`)} 
-                              className="flex items-center gap-3 bg-primary-light text-white px-8 py-4 rounded-3xl font-black text-[10px] uppercase tracking-widest shadow-xl shadow-primary-light/20 hover:translate-y-[-2px] transition-all cursor-pointer"
-                            >
-                               <Airplay className="w-4 h-4" />
-                               Manage Class
-                            </button>
-                          </div>
-                        )}
-                        {(user.role === 'INSTRUCTOR' || user.role === 'SUPER_ADMIN') && (
-                          <div className="flex items-center gap-3 border-l border-slate-200 dark:border-white/5 pl-4 ml-1">
-                             <button
-                              onClick={() => openEditModal(workshop)}
-                              className="p-4 bg-slate-500/5 hover:bg-primary-light/10 text-slate-400 hover:text-primary-light rounded-2xl transition-all cursor-pointer border border-transparent hover:border-primary-light/20"
-                              title="Edit Settings"
-                            >
-                              <Pencil className="w-5 h-5" />
-                            </button>
-                            <button
-                              onClick={() => {
-                                  setWorkshopToDelete(workshop);
-                                  setShowDeleteModal(true);
-                              }}
-                              className="p-4 bg-slate-500/5 hover:bg-red-500/10 text-slate-400 hover:text-red-500 rounded-2xl transition-all cursor-pointer border border-transparent hover:border-red-500/20"
-                              title="Remove Workshop"
-                            >
-                              <Trash2 className="w-5 h-5" />
-                            </button>
-                          </div>
-                        )}
-                      </div>
                     </div>
-                  </motion.div>
-                ))}
-              </div>
-            )}
-            {!loading && workshops.length === 0 && (
-              <div className="py-24 text-center border-2 border-dashed border-slate-200 dark:border-white/5 rounded-[64px] flex flex-col items-center justify-center gap-6">
-                 <BookOpen className="w-16 h-16 opacity-10" />
-                 <p className="opacity-20 font-black uppercase tracking-[0.4em] text-sm">Deployment Ready: No Active Nodes Found</p>
-                 <button onClick={() => setShowModal(true)} className="px-8 py-4 bg-primary-light/10 text-primary-light rounded-full font-black text-[10px] uppercase tracking-widest hover:bg-primary-light hover:text-white transition-all cursor-pointer">Deploy Initial Node</button>
-              </div>
-            )}
-          </div>
+
+                    <div className="flex flex-wrap items-center gap-4">
+                      {(user.role === 'INSTRUCTOR' || user.role === 'TEACHER') && (
+                        <div className="flex items-center gap-3">
+                          {user.role === 'INSTRUCTOR' && (
+                            <button
+                              onClick={() => navigate(`/workshops/${workshop._id}/configure`)}
+                              className="flex items-center gap-3 bg-slate-500/5 hover:bg-primary-light text-slate-500 dark:text-white hover:text-white px-6 py-4 rounded-3xl font-black text-[10px] uppercase tracking-widest cursor-pointer transition-all border border-slate-200 dark:border-white/10"
+                            >
+                              <Wand2 className="w-4 h-4" />
+                              Design Curriculum
+                            </button>
+                          )}
+                          <button
+                            onClick={() => navigate(`/workshops/${workshop._id}/live`)}
+                            className="flex items-center gap-3 bg-primary-light text-white px-8 py-4 rounded-3xl font-black text-[10px] uppercase tracking-widest shadow-xl shadow-primary-light/20 hover:translate-y-[-2px] transition-all cursor-pointer"
+                          >
+                            <Airplay className="w-4 h-4" />
+                            Manage Class
+                          </button>
+                        </div>
+                      )}
+                      {(user.role === 'INSTRUCTOR' || user.role === 'SUPER_ADMIN' || user.role === 'COLLEGE_ADMIN') && (
+                        <div className="flex items-center gap-3 border-l border-slate-200 dark:border-white/5 pl-4 ml-1">
+                          <button
+                            onClick={() => openEditModal(workshop)}
+                            className="p-4 bg-slate-500/5 hover:bg-primary-light/10 text-slate-400 hover:text-primary-light rounded-2xl transition-all cursor-pointer border border-transparent hover:border-primary-light/20"
+                            title="Edit Settings"
+                          >
+                            <Pencil className="w-5 h-5" />
+                          </button>
+                          <button
+                            onClick={() => {
+                              setWorkshopToDelete(workshop);
+                              setShowDeleteModal(true);
+                            }}
+                            className="p-4 bg-slate-500/5 hover:bg-red-500/10 text-slate-400 hover:text-red-500 rounded-2xl transition-all cursor-pointer border border-transparent hover:border-red-500/20"
+                            title="Remove Workshop"
+                          >
+                            <Trash2 className="w-5 h-5" />
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          )}
+          {!loading && workshops.length === 0 && (
+            <div className="py-24 text-center border-2 border-dashed border-slate-200 dark:border-white/5 rounded-[64px] flex flex-col items-center justify-center gap-6">
+              <BookOpen className="w-16 h-16 opacity-10" />
+              <p className="opacity-20 font-black uppercase tracking-[0.4em] text-sm">Deployment Ready: No Active Nodes Found</p>
+              <button onClick={() => setShowModal(true)} className="px-8 py-4 bg-primary-light/10 text-primary-light rounded-full font-black text-[10px] uppercase tracking-widest hover:bg-primary-light hover:text-white transition-all cursor-pointer">Deploy Initial Node</button>
+            </div>
+          )}
         </div>
+      </div>
 
       <UniversalModal
         isOpen={showModal}
         onClose={() => {
-            setShowModal(false);
-            setEditingWorkshop(null);
+          setShowModal(false);
+          setEditingWorkshop(null);
         }}
         title={editingWorkshop ? "Workshop Settings" : "Deploy Workshop"}
         description={editingWorkshop ? `Update details for ${editingWorkshop.title}` : "Initialize a new workshop delivery instance"}
@@ -473,6 +507,7 @@ export default function WorkshopHubPage() {
                 <input required type="datetime-local" className="bg-slate-50 dark:bg-white/5 border border-slate-300 dark:border-white/10 rounded-3xl p-6 outline-none font-bold cursor-pointer text-slate-800 dark:text-white focus:ring-2 focus:ring-primary-light transition-all" value={newWorkshop.schedule.end} onChange={e => setNewWorkshop({ ...newWorkshop, schedule: { ...newWorkshop.schedule, end: e.target.value } })} />
               </div>
             </div>
+
           </div>
 
           <div className="flex gap-4 pt-4">
@@ -493,7 +528,7 @@ export default function WorkshopHubPage() {
         <div className="space-y-6">
           <div className="p-6 bg-red-500/10 border border-red-500/20 rounded-3xl">
             <p className="text-sm font-medium text-center leading-relaxed">
-              Are you sure you want to permanently delete <span className="font-black text-red-500 uppercase">{workshopToDelete?.title}</span>? 
+              Are you sure you want to permanently delete <span className="font-black text-red-500 uppercase">{workshopToDelete?.title}</span>?
               This will remove all associated student records and attendance data.
             </p>
           </div>

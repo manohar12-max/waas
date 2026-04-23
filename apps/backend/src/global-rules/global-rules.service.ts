@@ -39,7 +39,7 @@ export class GlobalRulesService implements OnModuleInit {
     const doc = await this.ruleModel.findOneAndUpdate(
       { key: 'singleton' },
       { $set: updates },
-      { new: true, upsert: true },
+      { returnDocument: 'after', upsert: true },
     );
     this.cache = doc;
     this.logger.log(`Global rules updated: ${Object.keys(updates).join(', ')}`);

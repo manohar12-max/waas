@@ -139,7 +139,7 @@ export class SandboxService {
     const project = await this.projectModel.findByIdAndUpdate(
       id,
       { code },
-      { new: true },
+      { returnDocument: 'after' },
     ).exec();
     if (!project) {
       throw new HttpException('Project not found', HttpStatus.NOT_FOUND);

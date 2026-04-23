@@ -206,7 +206,7 @@ export class DivisionsService {
     return this.divisionModel.findOneAndUpdate(
       { _id: dId, collegeId: cId },
       { $set: updateDto },
-      { new: true }
+      { returnDocument: 'after' }
     ).exec();
   }
 

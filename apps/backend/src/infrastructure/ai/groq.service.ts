@@ -48,7 +48,7 @@ export class GroqService {
         messages: [
           {
             role: 'system',
-            content: 'You are a helpful assistant that always responds with valid JSON. Do not include any markdown formatting like ```json or any other text outside the JSON object.',
+            content: 'You are a technical documentation assistant. You MUST respond ONLY with a raw JSON object. Never include markdown code blocks (```json), never include introductory text, and never include closing remarks. Your entire output must be parseable by JSON.parse().',
           },
           {
             role: 'user',
@@ -65,7 +65,37 @@ export class GroqService {
       }
 
       return JSON.parse(content);
-    } catch (error) {
+    } catch (error: any) {
+      // FALLBACK: If strict JSON mode fails, try raw text and manual extraction
+      if (error.status === 400 && error.message?.includes('json_validate_failed')) {
+        this.logger.warn('Strict JSON mode failed. Attempting fallback with manual extraction...');
+        try {
+           const rawCompletion = await this.groq.chat.completions.create({
+             messages: [
+               {
+                 role: 'system',
+                 content: 'You are a JSON generator. Your task is to output the requested JSON object. If you must include text, ensure the JSON object is clearly identifiable between { and }.',
+               },
+               { role: 'user', content: prompt }
+             ],
+             model: model,
+           });
+           
+           const rawContent = rawCompletion.choices[0]?.message?.content || '';
+           const start = rawContent.indexOf('{');
+           const end = rawContent.lastIndexOf('}');
+           
+           if (start !== -1 && end !== -1 && end > start) {
+             const jsonPart = rawContent.substring(start, end + 1);
+             return JSON.parse(jsonPart);
+           }
+           throw new Error('No JSON object found in fallback response');
+        } catch (fallbackError) {
+           this.logger.error(`Fallback also failed: ${fallbackError.message}`);
+           throw fallbackError;
+        }
+      }
+
       this.logger.error(`Groq generation failed: ${error.message}`, error.stack);
       throw error;
     }

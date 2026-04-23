@@ -134,55 +134,64 @@ export class NaacReportsProcessor extends WorkerHost implements OnModuleInit {
       report.aiProgress = 60;
       await report.save();
 
+      // Deep Clean: Remove all non-essential chars and potential JSON-breaking snippets
+      const deepClean = (txt: string) => {
+        if (!txt) return 'None';
+        return txt
+          .replace(/[ﬁﬂ]/g, (m) => (m === 'ﬁ' ? 'fi' : 'fl')) // Fix ligatures
+          .replace(/[\{\}]/g, '') // Remove braces from input to avoid confusing the model
+          .replace(/\s+/g, ' ')
+          .replace(/["']/g, '') // Remove quotes from input
+          .trim()
+          .substring(0, 1200); // Strict limit to keep prompt focused
+      };
+
       const prompt = `
-        ### ROLE: NAAC Documentation Specialist
-        ### TASK: Generate a formal, high-fidelity NAAC Activity Report JSON.
-        
-        ### CONTEXT:
-        - INSTITUTION: ${(report.collegeId as any)?.name || 'The Institution'}
-        - WORKSHOP: ${report.workshopTitle}
-        - DEPARTMENT: ${report.department}
-        - DATES: ${report.startDate} to ${report.endDate}
-        - NAAC CRITERION: ${report.naacCriterion}
-        
-        ### DATA SOURCES:
-        - ATTENDANCE: ${localParticipants} students.
-        - STUDENT FEEDBACK: ${feedbackComments.substring(0, 1500)}
-        - FACULTY/MANUAL SUMMARY: ${report.feedbackSummary || ''}
-        - OFFICIAL CIRCULAR: ${report.draftNoticeSummary || circularText.substring(0, 2000)}
-        - IMAGE EVIDENCE: ${report.draftImagesSummary || `Visual evidence confirms ${report.photoUrls.length} key moments captured.`}
-        - EXTRACTED TOPICS: ${report.draftMaterialsSummary || materialsText.substring(0, 3000)}
-        - RESOURCE PERSONS: ${JSON.stringify(report.resourcePersons || [])}
-        - GRADING POLICY: ${JSON.stringify(workshop.gradingConfig || {})}
-        
-        ### INSTRUCTIONS:
-        1. **Tone**: Objective, formal, and strictly academic. Avoid marketing language/buzzwords.
-        2. **Dates**: Use professional formats like "23rd April 2026" or "23rd - 25th April 2026". 
-           - CRITICAL: Never include technical UTC/GMT time strings (e.g., "10:17:00 GMT+0530").
-        3. **Introduction (150+ words)**: Synthesize the workshop title with extracted topics. Mention the specific technological or academic relevance as found in the extract materials.
-        4. **Feedback Synthesis (100+ words)**: Cohesively combine student feedback comments with the Faculty's manual summary. Reflect on both participant satisfaction and areas of technical growth.
-        5. **Outcomes (100+ words)**: Map the workshop outcomes to the grading policy and extracted curriculum topics. Detail what the participants actually gained.
-        
-        ### JSON STRUCTURE:
-        {
-          "titlePage": { 
-            "workshopName": "${report.workshopTitle}", 
-            "college": "${(report.collegeId as any)?.name || ''}", 
-            "department": "${report.department}", 
-            "dateRange": "string", 
-            "naacCriterion": "${report.naacCriterion}" 
-          },
-          "introduction": "string",
-          "sessionDetails": { 
-            "resourcePersons": [{ "name": "Name", "designation": "Designation", "topic": "Topic" }], 
-            "summary": "Synthesized summary of sessions and resource person contributions.",
-            "supportingDocs": { "officialNotice": true, "attendanceSheet": true, "photos": ${report.photoUrls.length} } 
-          },
-          "participantProfile": { "local": ${localParticipants}, "outstation": ${report.outstationParticipants || 0}, "total": ${localParticipants + (report.outstationParticipants || 0)}, "summary": "string" },
-          "feedbackSummary": "string",
-          "outcome": "string"
-        }
-      `;
+### TASK: Generate NAAC Activity Report JSON
+### RULE: You must return ONLY the JSON object. No preamble. No text before or after.
+
+### EXAMPLE SUCCESSFUL OUTPUT:
+{
+  "titlePage": { "workshopName": "Example", "college": "Example College", "department": "CS", "dateRange": "May 1st 2026", "naacCriterion": "III" },
+  "introduction": "This workshop focused on...",
+  "sessionDetails": { "resourcePersons": [], "summary": "Sessions covered...", "supportingDocs": { "officialNotice": true, "attendanceSheet": true, "photos": 5 } },
+  "participantProfile": { "local": 50, "outstation": 0, "total": 50, "summary": "A total of 50 students..." },
+  "feedbackSummary": "Participants expressed high satisfaction...",
+  "outcome": "Students gained hands-on experience..."
+}
+
+### WORKSHOP INPUT DATA:
+- INSTITUTION: ${(report.collegeId as any)?.name || 'The Institution'}
+- WORKSHOP: ${report.workshopTitle}
+- DEPT: ${report.department}
+- DATES: ${report.startDate} to ${report.endDate}
+- CRITERION: ${report.naacCriterion}
+- PARTICIPANTS: ${localParticipants}
+- FEEDBACK_COMMENTS: ${deepClean(feedbackComments)}
+- FACULTY_SUMMARY: ${deepClean(report.feedbackSummary)}
+- CIRCULAR_TEXT: ${deepClean(circularText)}
+- TECHNICAL_TOPICS: ${deepClean(materialsText)}
+
+### JSON STRUCTURE TO FOLLOW (STRICT):
+{
+  "titlePage": { 
+    "workshopName": "${report.workshopTitle}", 
+    "college": "${(report.collegeId as any)?.name || ''}", 
+    "department": "${report.department}", 
+    "dateRange": "Formatted date range string", 
+    "naacCriterion": "${report.naacCriterion}" 
+  },
+  "introduction": "Synthesized academic introduction (150+ words)",
+  "sessionDetails": { 
+    "resourcePersons": ${JSON.stringify(report.resourcePersons || [])}, 
+    "summary": "Detailed session and resource person summary",
+    "supportingDocs": { "officialNotice": true, "attendanceSheet": true, "photos": ${report.photoUrls.length} } 
+  },
+  "participantProfile": { "local": ${localParticipants}, "outstation": ${report.outstationParticipants || 0}, "total": ${localParticipants + (report.outstationParticipants || 0)}, "summary": "Analysis of the participant group" },
+  "feedbackSummary": "Synthesis of student and faculty feedback (100+ words)",
+  "outcome": "Mapping curriculum topics to actual outcomes (100+ words)"
+}
+`;
 
       await checkStatus();
       this.logger.log(`Requesting AI generation from Groq for: ${report.workshopTitle}`);

@@ -291,6 +291,6 @@ export class AssignmentsService {
       feedback: data.feedback,
       gradedBy: new Types.ObjectId(teacherId),
       gradedAt: new Date(),
-    }, { new: true }).exec();
+    }, { returnDocument: 'after' }).exec();
   }
 }

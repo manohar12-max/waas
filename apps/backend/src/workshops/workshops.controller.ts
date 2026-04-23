@@ -1,6 +1,6 @@
-import { 
+import {
   Controller, Get, Post, Body, UseGuards, Delete, Param, Patch,
-  UseInterceptors, UploadedFile, BadRequestException 
+  UseInterceptors, UploadedFile, BadRequestException
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -86,7 +86,15 @@ export class WorkshopsController {
 
   @Post()
   @Roles(UserRole.COLLEGE_ADMIN, UserRole.INSTRUCTOR)
-  create(@Body() createWorkshopDto: any, @GetUser('collegeId') collegeId: string) {
+  create(
+    @Body() createWorkshopDto: any, 
+    @GetUser('collegeId') collegeId: string,
+    @GetUser('_id') userId: string,
+    @GetUser('role') role: string
+  ) {
+    if (role === UserRole.INSTRUCTOR) {
+      createWorkshopDto.instructorId = userId;
+    }
     return this.workshopsService.create(createWorkshopDto, collegeId);
   }
 
@@ -112,7 +120,7 @@ export class WorkshopsController {
   @Get(':id')
   @Roles(UserRole.SUPER_ADMIN, UserRole.COLLEGE_ADMIN, UserRole.TEACHER, UserRole.INSTRUCTOR, UserRole.STUDENT)
   findOne(
-    @Param('id') id: string, 
+    @Param('id') id: string,
     @GetUser('collegeId') collegeId: string,
     @GetUser('_id') userId: string,
     @GetUser('role') role: string
@@ -176,18 +184,24 @@ export class WorkshopsController {
     @GetUser('collegeId') collegeId: string
   ) {
     // Basic security: Ensure the workshop belongs to the same college
-    return this.workshopsService.update(id, updateWorkshopDto);
+    return this.workshopsService.update(id, updateWorkshopDto, collegeId);
   }
 
   @Delete(':id')
-  @Roles(UserRole.INSTRUCTOR)
-  remove(@Param('id') id: string, @GetUser('collegeId') collegeId: string) {
-    return this.workshopsService.delete(id, collegeId);
+  @Roles(UserRole.INSTRUCTOR, UserRole.COLLEGE_ADMIN, UserRole.SUPER_ADMIN)
+  remove(
+    @Param('id') id: string, 
+    @GetUser('collegeId') collegeId: string,
+    @GetUser('role') role: string,
+    @GetUser('_id') userId: string
+  ) {
+    const instructorId = role === UserRole.INSTRUCTOR ? userId : undefined;
+    return this.workshopsService.remove(id, collegeId, instructorId);
   }
 
   @Patch(':id/active')
-  @Roles(UserRole.INSTRUCTOR)
-  toggleActive(@Param('id') id: string, @Body('isActive') isActive: boolean) {
-    return this.workshopsService.update(id, { isActive });
+  @Roles(UserRole.INSTRUCTOR, UserRole.COLLEGE_ADMIN, UserRole.SUPER_ADMIN)
+  toggleActive(@Param('id') id: string, @Body('isActive') isActive: boolean, @GetUser('collegeId') collegeId: string) {
+    return this.workshopsService.update(id, { isActive }, collegeId);
   }
 }
