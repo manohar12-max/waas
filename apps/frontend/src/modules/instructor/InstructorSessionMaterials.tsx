@@ -1,10 +1,11 @@
+// Per-material AI state management enabled
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Plus, BrainCircuit, CheckCircle2, ChevronLeft, X, FileText, Play, Download, Layout, AlertCircle, Loader2,
-  BookOpen, Check, Edit3, Trash2, CheckCircle
+  BookOpen, Check, Edit3, Trash2, CheckCircle, Presentation
 } from 'lucide-react';
 import { SlideViewer, UnitAssetsItem } from './components/SlideViewer';
 import DocViewer, { DocViewerRenderers } from "@cyntler/react-doc-viewer";
@@ -17,14 +18,15 @@ interface SessionMaterial {
   type: string;
   isSourceForAI: boolean;
   isPublished?: boolean;
+  status: 'pending' | 'extracting' | 'generating' | 'generated' | 'approved' | 'failed';
+  aiWorkflowStage?: 'Draft' | 'Stage1' | 'Stage2' | 'Finalized';
+  aiSessionId?: string;
 }
 
 interface Session {
   _id: string;
   title: string;
   materials: SessionMaterial[];
-  status: 'pending' | 'extracting' | 'generating' | 'generated' | 'approved' | 'failed';
-  aiWorkflowStage?: 'Draft' | 'Stage1' | 'Stage2' | 'Finalized';
 }
 
 export default function InstructorSessionMaterials() {
@@ -37,16 +39,29 @@ export default function InstructorSessionMaterials() {
   const [activeSlideshow, setActiveSlideshow] = useState<UnitAssetsItem[] | null>(null);
   const [activeDoc, setActiveDoc] = useState<{ title: string, url: string, type: string } | null>(null);
   const [generatedContent, setGeneratedContent] = useState<any[]>([]);
-  const [showReviewModal, setShowReviewModal] = useState<{ session: Session; content: any } | null>(null);
+  const [showReviewModal, setShowReviewModal] = useState<{ session: Session; content: any; materialId?: string } | null>(null);
   const [showAddMaterialModal, setShowAddMaterialModal] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [isSourceForAI, setIsSourceForAI] = useState(false);
+  const [showGenPreviewModal, setShowGenPreviewModal] = useState<{
+    material: SessionMaterial;
+    topic: string;
+    audience: string;
+    syllabus: string;
+  } | null>(null);
+  const [extractingPreview, setExtractingPreview] = useState(false);
 
   useEffect(() => {
     fetchSession();
-    const interval = setInterval(fetchSession, 10000);
-    return () => clearInterval(interval);
-  }, [sessionId]);
+    
+    // Only poll if any material is in a transition state (extracting/generating)
+    const needsPolling = session?.materials.some(m => m.status === 'extracting' || m.status === 'generating');
+    
+    if (needsPolling) {
+      const interval = setInterval(fetchSession, 5000);
+      return () => clearInterval(interval);
+    }
+  }, [sessionId, session?.materials.map(m => m.status).join(',')]);
 
   const fetchSession = async () => {
     try {
@@ -89,44 +104,63 @@ export default function InstructorSessionMaterials() {
     } catch (err) { alert("Failed to toggle publish status"); }
   };
 
-  const handleGenerate = async (material?: SessionMaterial) => {
+  const handleGenerate = async (material: SessionMaterial, editedData?: { topic: string, audience: string, syllabus: string }) => {
     try {
       const token = localStorage.getItem('token');
+      const targetId = material._id;
+      const targetUrl = material.url;
 
-      // If a specific material is targeted, ensure it is the AI source
-      if (material && !material.isSourceForAI) {
-        if (!window.confirm("Set this material as the AI source and generate content?")) return;
-        await axios.patch(`${import.meta.env.VITE_API_URL}/sessions-content/session/${sessionId}`, {
-          isSourceForAI: true,
-          materialUrl: material.url
-        }, { headers: { Authorization: `Bearer ${token}` } });
-
-        await axios.post(`${import.meta.env.VITE_API_URL}/sessions-content/${sessionId}/generate`, {}, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-      } else {
-        await axios.post(`${import.meta.env.VITE_API_URL}/sessions-content/${sessionId}/generate`, {}, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
+      if (!targetUrl) {
+         alert("ERROR: This file has no URL in the database!");
+         return;
       }
-      fetchSession();
-    } catch (err) { alert("AI Generation failed"); }
-  };
 
-  const handleOpenReview = async (targetContent?: any) => {
-    if (!session) return;
-    if (targetContent) {
-      setShowReviewModal({ session, content: targetContent });
-      return;
-    }
-    try {
-      const token = localStorage.getItem('token');
-      const res = await axios.get(`${import.meta.env.VITE_API_URL}/sessions-content/${sessionId}/content`, {
+      if (!editedData) {
+        // Step 1: Just extract and show preview
+        setExtractingPreview(true);
+        try {
+          const res = await axios.get(`${import.meta.env.VITE_API_URL}/sessions-content/${sessionId}/extract-preview?materialUrl=${targetUrl}`, {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          setShowGenPreviewModal({
+            material,
+            topic: res.data.topic,
+            audience: res.data.audience,
+            syllabus: res.data.syllabus
+          });
+        } catch (err) {
+          alert("Failed to extract content from file");
+        } finally {
+          setExtractingPreview(false);
+        }
+        return;
+      }
+      
+      // Step 2: Start actual generation with edited data
+      setShowGenPreviewModal(null);
+      await axios.post(`${import.meta.env.VITE_API_URL}/sessions-content/${sessionId}/generate`, {
+        materialId: targetId,
+        materialUrl: targetUrl,
+        topic: editedData.topic,
+        audience: editedData.audience,
+        syllabus: editedData.syllabus
+      }, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      const data = Array.isArray(res.data) ? res.data[0] : res.data;
-      setShowReviewModal({ session, content: data });
-    } catch (err) { alert("Failed to load review content"); }
+      fetchSession();
+    } catch (err) {
+      alert("Generation failed");
+      console.error(err);
+    }
+  };
+
+  const handleOpenReview = async (targetContent: any) => {
+    if (!session) return;
+    setShowReviewModal({ 
+      session, 
+      content: targetContent, 
+      materialId: targetContent.materialId 
+    });
   };
 
   const handleFinalizeReview = async (action: 'continue' | 'edit') => {
@@ -134,10 +168,19 @@ export default function InstructorSessionMaterials() {
     try {
       setSaving(true);
       const token = localStorage.getItem('token');
-      const stage = showReviewModal.session.aiWorkflowStage === 'Stage1' ? '1' : '2';
+      
+      const material = showReviewModal.session.materials.find(m => 
+        (m._id === showReviewModal.materialId) || 
+        (m.aiWorkflowStage === 'Stage1' || m.aiWorkflowStage === 'Stage2')
+      );
+      if (!material) throw new Error("Could not identify the material in review");
+
+      const stage = material.aiWorkflowStage === 'Stage1' ? '1' : '2';
+      
       await axios.post(`${import.meta.env.VITE_API_URL}/sessions-content/${sessionId}/review-stage-${stage}`, {
         action,
-        edited_data: showReviewModal.content
+        edited_data: showReviewModal.content,
+        materialId: showReviewModal.materialId
       }, { headers: { Authorization: `Bearer ${token}` } });
 
       setShowReviewModal(null);
@@ -157,14 +200,24 @@ export default function InstructorSessionMaterials() {
     } catch (err) { alert("Failed to delete material"); }
   };
 
-  const handleApprove = async () => {
+  const handleApprove = async (materialId?: string) => {
     try {
       const token = localStorage.getItem('token');
-      await axios.patch(`${import.meta.env.VITE_API_URL}/sessions-content/${sessionId}/approve`, {}, {
+      await axios.patch(`${import.meta.env.VITE_API_URL}/sessions-content/${sessionId}/approve`, { materialId }, {
         headers: { Authorization: `Bearer ${token}` }
       });
       fetchSession();
     } catch (err) { alert("Approval failed"); }
+  };
+
+  const handleTogglePublishContent = async (materialId: string) => {
+    try {
+      const token = localStorage.getItem('token');
+      await axios.patch(`${import.meta.env.VITE_API_URL}/sessions-content/${sessionId}/toggle-publish-content`, { materialId }, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      fetchSession();
+    } catch (err) { alert("Failed to toggle publish status"); }
   };
 
   const handleAddMaterials = async () => {
@@ -206,11 +259,11 @@ export default function InstructorSessionMaterials() {
     }
   };
 
-  const getWorkflowBadge = () => {
-    if (!session || session.status !== 'generated') return null;
-    if (session.aiWorkflowStage === 'Stage1') return <span className="bg-amber-500/10 text-amber-500 border border-amber-500/30 px-3 py-1 rounded-full text-[8px] font-black uppercase">Review Stage 1</span>;
-    if (session.aiWorkflowStage === 'Stage2') return <span className="bg-orange-500/10 text-orange-500 border border-orange-500/30 px-3 py-1 rounded-full text-[8px] font-black uppercase">Final Review</span>;
-    if (session.aiWorkflowStage === 'Finalized') return <span className="bg-teal-500/10 text-teal-500 border border-teal-500/30 px-3 py-1 rounded-full text-[8px] font-black uppercase">Ready to Publish</span>;
+  const getWorkflowBadge = (mat: SessionMaterial) => {
+    if (mat.status !== 'generated') return null;
+    if (mat.aiWorkflowStage === 'Stage1') return <span className="bg-amber-500/10 text-amber-500 border border-amber-500/30 px-3 py-1 rounded-full text-[8px] font-black uppercase">Review Stage 1</span>;
+    if (mat.aiWorkflowStage === 'Stage2') return <span className="bg-orange-500/10 text-orange-500 border border-orange-500/30 px-3 py-1 rounded-full text-[8px] font-black uppercase">Final Review</span>;
+    if (mat.aiWorkflowStage === 'Finalized') return <span className="bg-teal-500/10 text-teal-500 border border-teal-500/30 px-3 py-1 rounded-full text-[8px] font-black uppercase">Ready to Publish</span>;
     return null;
   };
 
@@ -297,11 +350,11 @@ export default function InstructorSessionMaterials() {
                       </div>
                       <button
                         onClick={(e) => { e.stopPropagation(); handleGenerate(mat); }}
-                        className={`p-3 rounded-xl border transition-all ${mat.isSourceForAI ? 'bg-primary-light text-white border-primary-light shadow-xl shadow-primary-light/20' : 'bg-slate-100 dark:bg-white/5 text-slate-400 dark:text-white/30 hover:border-primary-light hover:text-primary-light'}`}
+                        className={`p-3 rounded-xl border transition-all ${mat.status === 'generating' || extractingPreview ? 'bg-primary-light text-white border-primary-light shadow-xl shadow-primary-light/20' : 'bg-slate-100 dark:bg-white/5 text-slate-400 dark:text-white/30 hover:border-primary-light hover:text-primary-light'}`}
                         title="Generate AI Curriculum from this file"
-                        disabled={session.status === 'generating'}
+                        disabled={mat.status === 'generating' || extractingPreview}
                       >
-                        {session.status === 'generating' && mat.isSourceForAI ? <Loader2 className="w-4 h-4 animate-spin" /> : <BrainCircuit className="w-4 h-4" />}
+                        {mat.status === 'generating' || extractingPreview ? <Loader2 className="w-4 h-4 animate-spin" /> : <BrainCircuit className="w-4 h-4" />}
                       </button>
                     </div>
                   </div>
@@ -395,11 +448,19 @@ export default function InstructorSessionMaterials() {
                           <div>
                             <div className="flex items-center gap-3 mb-2">
                               <p className="text-[10px] font-black uppercase text-primary-light tracking-[0.4em]">Generated Curriculum</p>
-                              <span className={`px-3 py-1 rounded-full text-[8px] font-black uppercase border flex items-center gap-2 ${getStatusColor(session.status)}`}>
-                                {session.status === 'generating' && <Loader2 className="w-2.5 h-2.5 animate-spin" />}
-                                {session.status === 'generating' ? 'Processing...' : session.status}
-                              </span>
-                              {getWorkflowBadge()}
+                              {(() => {
+                                 const mat = session.materials.find(m => m.url === content.sourceMaterialUrl || m._id === content.materialId);
+                                 if (!mat) return null;
+                                 return (
+                                   <>
+                                     <span className={`px-3 py-1 rounded-full text-[8px] font-black uppercase border flex items-center gap-2 ${getStatusColor(mat.status)}`}>
+                                       {mat.status === 'generating' && <Loader2 className="w-2.5 h-2.5 animate-spin" />}
+                                       {mat.status === 'generating' ? 'Processing...' : mat.status}
+                                     </span>
+                                     {getWorkflowBadge(mat)}
+                                   </>
+                                 );
+                              })()}
                             </div>
                             <h3 className="text-3xl font-black tracking-tight">{content.sourceMaterialTitle || "Primary Asset"}</h3>
                           </div>
@@ -407,24 +468,100 @@ export default function InstructorSessionMaterials() {
 
                         {/* Integrated Actions */}
                         <div className="flex items-center gap-4">
-                          {session.status === 'generated' && session.aiWorkflowStage && session.aiWorkflowStage !== 'Finalized' && (
-                            <button
-                              onClick={() => handleOpenReview(content)}
-                              className="bg-amber-500 text-white px-8 py-5 rounded-[24px] font-black text-xs uppercase tracking-widest flex items-center gap-3 shadow-xl shadow-amber-500/30 hover:scale-105 transition-all"
-                            >
-                              <Edit3 className="w-5 h-5" /> Review AI Assets
-                            </button>
-                          )}
-                          {session.aiWorkflowStage === 'Finalized' && session.status !== 'approved' && (
-                            <button
-                              onClick={handleApprove}
-                              className="bg-green-500 text-white px-8 py-5 rounded-[24px] font-black text-xs uppercase tracking-widest flex items-center gap-3 shadow-xl shadow-green-500/30 hover:scale-105 transition-all"
-                            >
-                              <CheckCircle className="w-5 h-5" /> Finalize Content
-                            </button>
-                          )}
+                          {(() => {
+                             const mat = session.materials.find(m => m.url === content.sourceMaterialUrl || m._id === content.materialId);
+                             if (!mat) return null;
+                             return (
+                               <>
+                                 {mat.status === 'generated' && mat.aiWorkflowStage && mat.aiWorkflowStage !== 'Finalized' && (
+                                   <button
+                                     onClick={() => handleOpenReview(content)}
+                                     className="bg-amber-500 text-white px-8 py-5 rounded-[24px] font-black text-xs uppercase tracking-widest flex items-center gap-3 shadow-xl shadow-amber-500/30 hover:scale-105 transition-all"
+                                   >
+                                     <Edit3 className="w-5 h-5" /> Review AI Assets
+                                   </button>
+                                 )}
+                                                                   {mat.aiWorkflowStage === 'Finalized' && mat.status !== 'approved' && (
+                                    <button
+                                      onClick={() => handleApprove(mat._id)}
+                                      className="bg-green-500 text-white px-8 py-5 rounded-[24px] font-black text-xs uppercase tracking-widest flex items-center gap-3 shadow-xl shadow-green-500/30 hover:scale-105 transition-all"
+                                    >
+                                      <CheckCircle className="w-5 h-5" /> Finalize Content
+                                    </button>
+                                  )}
+
+                                  {(mat.status === 'approved' || mat.aiWorkflowStage === 'Finalized') && (
+                                    <button
+                                      onClick={() => handleTogglePublishContent(mat._id!)}
+                                      className={`px-8 py-5 rounded-[24px] font-black text-xs uppercase tracking-widest flex items-center gap-3 transition-all shadow-xl ${content?.isPublished ? 'bg-teal-500 text-white shadow-teal-500/30' : 'bg-slate-200 dark:bg-white/10 text-slate-500 dark:text-white/40 hover:text-slate-900 dark:hover:text-white'}`}
+                                    >
+                                      {content?.isPublished ? <CheckCircle2 className="w-5 h-5" /> : <Loader2 className="w-5 h-5" />}
+                                      {content?.isPublished ? "Published" : "Draft"}
+                                    </button>
+                                  )}
+
+
+                                 <button
+                                   onClick={async () => {
+                                     if (!window.confirm(`Are you sure you want to delete AI generated curriculum for "${mat.title}"? This cannot be undone.`)) return;
+                                     try {
+                                       const token = localStorage.getItem('token');
+                                       await axios.delete(`${import.meta.env.VITE_API_URL}/sessions-content/${sessionId}/content`, {
+                                         data: { materialId: mat._id },
+                                         headers: { Authorization: `Bearer ${token}` }
+                                       });
+                                       fetchSession();
+                                     } catch (err: any) {
+                                       alert(`Failed to delete curriculum: ${err.response?.data?.message || err.message}`);
+                                     }
+                                   }}
+                                   className="p-5 bg-red-500/10 text-red-500 rounded-[24px] border border-red-500/20 hover:bg-red-500 hover:text-white transition-all shadow-lg shadow-red-500/10"
+                                   title="Delete AI Curriculum"
+                                 >
+                                   <Trash2 className="w-5 h-5" />
+                                 </button>
+                               </>
+                             );
+                          })()}
                           <button
-                            onClick={() => setActiveSlideshow([{ subTopicTitle: "AI Session", assets: content.materials.map((m: any) => ({ title: m.title, content: m.content ? [m.content] : (m.links || []) })) }])}
+                            onClick={() => {
+                              const slideshowData: any[] = [];
+                              
+                              // 1. Add Slides
+                              if (content.slides?.length > 0) {
+                                slideshowData.push({
+                                  subTopicTitle: "Lecture Slides",
+                                  assets: content.slides.map((s: any) => ({
+                                    title: typeof s === 'string' ? s : s.title,
+                                    content: typeof s === 'string' ? [s] : [s.content || ""]
+                                  }))
+                                });
+                              }
+
+                              // 2. Add MCQs
+                              if (content.mcqs?.length > 0) {
+                                slideshowData.push({
+                                  subTopicTitle: "Knowledge Check",
+                                  assets: content.mcqs.map((q: any) => ({
+                                    title: q.question,
+                                    content: [...q.options, `Correct: ${q.correct}`]
+                                  }))
+                                });
+                              }
+
+                              // 3. Add Application Problem
+                              if (content.applicationProblem) {
+                                slideshowData.push({
+                                  subTopicTitle: "Application Challenge",
+                                  assets: [{
+                                    title: content.applicationProblem.title,
+                                    content: [content.applicationProblem.problem_statement || content.applicationProblem.description]
+                                  }]
+                                });
+                              }
+
+                              setActiveSlideshow(slideshowData);
+                            }}
                             className="px-8 py-5 bg-primary-light text-white rounded-[24px] font-black uppercase text-xs tracking-widest shadow-xl shadow-primary-light/30 flex items-center gap-3 hover:scale-105 transition-all"
                           >
                             <Play className="w-5 h-5 fill-current" /> Play Session
@@ -432,14 +569,14 @@ export default function InstructorSessionMaterials() {
                         </div>
                       </div>
 
-                      <div className="grid lg:grid-cols-2 gap-16">
+                      <div className="grid lg:grid-cols-3 gap-16">
                         {/* MCQs Material Card */}
                         <div className="space-y-10">
                           <div className="flex items-center gap-4">
                             <div className="w-12 h-12 bg-emerald-500/10 text-emerald-500 rounded-2xl flex items-center justify-center">
                               <BookOpen className="w-6 h-6" />
                             </div>
-                            <h4 className="text-2xl font-black tracking-tight">Assessment Bank</h4>
+                            <h4 className="text-2xl font-black tracking-tight">Assessments</h4>
                           </div>
                           <div className="grid gap-6">
                             {content.mcqs?.slice(0, 3).map((mcq: any, i: number) => (
@@ -448,12 +585,12 @@ export default function InstructorSessionMaterials() {
                                 <div className="flex items-center gap-4">
                                   <span className="text-[10px] font-black uppercase opacity-30">{mcq.options?.length} Options</span>
                                   <div className="w-1 h-1 rounded-full bg-slate-300 dark:bg-white/10" />
-                                  <span className="text-[10px] font-black text-emerald-500 uppercase">Correct Answer: {String.fromCharCode(65 + mcq.correctAnswer)}</span>
+                                  <span className="text-[10px] font-black text-emerald-500 uppercase">Answer: {String.fromCharCode(65 + mcq.correctAnswer)}</span>
                                 </div>
                               </div>
                             ))}
                             {content.mcqs?.length > 3 && (
-                              <p className="text-center text-[10px] font-black uppercase opacity-30 cursor-pointer hover:opacity-100 transition-opacity" onClick={() => handleOpenReview(content)}>+ {content.mcqs.length - 3} more questions in review</p>
+                              <p className="text-center text-[10px] font-black uppercase opacity-30 cursor-pointer hover:opacity-100 transition-opacity" onClick={() => handleOpenReview(content)}>+ {content.mcqs.length - 3} more questions</p>
                             )}
                           </div>
                         </div>
@@ -462,19 +599,56 @@ export default function InstructorSessionMaterials() {
                         <div className="space-y-10">
                           <div className="flex items-center gap-4">
                             <div className="w-12 h-12 bg-indigo-500/10 text-indigo-500 rounded-2xl flex items-center justify-center">
-                              <Layout className="w-6 h-6" />
+                              <BrainCircuit className="w-6 h-6" />
                             </div>
-                            <h4 className="text-2xl font-black tracking-tight">Active Learning</h4>
+                            <h4 className="text-2xl font-black tracking-tight">Practice</h4>
                           </div>
                           {content.applicationProblem && (
                             <div className="p-10 bg-indigo-500/5 border border-indigo-500/10 rounded-[48px] space-y-6">
-                              <h5 className="font-black text-indigo-500 uppercase tracking-widest text-[10px]">Critical thinking challenge</h5>
+                              <h5 className="font-black text-indigo-500 uppercase tracking-widest text-[10px]">{session?.title || "Critical challenge"}</h5>
                               <p className="text-lg text-slate-800 dark:text-white/90 leading-relaxed font-medium line-clamp-6">
-                                {content.applicationProblem.description || content.applicationProblem.content}
+                                {content.applicationProblem.problem_statement || content.applicationProblem.title}
                               </p>
-                              <button onClick={() => handleOpenReview(content)} className="text-indigo-500 text-[10px] font-black uppercase tracking-widest hover:underline">Edit Challenge</button>
+                              <div className="flex flex-wrap gap-2">
+                                {content.applicationProblem.concepts_used?.map((c: string, idx: number) => (
+                                  <span key={idx} className="px-3 py-1 bg-indigo-500/10 text-indigo-500 rounded-full text-[10px] font-black uppercase">{c}</span>
+                                ))}
+                              </div>
                             </div>
                           )}
+                        </div>
+
+                        {/* Slides & Materials Card */}
+                        <div className="space-y-10">
+                          <div className="flex items-center gap-4">
+                            <div className="w-12 h-12 bg-orange-500/10 text-orange-500 rounded-2xl flex items-center justify-center">
+                              <Presentation className="w-6 h-6" />
+                            </div>
+                            <h4 className="text-2xl font-black tracking-tight">Lecture</h4>
+                          </div>
+                          <div className="grid gap-6">
+                            {(content.slides || []).length > 0 ? (
+                                <div className="p-8 bg-orange-500/5 border border-orange-500/10 rounded-[32px] space-y-4">
+                                  <h6 className="text-[10px] font-black uppercase text-orange-500 tracking-widest">Generated Visuals</h6>
+                                  <div className="space-y-2">
+                                    {content.slides.slice(0, 4).map((slide: any, idx: number) => (
+                                      <div key={idx} className="flex items-center gap-3 text-sm font-bold text-slate-600 dark:text-white/70">
+                                        <div className="w-1.5 h-1.5 rounded-full bg-orange-500/40" />
+                                        {typeof slide === 'string' ? slide : slide.title}
+                                      </div>
+                                    ))}
+                                    {content.slides.length > 4 && (
+                                      <p className="text-[10px] font-black opacity-30 pt-2 uppercase">+ {content.slides.length - 4} more slides</p>
+                                    )}
+                                  </div>
+                                </div>
+                            ) : (
+                              <div className="p-8 bg-slate-50 dark:bg-white/[0.03] border border-dashed border-slate-300 dark:border-white/10 rounded-[32px] flex flex-col items-center justify-center text-center">
+                                <Presentation className="w-8 h-8 opacity-20 mb-2" />
+                                <p className="text-[10px] font-black uppercase opacity-30">No slides generated</p>
+                              </div>
+                            )}
+                          </div>
                         </div>
                       </div>
                     </motion.div>
@@ -539,7 +713,10 @@ export default function InstructorSessionMaterials() {
       <UniversalModal
         isOpen={!!showReviewModal}
         onClose={() => setShowReviewModal(null)}
-        title={showReviewModal?.session.aiWorkflowStage === 'Stage1' ? "First Review Stage" : "Final Content Review"}
+        title={(() => {
+          const mat = showReviewModal?.session.materials.find(m => m._id === showReviewModal.materialId || m.aiWorkflowStage === 'Stage1' || m.aiWorkflowStage === 'Stage2');
+          return mat?.aiWorkflowStage === 'Stage1' ? "First Review Stage" : "Final Content Review";
+        })()}
         description="Verify and edit generated curriculum assets"
         maxWidth="max-w-4xl"
         icon={<BrainCircuit />}
@@ -553,22 +730,26 @@ export default function InstructorSessionMaterials() {
                   <h5 className="font-black text-lg uppercase tracking-tight text-slate-900 dark:text-white">Generated MCQs</h5>
                   <span className="text-[10px] font-black bg-primary-light/10 text-primary-light px-3 py-1 rounded-full uppercase">{showReviewModal.content.mcqs?.length || 0} Questions</span>
                 </div>
-                <div className="grid gap-6">
+                <div className="grid gap-8">
                   {showReviewModal.content.mcqs?.map((q: any, qi: number) => (
                     <div key={qi} className="p-8 bg-slate-50 dark:bg-white/5 rounded-[40px] border border-slate-200 dark:border-white/10 group hover:border-primary-light/30 transition-all">
                       <div className="flex items-start gap-4">
                         <div className="w-10 h-10 bg-white dark:bg-card-dark rounded-2xl flex items-center justify-center font-black text-xs shadow-md border border-slate-100 dark:border-white/5 shrink-0 transition-transform group-hover:scale-110">{qi + 1}</div>
                         <div className="flex-1 space-y-6">
-                          <textarea
-                            value={q.question}
-                            onChange={(e) => {
-                              const newMcqs = [...showReviewModal.content.mcqs];
-                              newMcqs[qi].question = e.target.value;
-                              setShowReviewModal({ ...showReviewModal, content: { ...showReviewModal.content, mcqs: newMcqs } });
-                            }}
-                            className="w-full bg-transparent border-none p-0 font-bold text-slate-900 dark:text-white leading-relaxed resize-none focus:ring-0"
-                            rows={2}
-                          />
+                          <div className="space-y-2">
+                            <label className="text-[9px] font-black uppercase opacity-30 tracking-widest">Question</label>
+                            <textarea
+                              value={q.question}
+                              onChange={(e) => {
+                                const newMcqs = [...showReviewModal.content.mcqs];
+                                newMcqs[qi].question = e.target.value;
+                                setShowReviewModal({ ...showReviewModal, content: { ...showReviewModal.content, mcqs: newMcqs } });
+                              }}
+                              className="w-full bg-transparent border-none p-0 font-bold text-slate-900 dark:text-white leading-relaxed resize-none focus:ring-0"
+                              rows={2}
+                            />
+                          </div>
+
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             {q.options?.map((opt: string, oi: number) => (
                               <div key={oi} className={`relative p-5 rounded-[24px] border transition-all ${oi === q.correctAnswer ? 'bg-green-500/10 border-green-500/30 text-green-500 ring-2 ring-green-500/20' : 'bg-white dark:bg-card-dark border-slate-100 dark:border-white/5'}`}>
@@ -585,6 +766,48 @@ export default function InstructorSessionMaterials() {
                               </div>
                             ))}
                           </div>
+
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t border-slate-100 dark:border-white/5">
+                            <div className="space-y-2">
+                              <label className="text-[9px] font-black uppercase opacity-30 tracking-widest">Explanation</label>
+                              <textarea
+                                value={q.explanation || ""}
+                                onChange={(e) => {
+                                  const newMcqs = [...showReviewModal.content.mcqs];
+                                  newMcqs[qi].explanation = e.target.value;
+                                  setShowReviewModal({ ...showReviewModal, content: { ...showReviewModal.content, mcqs: newMcqs } });
+                                }}
+                                className="w-full bg-white dark:bg-white/5 rounded-2xl p-4 text-xs text-slate-600 dark:text-white/60 focus:ring-1 focus:ring-primary-light border-none"
+                                rows={3}
+                              />
+                            </div>
+                            <div className="space-y-4">
+                              <div className="space-y-2">
+                                <label className="text-[9px] font-black uppercase opacity-30 tracking-widest">Concept</label>
+                                <input
+                                  value={q.concept || ""}
+                                  onChange={(e) => {
+                                    const newMcqs = [...showReviewModal.content.mcqs];
+                                    newMcqs[qi].concept = e.target.value;
+                                    setShowReviewModal({ ...showReviewModal, content: { ...showReviewModal.content, mcqs: newMcqs } });
+                                  }}
+                                  className="w-full bg-white dark:bg-white/5 rounded-2xl p-4 text-xs font-bold text-primary-light border-none"
+                                />
+                              </div>
+                              <div className="space-y-2">
+                                <label className="text-[9px] font-black uppercase opacity-30 tracking-widest">Learning Objective</label>
+                                <input
+                                  value={q.learning_objective || ""}
+                                  onChange={(e) => {
+                                    const newMcqs = [...showReviewModal.content.mcqs];
+                                    newMcqs[qi].learning_objective = e.target.value;
+                                    setShowReviewModal({ ...showReviewModal, content: { ...showReviewModal.content, mcqs: newMcqs } });
+                                  }}
+                                  className="w-full bg-white dark:bg-white/5 rounded-2xl p-4 text-xs font-bold text-slate-500 dark:text-white/40 border-none"
+                                />
+                              </div>
+                            </div>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -599,19 +822,78 @@ export default function InstructorSessionMaterials() {
                     <h5 className="font-black text-lg uppercase tracking-tight text-slate-900 dark:text-white">Application Problem</h5>
                     <span className="text-[10px] font-black bg-indigo-500/10 text-indigo-500 px-3 py-1 rounded-full uppercase">Edit Strategy</span>
                   </div>
-                  <div className="p-8 bg-indigo-500/5 rounded-[40px] border border-indigo-500/20 space-y-4">
-                    <h6 className="font-black text-indigo-500 uppercase text-[10px] tracking-widest">Deep Learning Challenge</h6>
-                    <textarea
-                      value={showReviewModal.content.applicationProblem.description || showReviewModal.content.applicationProblem.content}
-                      onChange={(e) => {
-                        const newProb = { ...showReviewModal.content.applicationProblem };
-                        if (newProb.description) newProb.description = e.target.value;
-                        else newProb.content = e.target.value;
-                        setShowReviewModal({ ...showReviewModal, content: { ...showReviewModal.content, applicationProblem: newProb } });
-                      }}
-                      className="w-full bg-transparent border-none p-0 font-bold text-slate-900 dark:text-white leading-relaxed resize-none focus:ring-0"
-                      rows={4}
-                    />
+                  <div className="p-10 bg-indigo-500/5 rounded-[40px] border border-indigo-500/20 space-y-8">
+                    <div className="space-y-4">
+                      <label className="text-[9px] font-black uppercase opacity-30 tracking-widest text-indigo-500">Problem Title</label>
+                      <input
+                        value={showReviewModal.content.applicationProblem.title || ""}
+                        onChange={(e) => {
+                          const newProb = { ...showReviewModal.content.applicationProblem, title: e.target.value };
+                          setShowReviewModal({ ...showReviewModal, content: { ...showReviewModal.content, applicationProblem: newProb } });
+                        }}
+                        className="w-full bg-transparent border-none p-0 text-2xl font-black text-slate-900 dark:text-white focus:ring-0"
+                      />
+                    </div>
+
+                    <div className="space-y-4">
+                      <label className="text-[9px] font-black uppercase opacity-30 tracking-widest text-indigo-500">Problem Statement</label>
+                      <textarea
+                        value={showReviewModal.content.applicationProblem.problem_statement || showReviewModal.content.applicationProblem.description || showReviewModal.content.applicationProblem.content}
+                        onChange={(e) => {
+                          const newProb = { ...showReviewModal.content.applicationProblem };
+                          if (newProb.problem_statement !== undefined) newProb.problem_statement = e.target.value;
+                          else if (newProb.description) newProb.description = e.target.value;
+                          else newProb.content = e.target.value;
+                          setShowReviewModal({ ...showReviewModal, content: { ...showReviewModal.content, applicationProblem: newProb } });
+                        }}
+                        className="w-full bg-white dark:bg-white/5 rounded-3xl p-6 font-bold text-slate-900 dark:text-white leading-relaxed resize-none focus:ring-1 focus:ring-indigo-500 border-none"
+                        rows={6}
+                      />
+                    </div>
+
+                    <div className="grid md:grid-cols-2 gap-8">
+                      <div className="space-y-4">
+                        <label className="text-[9px] font-black uppercase opacity-30 tracking-widest text-indigo-500">Grading Rubric</label>
+                        <div className="space-y-3">
+                          {(showReviewModal.content.applicationProblem.grading_rubric || []).map((item: any, ri: number) => (
+                            <div key={ri} className="flex items-center gap-3 bg-white dark:bg-white/5 p-4 rounded-2xl border border-indigo-500/10">
+                              <input
+                                value={item.step}
+                                onChange={(e) => {
+                                  const newRubric = [...showReviewModal.content.applicationProblem.grading_rubric];
+                                  newRubric[ri].step = e.target.value;
+                                  setShowReviewModal({ ...showReviewModal, content: { ...showReviewModal.content, applicationProblem: { ...showReviewModal.content.applicationProblem, grading_rubric: newRubric } } });
+                                }}
+                                className="flex-1 bg-transparent border-none text-[10px] font-bold focus:ring-0"
+                              />
+                              <input
+                                type="number"
+                                value={item.marks}
+                                onChange={(e) => {
+                                  const newRubric = [...showReviewModal.content.applicationProblem.grading_rubric];
+                                  newRubric[ri].marks = parseInt(e.target.value);
+                                  setShowReviewModal({ ...showReviewModal, content: { ...showReviewModal.content, applicationProblem: { ...showReviewModal.content.applicationProblem, grading_rubric: newRubric } } });
+                                }}
+                                className="w-12 bg-indigo-500/10 text-indigo-500 border-none text-center font-black text-xs rounded-lg focus:ring-0"
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="space-y-4">
+                        <label className="text-[9px] font-black uppercase opacity-30 tracking-widest text-indigo-500">Expected Time (Min)</label>
+                        <input
+                          type="number"
+                          value={showReviewModal.content.applicationProblem.expected_time_minutes || 10}
+                          onChange={(e) => {
+                            const newProb = { ...showReviewModal.content.applicationProblem, expected_time_minutes: parseInt(e.target.value) };
+                            setShowReviewModal({ ...showReviewModal, content: { ...showReviewModal.content, applicationProblem: newProb } });
+                          }}
+                          className="w-full bg-white dark:bg-white/5 rounded-2xl p-4 text-lg font-black text-indigo-500 border-none"
+                        />
+                      </div>
+                    </div>
                   </div>
                 </section>
               )}
@@ -691,6 +973,93 @@ export default function InstructorSessionMaterials() {
           </button>
         </div>
       </UniversalModal>
+      {/* Generation Preview Modal */}
+      <AnimatePresence>
+        {showGenPreviewModal && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowGenPreviewModal(null)}
+              className="absolute inset-0 bg-slate-900/60 backdrop-blur-md"
+            />
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              className="relative w-full max-w-2xl bg-white dark:bg-card-dark rounded-[40px] shadow-2xl overflow-hidden border border-slate-200 dark:border-white/10"
+            >
+              <div className="p-8 md:p-10 space-y-8">
+                <div className="flex justify-between items-start">
+                  <div className="space-y-2">
+                    <h3 className="text-3xl font-black tracking-tight text-slate-900 dark:text-white">Review Generation Plan</h3>
+                    <p className="text-slate-500 dark:text-white/40 text-sm font-medium italic">Edit the parameters before AI starts generating curriculum.</p>
+                  </div>
+                  <button
+                    onClick={() => setShowGenPreviewModal(null)}
+                    className="p-3 hover:bg-slate-100 dark:hover:bg-white/5 rounded-2xl transition-colors text-slate-400"
+                  >
+                    <X className="w-6 h-6" />
+                  </button>
+                </div>
+
+                <div className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black uppercase tracking-widest text-primary-light">Topic</label>
+                      <input
+                        type="text"
+                        value={showGenPreviewModal.topic}
+                        onChange={(e) => setShowGenPreviewModal({ ...showGenPreviewModal, topic: e.target.value })}
+                        className="w-full px-5 py-4 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-2xl focus:ring-2 focus:ring-primary-light transition-all text-sm font-bold"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black uppercase tracking-widest text-primary-light">Audience</label>
+                      <input
+                        type="text"
+                        value={showGenPreviewModal.audience}
+                        onChange={(e) => setShowGenPreviewModal({ ...showGenPreviewModal, audience: e.target.value })}
+                        className="w-full px-5 py-4 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-2xl focus:ring-2 focus:ring-primary-light transition-all text-sm font-bold"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-primary-light">Syllabus / Content Extract</label>
+                    <textarea
+                      value={showGenPreviewModal.syllabus}
+                      onChange={(e) => setShowGenPreviewModal({ ...showGenPreviewModal, syllabus: e.target.value })}
+                      className="w-full h-48 px-5 py-4 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-2xl focus:ring-2 focus:ring-primary-light transition-all text-sm font-medium resize-none"
+                      placeholder="Paste or edit the syllabus content here..."
+                    />
+                  </div>
+                </div>
+
+                <div className="flex gap-4 pt-4">
+                  <button
+                    onClick={() => setShowGenPreviewModal(null)}
+                    className="flex-1 py-5 rounded-3xl font-black text-xs uppercase tracking-widest text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5 transition-all"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={() => handleGenerate(showGenPreviewModal.material, {
+                      topic: showGenPreviewModal.topic,
+                      audience: showGenPreviewModal.audience,
+                      syllabus: showGenPreviewModal.syllabus
+                    })}
+                    className="flex-[2] py-5 bg-primary-light text-white rounded-3xl font-black text-xs uppercase tracking-widest shadow-xl shadow-primary-light/30 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-3"
+                  >
+                    <Play className="w-5 h-5 fill-current" /> Start Generation
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

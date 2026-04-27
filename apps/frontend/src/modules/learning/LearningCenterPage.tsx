@@ -22,10 +22,21 @@ interface Material {
 
 interface AICurriculum {
    _id: string;
+   sessionId: string;
+   materialId: string;
    sourceMaterialTitle: string;
    mcqs: any[];
    applicationProblem?: any;
    materials: any[];
+   mcqStatus?: {
+      attempts: number;
+      attemptsRemaining: number;
+      isPassed: boolean;
+      bestScore: number;
+      totalQuestions: number;
+      status: 'SOLVED' | 'FAILED' | 'PENDING';
+      lastScore: number | null;
+   };
 }
 
 interface Session {
@@ -46,8 +57,18 @@ interface DayGroup {
 interface Workshop {
    _id: string;
    title: string;
+   description: string;
    instructorId: { name: string; email: string };
    days: DayGroup[];
+   content?: {
+      sectionTitle: string;
+      materials: {
+         title: string;
+         type: 'PDF' | 'VIDEO' | 'LINK';
+         url: string;
+         isPublished?: boolean;
+      }[];
+   }[];
 }
 
 export default function LearningCenterPage() {
@@ -59,7 +80,7 @@ export default function LearningCenterPage() {
    const [loading, setLoading] = useState(true);
    const [activeDoc, setActiveDoc] = useState<{ title: string; url: string; type: string } | null>(null);
    const [activeSlideshow, setActiveSlideshow] = useState<UnitAssetsItem[] | null>(null);
-   const [activeQuiz, setActiveQuiz] = useState<any[] | null>(null);
+   const [activeQuiz, setActiveQuiz] = useState<{ mcqs: any[], sessionId: string, materialId: string } | null>(null);
    const [contentTab, setContentTab] = useState<'INSTITUTIONAL' | 'AI'>('INSTITUTIONAL');
    const [feedbackModal, setFeedbackModal] = useState<{
       type: 'SESSION' | 'WORKSHOP';
@@ -113,10 +134,22 @@ export default function LearningCenterPage() {
                for (const day of days) {
                   for (const session of day.sessions) {
                      try {
-                        const aiRes = await axios.get(`${import.meta.env.VITE_API_URL}/sessions-content/${session._id}/content`, {
+                        const aiRes = await axios.get(`${import.meta.env.VITE_API_URL}/sessions-content/${session._id}/content?publishedOnly=true`, {
                            headers: { Authorization: `Bearer ${token}` }
                         });
-                        const content = Array.isArray(aiRes.data) ? aiRes.data : aiRes.data ? [aiRes.data] : [];
+                         let content = Array.isArray(aiRes.data) ? aiRes.data : aiRes.data ? [aiRes.data] : [];
+                        if (isStudentUser) {
+                           content = content.filter((c: any) => c.isPublished === true);
+                           // Fetch MCQ status for each content
+                           for (const c of content) {
+                              try {
+                                 const statusRes = await axios.get(`${import.meta.env.VITE_API_URL}/sessions-content/${session._id}/mcq-status?materialId=${c.materialId}`, {
+                                    headers: { Authorization: `Bearer ${token}` }
+                                 });
+                                 c.mcqStatus = statusRes.data;
+                              } catch (e) { }
+                           }
+                        }
                         session.aiContent = content;
                      } catch (e) { session.aiContent = []; }
                   }
@@ -131,7 +164,7 @@ export default function LearningCenterPage() {
 
          const fullWorkshopsResult = await Promise.all(detailPromises);
          const fullWorkshops = fullWorkshopsResult.filter(w => w !== null);
-         const filteredWorkshops = fullWorkshops.filter(w => w.days.length > 0);
+         const filteredWorkshops = fullWorkshops.filter(w => (w.days && w.days.length > 0) || (w.content && w.content.length > 0));
          setWorkshops(filteredWorkshops);
          if (filteredWorkshops.length > 0) setActiveWorkshop(filteredWorkshops[0]);
 
@@ -163,8 +196,8 @@ export default function LearningCenterPage() {
       setActiveSlideshow(slides);
    };
 
-   const handleOpenQuiz = (mcqs: any[]) => {
-      setActiveQuiz(mcqs);
+   const handleOpenQuiz = (content: AICurriculum) => {
+      setActiveQuiz({ mcqs: content.mcqs, sessionId: content.sessionId, materialId: content.materialId });
    };
 
    const allVisibleWorkshops = (selectedWorkshopId === 'ALL'
@@ -280,15 +313,15 @@ export default function LearningCenterPage() {
                      </div>
                   </div>
                </div>
-
                <div className="h-px w-full bg-slate-200 dark:bg-white/5 mb-12" />
 
                {/* Active Workshop Content - Students see ONE active, Admins see FILTERED list */}
                <div className="space-y-32">
-                  {(isStudent && selectedWorkshopId === 'ALL' ? (activeWorkshop ? [activeWorkshop] : []) : allVisibleWorkshops).map((workshop) => {
+                  {allVisibleWorkshops.map((workshop) => {
                      // Filter by Search Query
                      const hasMatch = workshop.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                        workshop.days.some(d => d.sessions.some(s => s.title.toLowerCase().includes(searchQuery.toLowerCase())));
+                        workshop.days.some(d => d.sessions.some(s => s.title.toLowerCase().includes(searchQuery.toLowerCase()))) ||
+                        (workshop.content && workshop.content.some(c => c.sectionTitle.toLowerCase().includes(searchQuery.toLowerCase()) || c.materials.some(m => m.title.toLowerCase().includes(searchQuery.toLowerCase()))));
                      if (!hasMatch) return null;
 
                      return (
@@ -303,7 +336,50 @@ export default function LearningCenterPage() {
                               <div className="h-px flex-1 bg-slate-200 dark:bg-white/5" />
                            </div>
 
-                           {/* Grouped Content */}
+                           {/* Classic Institutional Modules Section */}
+                           {workshop.content && workshop.content.length > 0 && (
+                              <section className="space-y-12 bg-slate-100/50 dark:bg-white/[0.01] p-10 rounded-[48px] border border-slate-200 dark:border-white/5 shadow-inner">
+                                 <div className="flex items-center gap-4">
+                                    <div className="w-12 h-12 bg-primary-light/10 text-primary-light rounded-2xl flex items-center justify-center">
+                                       <BookOpen className="w-6 h-6" />
+                                    </div>
+                                    <div>
+                                       <h2 className="text-2xl font-black tracking-tight">Institutional <span className="text-primary-light">Modules</span></h2>
+                                       <p className="text-[10px] font-black uppercase opacity-40 tracking-widest mt-1">Core program materials and resources</p>
+                                    </div>
+                                 </div>
+
+                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                                    {workshop.content.map((section, si) => (
+                                       <div key={si} className="bg-white dark:bg-card-dark border border-slate-200 dark:border-white/10 rounded-[32px] p-8 space-y-6 shadow-sm hover:border-primary-light/30 transition-all group/card cursor-pointer">
+                                          <h4 className="text-lg font-black tracking-tight group-hover/card:text-primary-light transition-colors">{section.sectionTitle}</h4>
+                                          <div className="space-y-4">
+                                             {section.materials.map((mat, mi) => (
+                                                <div 
+                                                   key={mi} 
+                                                   onClick={() => setActiveDoc({ title: mat.title, url: mat.url.startsWith('http') ? mat.url : `${import.meta.env.VITE_API_URL}${mat.url}`, type: mat.type })}
+                                                   className="flex items-center gap-4 group/mat cursor-pointer"
+                                                >
+                                                   <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-white/5 flex items-center justify-center text-slate-400 group-hover/mat:bg-primary-light group-hover/mat:text-white transition-all">
+                                                      {mat.type === 'PDF' && <FileText className="w-5 h-5" />}
+                                                      {mat.type === 'VIDEO' && <Play className="w-5 h-5" />}
+                                                      {mat.type === 'LINK' && <ExternalLink className="w-5 h-5" />}
+                                                   </div>
+                                                   <div className="flex-1 min-w-0">
+                                                      <p className="text-sm font-bold truncate group-hover/mat:text-primary-light transition-colors">{mat.title}</p>
+                                                      <p className="text-[9px] font-black uppercase opacity-30">{mat.type}</p>
+                                                   </div>
+                                                   <Download className="w-4 h-4 opacity-0 group-hover/mat:opacity-100 transition-all text-primary-light" />
+                                                </div>
+                                             ))}
+                                          </div>
+                                       </div>
+                                    ))}
+                                 </div>
+                              </section>
+                           )}
+
+                           {/* Grouped Content (AI Path) */}
                            <div className="space-y-32">
                               {workshop.days.map((day) => (
                                  <div key={day.dayNumber} className="space-y-16">
@@ -404,15 +480,27 @@ export default function LearningCenterPage() {
                                                                      </button>
 
                                                                      <button
-                                                                        onClick={() => handleOpenQuiz(content.mcqs)}
-                                                                        className="group/quiz bg-emerald-500/5 hover:bg-emerald-500 border border-emerald-500/20 hover:border-emerald-500 rounded-[32px] p-6 transition-all text-left space-y-3 shadow-md hover:shadow-xl hover:shadow-emerald-500/10"
-                                                                     >
-                                                                        <div className="w-10 h-10 bg-emerald-500/10 group-hover/quiz:bg-white/20 rounded-xl flex items-center justify-center text-emerald-500 group-hover/quiz:text-white transition-colors"><CheckCircle2 className="w-5 h-5" /></div>
-                                                                        <div>
-                                                                           <h4 className="font-black text-slate-900 dark:text-white group-hover/quiz:text-white text-sm">Take Quiz</h4>
-                                                                           <p className="text-[9px] font-bold uppercase tracking-widest text-emerald-600 dark:text-emerald-400 group-hover/quiz:text-white/60">{content.mcqs?.length || 0} Problems</p>
-                                                                        </div>
-                                                                     </button>
+                                                                      onClick={() => handleOpenQuiz(content)}
+                                                                      disabled={content.mcqStatus?.status === 'SOLVED' || content.mcqStatus?.status === 'FAILED'}
+                                                                      className={`group/quiz rounded-[32px] p-6 transition-all text-left space-y-3 shadow-md hover:shadow-xl ${content.mcqStatus?.status === 'SOLVED' ? 'bg-emerald-500/10 border-2 border-emerald-500/50 cursor-default' : content.mcqStatus?.status === 'FAILED' ? 'bg-rose-500/10 border-2 border-rose-500/50 cursor-default' : 'bg-emerald-500/5 hover:bg-emerald-500 border border-emerald-500/20 hover:border-emerald-500 hover:shadow-emerald-500/10'}`}
+                                                                   >
+                                                                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors ${content.mcqStatus?.status === 'SOLVED' ? 'bg-emerald-500 text-white' : content.mcqStatus?.status === 'FAILED' ? 'bg-rose-500 text-white' : 'bg-emerald-500/10 text-emerald-500 group-hover/quiz:bg-white/20 group-hover/quiz:text-white'}`}>
+                                                                         {content.mcqStatus?.status === 'SOLVED' ? <CheckCircle2 className="w-5 h-5" /> : content.mcqStatus?.status === 'FAILED' ? <X className="w-5 h-5" /> : <Play className="w-5 h-5 fill-current" />}
+                                                                      </div>
+                                                                      <div>
+                                                                         <h4 className={`font-black text-sm ${content.mcqStatus?.status === 'SOLVED' ? 'text-emerald-700 dark:text-emerald-400' : content.mcqStatus?.status === 'FAILED' ? 'text-rose-700 dark:text-rose-400' : 'text-slate-900 dark:text-white group-hover/quiz:text-white'}`}>
+                                                                            {content.mcqStatus?.status === 'SOLVED' ? 'Quiz Solved' : content.mcqStatus?.status === 'FAILED' ? 'Attempts Exhausted' : 'Take Quiz'}
+                                                                         </h4>
+                                                                         <div className="flex items-center gap-2">
+                                                                            <p className={`text-[9px] font-bold uppercase tracking-widest ${content.mcqStatus?.status === 'SOLVED' ? 'text-emerald-600/60' : content.mcqStatus?.status === 'FAILED' ? 'text-rose-600/60' : 'text-emerald-600 dark:text-emerald-400 group-hover/quiz:text-white/60'}`}>
+                                                                               {content.mcqs?.length || 0} Problems
+                                                                            </p>
+                                                                            {content.mcqStatus && content.mcqStatus.status === 'PENDING' && (
+                                                                               <span className="text-[9px] font-black uppercase text-indigo-500 bg-indigo-500/10 px-2 py-0.5 rounded-full">{content.mcqStatus.attemptsRemaining} Left</span>
+                                                                            )}
+                                                                         </div>
+                                                                      </div>
+                                                                   </button>
 
                                                                      <div className="bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-[32px] p-6 space-y-3">
                                                                         <div className="w-10 h-10 bg-primary-light/10 rounded-xl flex items-center justify-center text-primary-light"><AlertCircle className="w-5 h-5" /></div>
@@ -475,7 +563,15 @@ export default function LearningCenterPage() {
                </div>
             )}
             {activeQuiz && (
-               <QuizModal mcqs={activeQuiz} onClose={() => setActiveQuiz(null)} />
+               <QuizModal 
+                  mcqs={activeQuiz.mcqs} 
+                  sessionId={activeQuiz.sessionId}
+                  materialId={activeQuiz.materialId}
+                  onClose={() => {
+                     setActiveQuiz(null);
+                     fetchData(); // Refresh status
+                  }} 
+               />
             )}
 
             <FeedbackForm
@@ -499,14 +595,16 @@ export default function LearningCenterPage() {
    );
 }
 
-function QuizModal({ mcqs, onClose }: { mcqs: any[], onClose: () => void }) {
+function QuizModal({ mcqs, sessionId, materialId, onClose }: { mcqs: any[], sessionId: string, materialId: string, onClose: () => void }) {
    const [currentIdx, setCurrentIdx] = useState(0);
-   const [answers, setAnswers] = useState<Record<number, string>>({});
+   const [answers, setAnswers] = useState<Record<number, number>>({});
    const [markedForReview, setMarkedForReview] = useState<Set<number>>(new Set());
    const [isSubmitted, setIsSubmitted] = useState(false);
    const [reviewMode, setReviewMode] = useState(false);
    const [score, setScore] = useState(0);
    const [timeLeft, setTimeLeft] = useState(mcqs.length * 60);
+   const [attemptResult, setAttemptResult] = useState<any>(null);
+   const [isSubmitting, setIsSubmitting] = useState(false);
 
    useEffect(() => {
       if (isSubmitted) return;
@@ -523,14 +621,35 @@ function QuizModal({ mcqs, onClose }: { mcqs: any[], onClose: () => void }) {
       return () => clearInterval(timer);
    }, [isSubmitted]);
 
-   const handleGlobalSubmit = () => {
+   const handleGlobalSubmit = async () => {
+      if (isSubmitting) return;
+      setIsSubmitting(true);
+
       let s = 0;
       mcqs.forEach((q, i) => {
-         if (answers[i] === (q.correctAnswer || q.answer)) s++;
+         const correctIndex = q.correctAnswer !== undefined ? q.correctAnswer : q.answer;
+         if (answers[i] === correctIndex) s++;
       });
       setScore(s);
-      setIsSubmitted(true);
-      setReviewMode(false);
+
+      try {
+         const token = localStorage.getItem('token');
+         const res = await axios.post(`${import.meta.env.VITE_API_URL}/sessions-content/${sessionId}/mcq-submit`, {
+            materialId,
+            score: s,
+            totalQuestions: mcqs.length
+         }, {
+            headers: { Authorization: `Bearer ${token}` }
+         });
+         setAttemptResult(res.data);
+         setIsSubmitted(true);
+         setReviewMode(false);
+      } catch (err) {
+         console.error('Failed to submit MCQ attempt:', err);
+         alert('Failed to save your progress. Please try again.');
+      } finally {
+         setIsSubmitting(false);
+      }
    };
 
    const toggleMark = (idx: number) => {
@@ -658,18 +777,26 @@ function QuizModal({ mcqs, onClose }: { mcqs: any[], onClose: () => void }) {
                      {isSubmitted && !reviewMode ? (
                         <motion.div key="results" initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} className="flex-1 flex flex-col items-center justify-center text-center space-y-16">
                            <div className="relative">
-                              <div className="w-48 h-48 bg-emerald-500/10 rounded-[60px] flex items-center justify-center transform rotate-12 group">
-                                 <CheckCircle2 className="w-24 h-24 text-emerald-500 transform -rotate-12 transition-transform group-hover:scale-110" />
+                              <div className={`w-48 h-48 rounded-[60px] flex items-center justify-center transform rotate-12 group ${attemptResult?.attempt?.isPassed ? 'bg-emerald-500/10' : 'bg-rose-500/10'}`}>
+                                 {attemptResult?.attempt?.isPassed ? (
+                                    <CheckCircle2 className="w-24 h-24 text-emerald-500 transform -rotate-12 transition-transform group-hover:scale-110" />
+                                 ) : (
+                                    <X className="w-24 h-24 text-rose-500 transform -rotate-12 transition-transform group-hover:scale-110" />
+                                 )}
                               </div>
-                              <motion.div animate={{ rotate: 360, scale: [1, 1.1, 1] }} transition={{ duration: 15, repeat: Infinity, ease: "linear" }} className="absolute inset-0 border-4 border-dashed border-emerald-500/10 rounded-[70px] scale-[1.15]" />
+                              <motion.div animate={{ rotate: 360, scale: [1, 1.1, 1] }} transition={{ duration: 15, repeat: Infinity, ease: "linear" }} className={`absolute inset-0 border-4 border-dashed rounded-[70px] scale-[1.15] ${attemptResult?.attempt?.isPassed ? 'border-emerald-500/10' : 'border-rose-500/10'}`} />
                            </div>
 
                            <div className="space-y-6">
                               <div className="flex items-center justify-center gap-3 mb-2">
-                                 <span className="w-2 h-2 bg-emerald-500 rounded-full animate-ping" />
-                                 <h3 className="text-6xl font-black text-slate-900 dark:text-white tracking-tighter uppercase italic">Success Authenticated</h3>
+                                 <span className={`w-2 h-2 rounded-full animate-ping ${attemptResult?.attempt?.isPassed ? 'bg-emerald-500' : 'bg-rose-500'}`} />
+                                 <h3 className="text-6xl font-black text-slate-900 dark:text-white tracking-tighter uppercase italic">
+                                    {attemptResult?.attempt?.isPassed ? 'Success Authenticated' : (attemptResult?.betterLuckNextTime ? 'Assessment Failed' : 'Incomplete Accuracy')}
+                                 </h3>
                               </div>
-                              <p className="text-xl font-bold text-slate-400 dark:text-white/40 max-w-lg mx-auto leading-relaxed">Your diagnostic session is captured. AI-curated performance metadata has been synced to your profile.</p>
+                              <p className="text-xl font-bold text-slate-400 dark:text-white/40 max-w-lg mx-auto leading-relaxed">
+                                 {attemptResult?.attempt?.isPassed ? 'Your diagnostic session is captured. AI-curated performance metadata has been synced to your profile.' : (attemptResult?.betterLuckNextTime ? 'You have exhausted all attempts. Better luck next time!' : `You need a full score to pass. ${attemptResult?.attemptsRemaining} attempts remaining.`)}
+                              </p>
                            </div>
 
                            <div className="flex items-stretch gap-6 h-32">
@@ -678,7 +805,7 @@ function QuizModal({ mcqs, onClose }: { mcqs: any[], onClose: () => void }) {
                                  <p className="text-[10px] font-black uppercase tracking-[0.3em] mb-1 opacity-60">Score</p>
                                  <p className="text-4xl font-black tabular-nums tracking-tighter">{score}<span className="text-sm opacity-30 ml-2"> / {mcqs.length}</span></p>
                               </div>
-                              <div className="px-10 bg-emerald-500 text-white rounded-[32px] flex flex-col justify-center items-center shadow-2xl shadow-emerald-500/30">
+                              <div className={`px-10 text-white rounded-[32px] flex flex-col justify-center items-center shadow-2xl ${attemptResult?.attempt?.isPassed ? 'bg-emerald-500 shadow-emerald-500/30' : 'bg-rose-500 shadow-rose-500/30'}`}>
                                  <p className="text-[10px] font-black uppercase tracking-[0.3em] mb-1 opacity-60">Accuracy</p>
                                  <p className="text-4xl font-black tabular-nums tracking-tighter">{Math.round((score / mcqs.length) * 100)}%</p>
                               </div>
@@ -702,8 +829,8 @@ function QuizModal({ mcqs, onClose }: { mcqs: any[], onClose: () => void }) {
 
                               <div className="grid gap-3">
                                  {(q.options || q.choices || []).map((opt: string, oi: number) => {
-                                    const isSelected = answers[currentIdx] === opt;
-                                    const isCorrect = opt === (q.correctAnswer || q.answer);
+                                    const isSelected = answers[currentIdx] === oi;
+                                    const isCorrect = oi === (q.correctAnswer !== undefined ? q.correctAnswer : q.answer);
 
                                     let borderClass = "border-slate-100 dark:border-white/5 hover:border-indigo-500/30";
                                     let bgClass = "bg-white dark:bg-white/[0.03]";
@@ -733,7 +860,7 @@ function QuizModal({ mcqs, onClose }: { mcqs: any[], onClose: () => void }) {
                                     return (
                                        <button
                                           key={oi}
-                                          onClick={() => !isSubmitted && setAnswers(prev => ({ ...prev, [currentIdx]: opt }))}
+                                          onClick={() => !isSubmitted && setAnswers(prev => ({ ...prev, [currentIdx]: oi }))}
                                           disabled={isSubmitted}
                                           className={`w-full text-left p-5 md:p-6 rounded-[24px] border-2 transition-all group relative overflow-hidden flex items-center justify-between ${borderClass} ${bgClass}`}
                                        >
@@ -804,10 +931,11 @@ function QuizModal({ mcqs, onClose }: { mcqs: any[], onClose: () => void }) {
                               {!isSubmitted ? (
                                  <button
                                     onClick={handleGlobalSubmit}
-                                    disabled={Object.keys(answers).length < mcqs.length && timeLeft > 0}
-                                    className={`py-4 rounded-2xl bg-slate-900 dark:bg-white text-white dark:text-black font-black uppercase tracking-[0.2em] text-[10px] transition-all shadow-2xl hover:scale-105 active:scale-[0.98] disabled:opacity-20 disabled:hover:scale-100 disabled:cursor-not-allowed shadow-slate-900/30 dark:shadow-white/10`}
+                                    disabled={isSubmitting || (Object.keys(answers).length < mcqs.length && timeLeft > 0)}
+                                    className={`py-4 rounded-2xl bg-slate-900 dark:bg-white text-white dark:text-black font-black uppercase tracking-[0.2em] text-[10px] transition-all shadow-2xl hover:scale-105 active:scale-[0.98] disabled:opacity-20 disabled:hover:scale-100 disabled:cursor-not-allowed shadow-slate-900/30 dark:shadow-white/10 flex items-center justify-center gap-2`}
                                  >
-                                    Submit
+                                    {isSubmitting && <Loader2 className="w-3 h-3 animate-spin" />}
+                                    {isSubmitting ? 'Submitting...' : 'Submit'}
                                  </button>
                               ) : (
                                  <button

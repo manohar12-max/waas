@@ -1,7 +1,7 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, Types } from 'mongoose';
 
-@Schema({ _id: false })
+@Schema({ _id: true })
 export class SessionMaterial {
   @Prop({ required: true })
   title: string;
@@ -20,6 +20,21 @@ export class SessionMaterial {
 
   @Prop({ default: false })
   isPublished: boolean;
+
+  @Prop({
+    enum: ['pending', 'extracting', 'generating', 'generated', 'approved', 'failed'],
+    default: 'pending'
+  })
+  status: string;
+
+  @Prop()
+  aiSessionId?: string;
+
+  @Prop({
+    enum: ['Draft', 'Stage1', 'Stage2', 'Finalized'],
+    default: 'Draft'
+  })
+  aiWorkflowStage: string;
 }
 
 @Schema({ timestamps: true })
@@ -41,25 +56,6 @@ export class Session {
 
   @Prop({ type: [SessionMaterial], default: [] })
   materials: SessionMaterial[];
-
-  @Prop({
-    required: true,
-    enum: ['pending', 'extracting', 'generating', 'generated', 'approved', 'failed'],
-    default: 'pending'
-  })
-  status: string;
-
-  @Prop()
-  jobId?: string;
-
-  @Prop()
-  aiSessionId?: string;
-
-  @Prop({
-    enum: ['Draft', 'Stage1', 'Stage2', 'Finalized'],
-    default: 'Draft'
-  })
-  aiWorkflowStage: string;
 }
 
 export const SessionSchema = SchemaFactory.createForClass(Session);

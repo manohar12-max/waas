@@ -52,12 +52,12 @@ export class SessionContentController {
     @UploadedFiles() files: Express.Multer.File[]
   ) {
     const isSource = body.isSourceForAI === 'true' || body.isSourceForAI === true;
-    const materials = files.map((file, index) => ({
+    const materials = files.map((file) => ({
       title: file.originalname,
       url: `/uploads/${file.filename}`,
       filePath: file.path,
       type: file.mimetype.includes('pdf') ? 'PDF' : file.mimetype.includes('presentation') ? 'SLIDES' : 'OTHER',
-      isSourceForAI: isSource // Using flag from body
+      isSourceForAI: isSource
     }));
 
     return this.service.createSession(
@@ -68,34 +68,40 @@ export class SessionContentController {
     );
   }
 
-  @Post(':id/generate')
-  @Roles(UserRole.INSTRUCTOR, UserRole.COLLEGE_ADMIN)
-  async triggerGeneration(@Param('id') sessionId: string) {
-    return this.service.triggerGeneration(sessionId);
-  }
-
   @Post(':id/review-stage-1')
   @Roles(UserRole.INSTRUCTOR, UserRole.COLLEGE_ADMIN)
   async reviewStage1(
     @Param('id') sessionId: string,
-    @Body() body: { action: 'continue' | 'edit'; edited_data?: any }
+    @Body() body: { action: 'continue' | 'edit'; edited_data?: any; materialId?: string }
   ) {
-    return this.service.reviewStage1(sessionId, body.action, body.edited_data);
+    return this.service.reviewStage1(sessionId, body.action, body.edited_data, body.materialId);
   }
 
   @Post(':id/review-stage-2')
   @Roles(UserRole.INSTRUCTOR, UserRole.COLLEGE_ADMIN)
   async reviewStage2(
     @Param('id') sessionId: string,
-    @Body() body: { action: 'continue' | 'edit'; edited_data?: any }
+    @Body() body: { action: 'continue' | 'edit'; edited_data?: any; materialId?: string }
   ) {
-    return this.service.reviewStage2(sessionId, body.action, body.edited_data);
+    return this.service.reviewStage2(sessionId, body.action, body.edited_data, body.materialId);
   }
 
   @Patch(':id/approve')
   @Roles(UserRole.INSTRUCTOR, UserRole.COLLEGE_ADMIN)
-  async approveContent(@Param('id') sessionId: string) {
-    return this.service.approveContent(sessionId);
+  async approveContent(
+    @Param('id') sessionId: string,
+    @Body() body: { materialId?: string }
+  ) {
+    return this.service.approveContent(sessionId, body.materialId);
+  }
+
+  @Patch(':id/toggle-publish-content')
+  @Roles(UserRole.INSTRUCTOR, UserRole.COLLEGE_ADMIN)
+  async togglePublishContent(
+    @Param('id') sessionId: string,
+    @Body() body: { materialId: string }
+  ) {
+    return this.service.toggleContentPublish(sessionId, body.materialId);
   }
 
   @Get(':id/content')
@@ -103,9 +109,12 @@ export class SessionContentController {
   async getSessionContent(
     @Param('id') sessionId: string,
     @GetUser('role') role: string,
-    @GetUser('_id') userId: string
+    @GetUser('_id') userId: string,
+    @Req() req: any
   ) {
-    return this.service.getSessionContent(sessionId, role, userId);
+    const materialId = req.query.materialId as string;
+    const publishedOnly = req.query.publishedOnly === 'true';
+    return this.service.getSessionContent(sessionId, role, userId, materialId, publishedOnly);
   }
 
   @Post('session/:id/delete')
@@ -143,6 +152,16 @@ export class SessionContentController {
       title: body.title,
       materials: materials.length > 0 ? materials : undefined,
     });
+  }
+
+  @Delete(':id/content')
+  @Roles(UserRole.INSTRUCTOR, UserRole.COLLEGE_ADMIN)
+  async deleteSessionContent(
+    @Param('id') sessionId: string,
+    @Body() body: { materialId?: string }
+  ) {
+    console.log('[CONTROLLER] Deleting content for:', sessionId, 'Material:', body.materialId);
+    return this.service.deleteSessionContent(sessionId, body.materialId);
   }
 
   @Post(':id/materials')
@@ -190,5 +209,46 @@ export class SessionContentController {
   ) {
     return this.service.toggleMaterialPublish(id, body.url);
   }
-}
 
+  @Get(':id/extract-preview')
+  @Roles(UserRole.INSTRUCTOR, UserRole.COLLEGE_ADMIN)
+  async extractPreview(
+    @Param('id') sessionId: string,
+    @Req() req: any
+  ) {
+    const materialUrl = req.query.materialUrl as string;
+    return this.service.extractPreview(sessionId, materialUrl);
+  }
+
+  @Post(':id/generate')
+  @Roles(UserRole.INSTRUCTOR, UserRole.COLLEGE_ADMIN)
+  async generate(
+    @Param('id') id: string, 
+    @Body() body: { topic?: string, audience?: string, materialId?: string, materialUrl?: string, syllabus?: string }
+  ) {
+    console.log('[CONTROLLER DEBUG] Calling Service with:', { id, ...body });
+    return this.service.triggerGeneration(id, body.topic, body.audience, body.materialId, body.materialUrl, body.syllabus);
+  }
+
+  @Post(':id/mcq-submit')
+  @Roles(UserRole.STUDENT)
+  async submitMcqAttempt(
+    @Param('id') sessionId: string,
+    @GetUser('_id') userId: string,
+    @Body() body: { materialId: string, score: number, totalQuestions: number }
+  ) {
+    return this.service.submitMcqAttempt(userId, sessionId, body.materialId, body.score, body.totalQuestions);
+  }
+
+  @Get(':id/mcq-status')
+  @Roles(UserRole.STUDENT, UserRole.INSTRUCTOR, UserRole.TEACHER, UserRole.COLLEGE_ADMIN)
+  async getMcqStatus(
+    @Param('id') sessionId: string,
+    @GetUser('_id') userId: string,
+    @Req() req: any
+  ) {
+    const materialId = req.query.materialId as string;
+    const studentId = req.query.studentId || userId; // Allow staff to check student status
+    return this.service.getMcqStatus(studentId, sessionId, materialId);
+  }
+}

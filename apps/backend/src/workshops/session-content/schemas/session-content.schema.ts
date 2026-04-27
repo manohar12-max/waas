@@ -6,6 +6,9 @@ export class SessionContent {
   @Prop({ type: Types.ObjectId, ref: 'Session', required: true })
   sessionId: Types.ObjectId;
 
+  @Prop({ type: String }) // Store the _id of the SessionMaterial
+  materialId: string;
+
   @Prop({ type: [Object], default: [] })
   mcqs: any[];
 
@@ -26,6 +29,15 @@ export class SessionContent {
 
   @Prop()
   aiSessionId: string;
+
+  @Prop()
+  topic: string;
+
+  @Prop()
+  audience: string;
+
+  @Prop({ default: false })
+  isPublished: boolean;
 }
 
 export const SessionContentSchema = SchemaFactory.createForClass(SessionContent);
