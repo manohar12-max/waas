@@ -49,6 +49,7 @@ function flattenSlides(groups: UnitAssetsItem[]): FlatSlide[] {
 }
 
 function SplitTitle({ title }: { title: string }) {
+    if (!title) return null;
     const words = title.trim().split(' ');
     if (words.length < 2) return <span className="text-primary-light">{title}</span>;
     const accent = words.pop()!;

@@ -19,7 +19,7 @@ export class GroqService {
 
   async generateJson(prompt: string, model: string = 'llama-3.3-70b-versatile'): Promise<any> {
     this.logger.log(`Generating JSON with Groq model ${model}`);
-    
+
     if (this.configService.get('USE_MOCK_AI') === 'true') {
       this.logger.log('USE_MOCK_AI is enabled. Returning mock NAAC report.');
       await new Promise(resolve => setTimeout(resolve, 2000)); // Simulate thinking
@@ -70,29 +70,29 @@ export class GroqService {
       if (error.status === 400 && error.message?.includes('json_validate_failed')) {
         this.logger.warn('Strict JSON mode failed. Attempting fallback with manual extraction...');
         try {
-           const rawCompletion = await this.groq.chat.completions.create({
-             messages: [
-               {
-                 role: 'system',
-                 content: 'You are a JSON generator. Your task is to output the requested JSON object. If you must include text, ensure the JSON object is clearly identifiable between { and }.',
-               },
-               { role: 'user', content: prompt }
-             ],
-             model: model,
-           });
-           
-           const rawContent = rawCompletion.choices[0]?.message?.content || '';
-           const start = rawContent.indexOf('{');
-           const end = rawContent.lastIndexOf('}');
-           
-           if (start !== -1 && end !== -1 && end > start) {
-             const jsonPart = rawContent.substring(start, end + 1);
-             return JSON.parse(jsonPart);
-           }
-           throw new Error('No JSON object found in fallback response');
+          const rawCompletion = await this.groq.chat.completions.create({
+            messages: [
+              {
+                role: 'system',
+                content: 'You are a JSON generator. Your task is to output the requested JSON object. If you must include text, ensure the JSON object is clearly identifiable between { and }.',
+              },
+              { role: 'user', content: prompt }
+            ],
+            model: model,
+          });
+
+          const rawContent = rawCompletion.choices[0]?.message?.content || '';
+          const start = rawContent.indexOf('{');
+          const end = rawContent.lastIndexOf('}');
+
+          if (start !== -1 && end !== -1 && end > start) {
+            const jsonPart = rawContent.substring(start, end + 1);
+            return JSON.parse(jsonPart);
+          }
+          throw new Error('No JSON object found in fallback response');
         } catch (fallbackError) {
-           this.logger.error(`Fallback also failed: ${fallbackError.message}`);
-           throw fallbackError;
+          this.logger.error(`Fallback also failed: ${fallbackError.message}`);
+          throw fallbackError;
         }
       }
 

@@ -10,6 +10,7 @@ import { SessionContentController } from './session-content.controller';
 import { SessionContentProcessor } from './session-content.processor';
 import { PDFService } from '../../infrastructure/pdf/pdf.service';
 import { AIServiceClient } from './ai-service.client';
+import { McqAttempt, McqAttemptSchema } from './schemas/mcq-attempt.schema';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { AIServiceClient } from './ai-service.client';
       { name: Session.name, schema: SessionSchema },
       { name: SessionContent.name, schema: SessionContentSchema },
       { name: Workshop.name, schema: WorkshopSchema },
+      { name: McqAttempt.name, schema: McqAttemptSchema },
     ]),
     HttpModule,
   ],

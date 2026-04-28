@@ -262,35 +262,39 @@ export class WorkshopsService {
 
   async findAll(collegeId: any, instructorId?: any, studentId?: any): Promise<WorkshopDocument[]> {
     try {
+      const cId = this.toObjectId(collegeId);
+      const sId = this.toObjectId(studentId);
+      const iId = this.toObjectId(instructorId);
+
       // Auto-update statuses based on current time before fetching
-      await this.autoUpdateStatuses(collegeId);
+      if (sId) {
+        await this.autoUpdateStatuses(undefined, sId);
+      } else {
+        await this.autoUpdateStatuses(collegeId);
+      }
 
       const query: any = {};
-      const cId = this.toObjectId(collegeId);
       
-      if (cId && !instructorId) {
-        query.collegeId = cId;
-      }
-      
-      if (instructorId) {
-        const iId = this.toObjectId(instructorId);
-        if (iId) {
+      if (sId) {
+        // Students only see workshops they are registered for
+        query.registeredStudentIds = sId;
+      } else if (iId) {
+        const instructorIdObj = this.toObjectId(instructorId);
+        if (instructorIdObj) {
           // Instructors should see workshops where they are the instructor,
           // optionally restricted by college if provided.
           if (cId) {
             query.$or = [
-              { instructorId: iId },
+              { instructorId: instructorIdObj },
               { collegeId: cId }
             ];
           } else {
-            query.instructorId = iId;
+            query.instructorId = instructorIdObj;
           }
         }
-      }
-
-      if (studentId) {
-        const sId = this.toObjectId(studentId);
-        if (sId) query.registeredStudentIds = sId;
+      } else if (cId) {
+        // Admins/Teachers see workshops in their college
+        query.collegeId = cId;
       }
 
       return this.workshopModel
@@ -377,6 +381,7 @@ export class WorkshopsService {
     
     // For non-super-admins, we usually restrict by collegeId 
     // EXCEPT for instructors who should always see their assigned workshops
+    // AND for students who should see workshops they are registered in
     if (role !== UserRole.SUPER_ADMIN) {
       if (role === UserRole.INSTRUCTOR && userId) {
         // Allow if it's THEIR workshop OR same college
@@ -384,6 +389,9 @@ export class WorkshopsService {
           { collegeId: cId },
           { instructorId: this.toObjectId(userId) }
         ];
+      } else if (role === UserRole.STUDENT && userId) {
+        // Students can see any workshop they are registered in
+        query.registeredStudentIds = this.toObjectId(userId);
       } else if (cId) {
         query.collegeId = cId;
       }
@@ -497,7 +505,7 @@ export class WorkshopsService {
     return this.workshopModel.deleteOne({ _id: wId }).exec();
   }
 
-  private async autoUpdateStatuses(collegeId?: any): Promise<void> {
+  private async autoUpdateStatuses(collegeId?: any, targetStudentId?: any): Promise<void> {
     const now = new Date();
     
     // Day-aware boundaries
@@ -505,7 +513,13 @@ export class WorkshopsService {
     const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
 
     const cId = this.toObjectId(collegeId);
-    const baseQuery: any = cId ? { collegeId: cId } : {};
+    const sId = this.toObjectId(targetStudentId);
+    
+    const baseQuery: any = {};
+    if (cId) baseQuery.collegeId = cId;
+    if (sId) baseQuery.registeredStudentIds = sId;
+
+    if (Object.keys(baseQuery).length === 0) return;
 
     try {
       // 1. Force to ACTIVE if the day has arrived or we are in the range

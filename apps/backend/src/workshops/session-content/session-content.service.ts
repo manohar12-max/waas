@@ -2,9 +2,10 @@ import { Injectable, NotFoundException, BadRequestException, ForbiddenException 
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Day } from './schemas/day.schema';
-import { Session } from './schemas/session.schema';
+import { Session, SessionMaterial } from './schemas/session.schema';
 import { SessionContent } from './schemas/session-content.schema';
 import { Workshop } from '../workshop.schema';
+import { McqAttempt } from './schemas/mcq-attempt.schema';
 import { AIServiceClient } from './ai-service.client';
 import { PDFService } from '../../infrastructure/pdf/pdf.service';
 import * as fs from 'fs/promises';
@@ -16,18 +17,19 @@ export class SessionContentService {
     @InjectModel(Session.name) private sessionModel: Model<Session>,
     @InjectModel(SessionContent.name) private contentModel: Model<SessionContent>,
     @InjectModel(Workshop.name) private workshopModel: Model<Workshop>,
+    @InjectModel(McqAttempt.name) private mcqAttemptModel: Model<McqAttempt>,
     private readonly aiClient: AIServiceClient,
     private readonly pdfService: PDFService,
-  ) {}
+  ) { }
 
   async validateRegistration(workshopId: string, studentId: string) {
     const workshop = await this.workshopModel.findById(workshopId);
     if (!workshop) throw new NotFoundException('Workshop not found');
-    
+
     const isRegistered = workshop.registeredStudentIds.some(
       (rid: any) => rid.toString() === studentId.toString()
     );
-    
+
     if (!isRegistered) {
       throw new ForbiddenException('Access denied: You are not officially registered for this workshop.');
     }
@@ -39,17 +41,6 @@ export class SessionContentService {
       date,
       dayNumber,
     });
-
-    // Automatically extend workshop schedule if the new day is beyond current end date
-    const workshop = await this.workshopModel.findById(workshopId);
-    if (workshop && workshop.schedule) {
-      const dayDate = new Date(date);
-      if (dayDate > new Date(workshop.schedule.end)) {
-        workshop.schedule.end = dayDate;
-        await workshop.save();
-      }
-    }
-
     return day;
   }
 
@@ -60,30 +51,11 @@ export class SessionContentService {
   async deleteDay(dayId: string) {
     const day = await this.dayModel.findById(dayId);
     if (!day) throw new NotFoundException('Day not found');
-
-    // Remove all sessions associated with this day
     const sessions = await this.sessionModel.find({ dayId: new Types.ObjectId(dayId) });
     for (const session of sessions) {
       await this.deleteSession(session._id.toString());
     }
-
-    const workshopId = day.workshopId;
     await this.dayModel.findByIdAndDelete(dayId);
-
-    // Sync workshop end date after deletion
-    const remainingDays = await this.dayModel.find({ workshopId }).sort({ dayNumber: -1 });
-    const workshop = await this.workshopModel.findById(workshopId);
-    if (workshop && workshop.schedule) {
-      if (remainingDays.length > 0) {
-        workshop.schedule.end = new Date(remainingDays[0].date);
-      } else {
-        // If no days left, maybe keep start as end or keep current? 
-        // Let's set it to start date to represent a 0-day/1-day workshop
-        workshop.schedule.end = workshop.schedule.start;
-      }
-      await workshop.save();
-    }
-
     return { success: true };
   }
 
@@ -93,229 +65,295 @@ export class SessionContentService {
       dayId: new Types.ObjectId(dayId),
       title,
       materials: materials || [],
-      status: 'pending',
     });
+  }
+
+  async getFullWorkshopStructure(workshopId: string, studentId?: string, userRole?: string) {
+    const days = await this.dayModel.find({ workshopId: new Types.ObjectId(workshopId) }).sort({ dayNumber: 1 });
+    const fullStructure: any[] = [];
+
+    const isStaff = userRole === 'INSTRUCTOR' || userRole === 'COLLEGE_ADMIN' || userRole === 'TEACHER' || userRole === 'SUPER_ADMIN';
+
+    for (const day of days) {
+      const sessions = await this.sessionModel.find({ dayId: day._id });
+      const sessionsWithAI = await Promise.all(sessions.map(async (s) => {
+        const sessionObj = s.toObject();
+        const contentList = await this.contentModel.find({ sessionId: s._id });
+        
+        let materials = sessionObj.materials.map(m => {
+          return {
+            ...m,
+            isPublished: (m as any).isPublished || false
+          };
+        });
+
+        // If student, filter out unpublished materials
+        if (!isStaff) {
+          materials = materials.filter(m => m.isPublished);
+        }
+        
+        (sessionObj as any).materials = materials;
+        (sessionObj as any).aiContent = isStaff ? contentList : contentList.filter(c => (c as any).isPublished === true);
+        return sessionObj;
+      }));
+
+      fullStructure.push({
+        ...day.toObject(),
+        sessions: sessionsWithAI
+      });
+    }
+
+    return fullStructure;
   }
 
   async getSessionsByDay(dayId: string) {
     return this.sessionModel.find({ dayId: new Types.ObjectId(dayId) });
   }
 
-  async getFullWorkshopStructure(workshopId: string, userId?: string, role?: string) {
-    const workshop = await this.workshopModel.findById(workshopId);
-    if (!workshop) throw new NotFoundException('Workshop not found');
-
-    if (role === 'STUDENT' && userId) {
-      await this.validateRegistration(workshopId, userId);
-    }
-    
-    // Auto-initialize days if they don't exist
-    if (workshop.schedule?.start && workshop.schedule?.end) {
-      const start = new Date(workshop.schedule.start);
-      const end = new Date(workshop.schedule.end);
-      
-      // Calculate number of days
-      const diffTime = Math.abs(end.getTime() - start.getTime());
-      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
-
-      for (let i = 1; i <= diffDays; i++) {
-        const currentDate = new Date(start);
-        currentDate.setDate(start.getDate() + (i - 1));
-
-        const existingDay = await this.dayModel.findOne({
-          workshopId: new Types.ObjectId(workshopId),
-          dayNumber: i,
-        });
-
-        if (!existingDay) {
-          await this.dayModel.create({
-            workshopId: new Types.ObjectId(workshopId),
-            dayNumber: i,
-            date: currentDate,
-          });
-        }
-      }
-    }
-
-    const days = await this.getDaysByWorkshop(workshopId);
-    const result: any[] = [];
-    const isStaff = role === 'INSTRUCTOR' || role === 'TEACHER' || role === 'COLLEGE_ADMIN' || role === 'SUPER_ADMIN';
-
-    for (const day of days) {
-      let sessions = await this.getSessionsByDay(day._id.toString() as string);
-      
-      // Strict Backend Filtering for Students ONLY
-      if (!isStaff) {
-        sessions = sessions.filter(s => {
-          const hasPublishedMaterials = s.materials?.some(m => m.isPublished);
-          return s.status === 'approved' || hasPublishedMaterials;
-        }).map(s => {
-          // Deep clone and filter materials to remove drafts
-          const sessionObj = s.toObject();
-          sessionObj.materials = sessionObj.materials.filter(m => m.isPublished);
-          return sessionObj;
-        }) as any;
-      }
-
-      // Only include the day if it has visible sessions
-      if (isStaff || sessions.length > 0) {
-        result.push({
-          ...day.toObject(),
-          sessions,
-        });
-      }
-    }
-    return result;
-  }
-
-  async triggerGeneration(sessionId: string) {
-    // 1. Get session and identify source material - Use lean() to get fresh data
-    const session = await this.sessionModel.findById(sessionId).lean();
+  async extractPreview(sessionId: string, materialUrl: string) {
+    const session = await this.sessionModel.findById(sessionId);
     if (!session) throw new NotFoundException('Session not found');
-    
-    // Find source material
-    const sourceMaterial = session.materials.find(m => m.isSourceForAI);
-    const titleToUse = sourceMaterial ? sourceMaterial.title : "Original Material";
-    console.log(`[AI Generation] Triggering for: ${titleToUse}`);
-    const filePath = sourceMaterial ? sourceMaterial.filePath : session.filePath;
 
-    if (!filePath) throw new BadRequestException('Source file is required for generation');
+    const material = session.materials.find(m => m.url === materialUrl);
+    if (!material) throw new NotFoundException('Material not found');
 
-    // Update status to processing - Atomic update
-    await this.sessionModel.findByIdAndUpdate(sessionId, { status: 'generating' });
+    let syllabusText = "";
+    const isOffice = materialUrl.toLowerCase().endsWith('.pptx') || materialUrl.toLowerCase().endsWith('.ppt') || materialUrl.toLowerCase().endsWith('.docx');
+    const absolutePath = materialUrl.startsWith('/') ? `.${materialUrl}` : materialUrl;
 
     try {
-      // 1. Extract Text for Syllabus
-      let syllabusText = "";
-      const isOffice = filePath.toLowerCase().endsWith('.pptx') || 
-                       filePath.toLowerCase().endsWith('.ppt') || 
-                       filePath.toLowerCase().endsWith('.docx');
-      
       if (isOffice) {
-        syllabusText = await this.pdfService.extractFromOffice(filePath);
+        syllabusText = await this.pdfService.extractFromOffice(absolutePath);
       } else {
-        const buffer = await fs.readFile(filePath);
+        const buffer = await fs.readFile(absolutePath);
         syllabusText = await this.pdfService.extractText(buffer);
       }
+    } catch (e) {
+      console.error('Extraction failed:', e);
+    }
 
-      if (!syllabusText) syllabusText = session.title; // Fallback
+    return {
+      topic: material.title,
+      audience: "BE Mechanical", // Default as per user's example
+      syllabus: syllabusText || ""
+    };
+  }
 
-      // 2. Get Metadata from Workshop
-      const workshop = await this.workshopModel.findById(session.workshopId);
-      const audience = workshop?.title || "University Students";
+  async triggerGeneration(sessionId: string, customTopic?: string, customAudience?: string, materialId?: string, materialUrl?: string, syllabusOverride?: string) {
+    const session = await this.sessionModel.findById(sessionId);
+    if (!session) throw new NotFoundException('Session not found');
 
-      // 3. Call AI Service - Start Generation
+    let sourceMaterialIndex = -1;
+    if (materialUrl) {
+      sourceMaterialIndex = session.materials.findIndex(m => m.url === materialUrl);
+    } else if (materialId) {
+      sourceMaterialIndex = session.materials.findIndex(m => (m as any)._id?.toString() === materialId);
+    }
+
+    if (sourceMaterialIndex === -1) {
+       throw new BadRequestException('Please select a specific file to generate curriculum from.');
+    }
+
+    const sourceMaterial = session.materials[sourceMaterialIndex];
+
+    session.materials.forEach((m, idx) => {
+        m.isSourceForAI = (idx === sourceMaterialIndex);
+    });
+    session.materials[sourceMaterialIndex].status = 'generating';
+    session.markModified('materials');
+    await session.save();
+
+    const topic = customTopic || session.title;
+    const audience = customAudience || "General";
+
+    try {
+      let syllabusText = syllabusOverride || "";
+      
+      if (!syllabusText) {
+        const url = sourceMaterial.url;
+        const isOffice = url.toLowerCase().endsWith('.pptx') || url.toLowerCase().endsWith('.ppt') || url.toLowerCase().endsWith('.docx');
+        const absolutePath = url.startsWith('/') ? `.${url}` : url;
+
+        if (isOffice) {
+          syllabusText = await this.pdfService.extractFromOffice(absolutePath);
+        } else {
+          const buffer = await fs.readFile(absolutePath);
+          syllabusText = await this.pdfService.extractText(buffer);
+        }
+      }
+
+      if (!syllabusText || syllabusText.length < 10) {
+        syllabusText = `Topic: ${topic}. Audience: ${audience}. Generate content based on this topic.`;
+      }
+
       const aiResponse = await this.aiClient.startGeneration({
         syllabus: syllabusText,
         audience: audience,
-        topic: session.title,
+        topic: topic,
       });
 
-      // 4. Update Session with AI ID and Stage
-      await this.sessionModel.findByIdAndUpdate(sessionId, {
-        aiSessionId: aiResponse.session_id,
-        aiWorkflowStage: 'Stage1',
-        status: 'generated'
-      });
+      const updatedSession = await this.sessionModel.findById(sessionId);
+      if (updatedSession) {
+        const matIdx = updatedSession.materials.findIndex(m => m.url === sourceMaterial.url);
+        if (matIdx !== -1) {
+          updatedSession.materials[matIdx].aiSessionId = aiResponse.session_id;
+          updatedSession.materials[matIdx].aiWorkflowStage = 'Stage1';
+          updatedSession.materials[matIdx].status = 'generated';
+          updatedSession.markModified('materials');
+          await updatedSession.save();
+        }
+      }
 
-      // 5. Save initial generated content to separate collection
+      const generatedData = aiResponse.content || aiResponse.data;
       await this.saveGeneratedContent(
-        sessionId, 
-        aiResponse.data.mcqs || [], 
-        aiResponse.data.application_problem,
-        aiResponse.data.slides,
-        aiResponse.data.materials || [],
-        titleToUse,
-        sourceMaterial ? sourceMaterial.url : "default",
-        aiResponse.session_id
+        sessionId,
+        generatedData?.mcqs || [],
+        generatedData?.application_problem || generatedData?.applicationProblem,
+        generatedData?.slides || [],
+        generatedData?.materials || [],
+        session.title,
+        sourceMaterial.url,
+        aiResponse.session_id,
+        (sourceMaterial as any)._id?.toString(),
+        topic,
+        audience
       );
 
-      return { 
-        sessionId: session._id, 
-        aiSessionId: aiResponse.session_id,
-        stage: 'Stage1',
-        status: 'generated'
-      };
-
+      return aiResponse;
     } catch (error) {
-      await this.sessionModel.findByIdAndUpdate(sessionId, { status: 'failed' });
+      const failedSession = await this.sessionModel.findById(sessionId);
+      if (failedSession) {
+        const matIdx = failedSession.materials.findIndex(m => m.url === sourceMaterial.url);
+        if (matIdx !== -1) {
+          failedSession.materials[matIdx].status = 'failed';
+          failedSession.markModified('materials');
+          await failedSession.save();
+        }
+      }
       throw error;
     }
   }
 
-  async reviewStage1(sessionId: string, action: 'continue' | 'edit', editedData?: any) {
-    const session = await this.sessionModel.findById(sessionId);
-    if (!session || !session.aiSessionId) throw new NotFoundException('Active AI Session not found');
-
-    const aiResponse = await this.aiClient.reviewStage1(session.aiSessionId, action, editedData);
-    
-    // Update to next stage
-    session.aiWorkflowStage = 'Stage2';
-    await session.save();
-
-    // Save potentially modified content
-    if (aiResponse.data) {
-      await this.saveGeneratedContent(
-        sessionId,
-        aiResponse.data.mcqs || [],
-        aiResponse.data.application_problem,
-        aiResponse.data.slides,
-        aiResponse.data.materials || [],
-        undefined,
-        undefined,
-        session.aiSessionId
-      );
-    }
-
-    return { stage: 'Stage2', status: 'review_pending' };
-  }
-
-  async reviewStage2(sessionId: string, action: 'continue' | 'edit', editedData?: any) {
-    const session = await this.sessionModel.findById(sessionId);
-    if (!session || !session.aiSessionId) throw new NotFoundException('Active AI Session not found');
-
-    await this.aiClient.reviewStage2(session.aiSessionId, action, editedData);
-    
-    // Transition to Final retrieval
-    const finalData = await this.aiClient.getFinalOutput(session.aiSessionId);
-    
-    session.aiWorkflowStage = 'Finalized';
-    session.status = 'generated';
-    await session.save();
-
-    // Save final output
-    await this.saveGeneratedContent(
-      sessionId,
-      finalData.mcqs || [],
-      finalData.application_problem,
-      finalData.slides,
-      finalData.materials || [],
-      undefined,
-      undefined,
-      session.aiSessionId
-    );
-
-    return { stage: 'Finalized', status: 'completed' };
-  }
-
-  async approveContent(sessionId: string) {
+  async reviewStage1(sessionId: string, action: 'continue' | 'edit', editedData?: any, materialId?: string) {
     const session = await this.sessionModel.findById(sessionId);
     if (!session) throw new NotFoundException('Session not found');
 
-    // If it's already approved, just return it
-    if (session.status === 'approved') return session;
+    const materialIndex = session.materials.findIndex(m => {
+      if (materialId) return (m as any)._id?.toString() === materialId;
+      return m.aiWorkflowStage === 'Stage1' && m.aiSessionId;
+    });
+    if (materialIndex === -1) throw new NotFoundException('No material in Stage 1 review found');
+    const material = session.materials[materialIndex];
 
-    // Allow approval if generated OR if it's a draft that was skiped
-    if (session.status !== 'generated' && session.status !== 'pending') {
-      throw new BadRequestException(`Cannot approve session. Current status is: ${session.status}. It must be 'generated' first.`);
+    if (action === 'edit' && editedData) {
+      // Sanitize the payload: AI service only wants curriculum data
+      const sanitized = this.sanitizeAIPayload(editedData);
+      
+      if (sanitized.mcqs) {
+        sanitized.mcqs = sanitized.mcqs.map((q: any) => ({
+          ...q,
+          concept: q.concept || "General Concept",
+          difficulty: q.difficulty || "medium",
+          learning_objective: q.learning_objective || q.learning_objective || "General understanding"
+        }));
+      }
+      editedData = sanitized;
     }
 
-    session.status = 'approved';
+    const aiResponse = await this.aiClient.reviewStage1(material.aiSessionId!, action, editedData);
+    session.materials[materialIndex].aiWorkflowStage = 'Stage2';
+    session.markModified('materials');
     await session.save();
+
+    const stage2Data = aiResponse.content || aiResponse.data;
+    await this.saveGeneratedContent(
+      sessionId,
+      stage2Data?.mcqs || [],
+      stage2Data?.application_problem || stage2Data?.applicationProblem,
+      stage2Data?.slides || [],
+      stage2Data?.materials || [],
+      session.title,
+      material.url,
+      material.aiSessionId,
+      (material as any)._id?.toString()
+    );
+    return aiResponse;
+  }
+
+  async reviewStage2(sessionId: string, action: 'continue' | 'edit', editedData?: any, materialId?: string) {
+    const session = await this.sessionModel.findById(sessionId);
+    if (!session) throw new NotFoundException('Session not found');
+
+    const materialIndex = session.materials.findIndex(m => {
+      if (materialId) return (m as any)._id?.toString() === materialId;
+      return m.aiWorkflowStage === 'Stage2' && m.aiSessionId;
+    });
+    if (materialIndex === -1) throw new NotFoundException('No material in Stage 2 review found');
+    const material = session.materials[materialIndex];
+
+    if (action === 'edit' && editedData) {
+      // Sanitize the payload: AI service only wants curriculum data
+      const sanitized = this.sanitizeAIPayload(editedData);
+      
+      if (sanitized.mcqs) {
+        sanitized.mcqs = sanitized.mcqs.map((q: any) => ({
+          ...q,
+          concept: q.concept || "General Concept",
+          difficulty: q.difficulty || "medium",
+          learning_objective: q.learning_objective || q.learning_objective || "General understanding"
+        }));
+      }
+      editedData = sanitized;
+    }
+
+    await this.aiClient.reviewStage2(material.aiSessionId!, action, editedData);
+    const aiResponse = await this.aiClient.getFinalOutput(material.aiSessionId!);
+    const finalData = aiResponse.content || aiResponse.data || aiResponse;
+
+    session.materials[materialIndex].aiWorkflowStage = 'Finalized';
+    session.materials[materialIndex].status = 'generated';
+    session.markModified('materials');
+    await session.save();
+
+    await this.saveGeneratedContent(
+      sessionId,
+      finalData.mcqs || [],
+      finalData.application_problem || finalData.applicationProblem,
+      finalData.slides || [],
+      finalData.materials || [],
+      session.title,
+      material.url,
+      material.aiSessionId,
+      (material as any)._id?.toString()
+    );
+    return finalData;
+  }
+
+  async approveContent(sessionId: string, materialId?: string) {
+    const session = await this.sessionModel.findById(sessionId);
+    if (!session) throw new NotFoundException('Session not found');
+    const matIdx = session.materials.findIndex(m => (m as any)._id?.toString() === materialId);
+    if (matIdx !== -1) {
+      session.materials[matIdx].status = 'approved';
+      session.markModified('materials');
+      await session.save();
+    }
     return session;
   }
 
-  async getSessionContent(sessionId: string, userRole?: string, userId?: string) {
+  async toggleContentPublish(sessionId: string, materialId: string) {
+    const content = await this.contentModel.findOne({ 
+      sessionId: new Types.ObjectId(sessionId),
+      materialId: materialId
+    });
+    if (!content) throw new NotFoundException('Content not found');
+    
+    (content as any).isPublished = !(content as any).isPublished;
+    await content.save();
+    return content;
+  }
+
+  async getSessionContent(sessionId: string, userRole?: string, userId?: string, materialId?: string, publishedOnly?: boolean) {
     const session = await this.sessionModel.findById(sessionId);
     if (!session) throw new NotFoundException('Session not found');
 
@@ -323,91 +361,154 @@ export class SessionContentService {
       await this.validateRegistration(session.workshopId.toString(), userId);
     }
 
-    const isInstructor = userRole === 'INSTRUCTOR' || userRole === 'COLLEGE_ADMIN' || userRole === 'TEACHER' || userRole === 'SUPER_ADMIN';
+    const staffRoles = ['INSTRUCTOR', 'COLLEGE_ADMIN', 'TEACHER', 'SUPER_ADMIN'];
+    const isInstructor = userRole ? staffRoles.includes(userRole) : false;
+    
+    const query: any = { sessionId: new Types.ObjectId(sessionId) };
+    if (materialId) query.materialId = materialId;
 
-    // Status Guard: Only allow if approved AND (if AI was involved) finalized
-    // EXCEPT for instructors/admins who are reviewing content
-    if (!isInstructor) {
-      if (session.status !== 'approved') return null;
-      if (session.aiWorkflowStage && session.aiWorkflowStage !== 'Finalized') return null;
+    const contents = await this.contentModel.find(query);
+    console.log(`[SessionContent] Fetching for role: ${userRole}, isInstructor: ${isInstructor}, publishedOnly: ${publishedOnly}, count: ${contents.length}`);
+
+    if (!isInstructor || publishedOnly) {
+      const filtered = contents.filter(c => (c as any).isPublished === true);
+      console.log(`[SessionContent] Filtered from ${contents.length} to ${filtered.length} (publishedOnly: ${publishedOnly})`);
+      return filtered;
+    }
+    return contents;
+  }
+
+  private sanitizeAIPayload(data: any) {
+    // Extract only the fields the AI service expects
+    const sanitized: any = {};
+    
+    // Support both application_problem (AI service) and applicationProblem (our DB)
+    const appProb = data.application_problem || data.applicationProblem;
+    if (appProb) {
+      sanitized.application_problem = {
+        title: appProb.title,
+        problem_statement: appProb.problem_statement || appProb.description || appProb.content,
+        expected_time_minutes: appProb.expected_time_minutes || 10,
+        concepts_used: appProb.concepts_used || [],
+        solution_steps: appProb.solution_steps || [],
+        final_answer: appProb.final_answer || "",
+        grading_rubric: appProb.grading_rubric || []
+      };
     }
 
-    return this.contentModel.find({ sessionId: new Types.ObjectId(sessionId) });
+    if (data.mcqs) {
+      sanitized.mcqs = data.mcqs.map((q: any) => ({
+        question: q.question,
+        options: q.options,
+        correct: q.correct,
+        explanation: q.explanation,
+        concept: q.concept,
+        difficulty: q.difficulty,
+        learning_objective: q.learning_objective || q.learningObjective
+      }));
+    }
+
+    if (data.slides) {
+      sanitized.slides = data.slides;
+    }
+
+    return sanitized;
   }
 
-  async updateSessionStatus(sessionId: string, status: string, jobId?: string) {
-    const update: any = { status };
-    if (jobId) update.jobId = jobId;
-    await this.sessionModel.findByIdAndUpdate(sessionId, update);
+  async updateSessionStatus(sessionId: string, status: string, materialId?: string) {
+    const session = await this.sessionModel.findById(sessionId);
+    if (!session) return;
+
+    if (materialId) {
+      const matIdx = session.materials.findIndex(m => (m as any)._id?.toString() === materialId);
+      if (matIdx !== -1) {
+        session.materials[matIdx].status = status;
+        session.markModified('materials');
+        await session.save();
+      }
+    } else {
+      // Fallback: update the material marked as isSourceForAI
+      const matIdx = session.materials.findIndex(m => m.isSourceForAI);
+      if (matIdx !== -1) {
+        session.materials[matIdx].status = status;
+        session.markModified('materials');
+        await session.save();
+      }
+    }
   }
 
-  async saveGeneratedContent(sessionId: string, mcqs: any[], applicationProblem?: any, slides?: any, materials: any[] = [], sourceMaterialTitle?: string, sourceMaterialUrl?: string, aiSessionId?: string) {
-    const update: any = { mcqs, applicationProblem, slides, materials };
+  async saveGeneratedContent(
+    sessionId: string, 
+    mcqs: any[], 
+    applicationProblem?: any, 
+    slides?: any, 
+    materials: any[] = [], 
+    sourceMaterialTitle?: string, 
+    sourceMaterialUrl?: string, 
+    aiSessionId?: string,
+    materialId?: string,
+    topic?: string,
+    audience?: string
+  ) {
+    const normalizedMcqs = mcqs.map(q => {
+      if (q.correctAnswer !== undefined) return q;
+      const options = q.options || [];
+      const correctStr = q.correct || q.correctAnswerStr || "";
+      const index = options.findIndex((opt: string) => opt === correctStr);
+      return { ...q, correctAnswer: index !== -1 ? index : 0 };
+    });
+
+    const update: any = { mcqs: normalizedMcqs, applicationProblem, slides, materials };
     if (sourceMaterialTitle) update.sourceMaterialTitle = sourceMaterialTitle;
     if (sourceMaterialUrl) update.sourceMaterialUrl = sourceMaterialUrl;
     if (aiSessionId) update.aiSessionId = aiSessionId;
+    if (materialId) update.materialId = materialId;
+    if (topic) update.topic = topic;
+    if (audience) update.audience = audience;
 
-    // Use aiSessionId as the primary key if available to avoid overwriting other passes
     const query: any = { sessionId: new Types.ObjectId(sessionId) };
-    if (aiSessionId) {
-      query.aiSessionId = aiSessionId;
-    } else if (sourceMaterialUrl) {
-      query.sourceMaterialUrl = sourceMaterialUrl;
+    if (materialId) query.materialId = materialId;
+    else if (sourceMaterialUrl) query.sourceMaterialUrl = sourceMaterialUrl;
+
+    const existing = await this.contentModel.findOne(query);
+    if (!existing) {
+      update.isPublished = false;
     }
 
-    await this.contentModel.findOneAndUpdate(
-      query,
-      update,
-      { upsert: true, returnDocument: 'after' }
-    );
+    await this.contentModel.findOneAndUpdate(query, update, { upsert: true });
   }
 
   async deleteSession(sessionId: string) {
-    const session = await this.sessionModel.findById(sessionId);
-    if (!session) throw new NotFoundException('Session not found');
-
-    // Remove associated content
     await this.contentModel.deleteMany({ sessionId: new Types.ObjectId(sessionId) });
-    
-    // Remove session
     await this.sessionModel.findByIdAndDelete(sessionId);
-    
+    return { success: true };
+  }
+
+  async deleteSessionContent(sessionId: string, materialId?: string) {
+    const query: any = { sessionId: new Types.ObjectId(sessionId) };
+    if (materialId) query.materialId = materialId;
+    await this.contentModel.deleteMany(query);
+
+    const session = await this.sessionModel.findById(sessionId);
+    if (session) {
+      session.materials.forEach(m => {
+        if (!materialId || (m as any)._id?.toString() === materialId) {
+          m.status = 'pending';
+          m.aiWorkflowStage = 'Draft';
+          m.aiSessionId = undefined;
+        }
+      });
+      session.markModified('materials');
+      await session.save();
+    }
     return { success: true };
   }
 
   async updateSession(sessionId: string, data: { title?: string, materials?: any[], isSourceForAI?: boolean, materialUrl?: string }) {
     const session = await this.sessionModel.findById(sessionId);
     if (!session) throw new NotFoundException('Session not found');
-
     if (data.title) session.title = data.title;
-    
-    // 1. If new materials are uploaded, APPEND them instead of replacing (unless it's an explicit replace)
-    if (data.materials && data.materials.length > 0) {
-      session.materials.push(...data.materials);
-    }
-
-    // 2. If we just want to toggle source for an EXISTING material
-    if (data.materialUrl) {
-      // Robust Toggle: Create a fresh array with all flags cleared except the target
-      const updatedMaterials = session.materials.map(m => {
-        const url1 = m.url.replace(/^\/+/, '');
-        const url2 = data.materialUrl?.replace(/^\/+/, '');
-        const isMatch = url1 === url2;
-        return { 
-          ...(m as any).toObject ? (m as any).toObject() : m, 
-          isSourceForAI: isMatch ? !!data.isSourceForAI : false 
-        };
-      });
-      
-      const updatedSession = await this.sessionModel.findByIdAndUpdate(
-        sessionId, 
-        { $set: { materials: updatedMaterials } }, 
-        { returnDocument: 'after' }
-      );
-      return updatedSession;
-    }
-
-    // ✅ FIXED: Always save — was missing, causing uploaded materials to silently vanish
+    if (data.materials) session.materials = data.materials;
     await session.save();
     return session;
   }
@@ -415,7 +516,6 @@ export class SessionContentService {
   async addMaterials(sessionId: string, materials: any[]) {
     const session = await this.sessionModel.findById(sessionId);
     if (!session) throw new NotFoundException('Session not found');
-
     session.materials.push(...materials);
     await session.save();
     return session;
@@ -424,7 +524,6 @@ export class SessionContentService {
   async removeMaterial(sessionId: string, materialUrl: string) {
     const session = await this.sessionModel.findById(sessionId);
     if (!session) throw new NotFoundException('Session not found');
-
     session.materials = session.materials.filter(m => m.url !== materialUrl);
     await session.save();
     return session;
@@ -433,12 +532,66 @@ export class SessionContentService {
   async toggleMaterialPublish(sessionId: string, materialUrl: string) {
     const session = await this.sessionModel.findById(sessionId);
     if (!session) throw new NotFoundException('Session not found');
-
     const material = session.materials.find(m => m.url === materialUrl);
-    if (!material) throw new NotFoundException('Material not found');
-
-    material.isPublished = !material.isPublished;
-    await session.save();
+    if (material) {
+      material.isPublished = !material.isPublished;
+      session.markModified('materials');
+      await session.save();
+    }
     return session;
+  }
+
+  async submitMcqAttempt(userId: string, sessionId: string, materialId: string, score: number, totalQuestions: number) {
+    // Get existing attempts
+    const attempts = await this.mcqAttemptModel.find({
+      userId: new Types.ObjectId(userId),
+      sessionId: new Types.ObjectId(sessionId),
+      materialId: materialId
+    }).sort({ attemptNumber: -1 });
+
+    const attemptNumber = attempts.length + 1;
+    if (attemptNumber > 3) {
+      throw new BadRequestException('Maximum attempts (3) reached for this quiz.');
+    }
+
+    const isPassed = score === totalQuestions; // Clear with full score
+
+    const newAttempt = await this.mcqAttemptModel.create({
+      userId: new Types.ObjectId(userId),
+      sessionId: new Types.ObjectId(sessionId),
+      materialId: materialId,
+      score,
+      totalQuestions,
+      attemptNumber,
+      isPassed
+    });
+
+    return {
+      success: true,
+      attempt: newAttempt,
+      attemptsRemaining: 3 - attemptNumber,
+      betterLuckNextTime: attemptNumber === 3 && !isPassed
+    };
+  }
+
+  async getMcqStatus(userId: string, sessionId: string, materialId: string) {
+    const attempts = await this.mcqAttemptModel.find({
+      userId: new Types.ObjectId(userId),
+      sessionId: new Types.ObjectId(sessionId),
+      materialId: materialId
+    }).sort({ attemptNumber: 1 });
+
+    const passedAttempt = attempts.find(a => a.isPassed);
+    const lastAttempt = attempts[attempts.length - 1];
+    
+    return {
+      attempts: attempts.length,
+      attemptsRemaining: 3 - attempts.length,
+      isPassed: !!passedAttempt,
+      bestScore: attempts.length > 0 ? Math.max(...attempts.map(a => a.score)) : 0,
+      totalQuestions: attempts.length > 0 ? attempts[0].totalQuestions : 0,
+      status: passedAttempt ? 'SOLVED' : (attempts.length >= 3 ? 'FAILED' : 'PENDING'),
+      lastScore: lastAttempt ? lastAttempt.score : null
+    };
   }
 }

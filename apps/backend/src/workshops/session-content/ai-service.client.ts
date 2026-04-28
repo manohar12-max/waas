@@ -8,7 +8,7 @@ export class AIServiceClient {
   private readonly useMock: boolean;
 
   constructor() {
-    this.baseUrl = process.env.AI_SERVICE_URL || 'http://localhost:4000';
+    this.baseUrl = (process.env.AI_SERVICE_URL || 'http://localhost:4000').replace('localhost', '127.0.0.1');
     this.useMock = process.env.USE_MOCK_AI === 'true';
     this.axiosInstance = axios.create({
       baseURL: this.baseUrl,
@@ -24,45 +24,76 @@ export class AIServiceClient {
   }) {
     if (this.useMock) {
       console.log('[AI Mock] Starting Generation for:', payload.topic);
-      await new Promise(resolve => setTimeout(resolve, 2000)); // Simulate delay
+      await new Promise(resolve => setTimeout(resolve, 2000));
       return {
         session_id: `mock-session-${Date.now()}`,
         data: this.getMockData(payload.topic),
       };
     }
-    return this.requestWithRetry('post', '/start-generation', payload);
+    const response = await this.requestWithRetry('post', '/start-generation', payload);
+    return response;
   }
 
   async reviewStage1(sessionId: string, action: 'continue' | 'edit', editedData?: any) {
     if (this.useMock) {
       console.log('[AI Mock] Review Stage 1:', action);
       await new Promise(resolve => setTimeout(resolve, 1500));
-      return {
-        session_id: sessionId,
-        data: editedData || this.getMockData("Refined Topic"),
-      };
+      return { session_id: sessionId, data: editedData };
     }
-    return this.requestWithRetry('post', '/review-stage-1', {
+
+    // Clean and Nest payload: Hybrid approach to ensure compatibility
+    const contentData = editedData ? {
+      ...editedData,
+      application_problem: editedData.application_problem || editedData.applicationProblem,
+      mcqs: (editedData.mcqs || []).map((q: any) => ({
+        ...q,
+        concept: q.concept || q.topic || "General",
+        difficulty: q.difficulty || "medium",
+        learning_objective: q.learning_objective || q.learningObjective || "Topic understanding",
+        correct: q.correct || (q.options && q.options[q.correctAnswer]) || q.correct
+      })),
+      meta: editedData.meta || { los: [], validation_passed: true }
+    } : undefined;
+
+    const payload = {
       session_id: sessionId,
       action,
-      edited_data: editedData,
-    });
+      edited_data: contentData,
+      ...contentData
+    };
+    console.log('[AI CLIENT] HYBRID PAYLOAD:', JSON.stringify(payload, null, 2));
+    return await this.requestWithRetry('post', '/review-stage-1', payload);
   }
 
   async reviewStage2(sessionId: string, action: 'continue' | 'edit', editedData?: any) {
     if (this.useMock) {
       console.log('[AI Mock] Review Stage 2:', action);
       await new Promise(resolve => setTimeout(resolve, 1500));
-      return {
-        session_id: sessionId,
-        data: editedData || this.getMockData("Finalized Topic"),
-      };
+      return { session_id: sessionId, data: editedData };
     }
-    return this.requestWithRetry('post', '/review-stage-2', {
+
+    // Clean and Nest payload: Hybrid
+    const contentData = editedData ? {
+      ...editedData,
+      application_problem: editedData.application_problem || editedData.applicationProblem,
+      mcqs: (editedData.mcqs || []).map((q: any) => ({
+        ...q,
+        concept: q.concept || q.topic || "General",
+        difficulty: q.difficulty || "medium",
+        learning_objective: q.learning_objective || q.learningObjective || "Topic understanding",
+        correct: q.correct || (q.options && q.options[q.correctAnswer]) || q.correct
+      })),
+      meta: editedData.meta || { los: [], validation_passed: true }
+    } : undefined;
+
+    const payload = {
       session_id: sessionId,
       action,
-      edited_data: editedData,
-    });
+      edited_data: contentData,
+      ...contentData
+    };
+    console.log('[AI CLIENT STAGE 2] HYBRID PAYLOAD:', JSON.stringify(payload, null, 2));
+    return await this.requestWithRetry('post', '/review-stage-2', payload);
   }
 
   async getFinalOutput(sessionId: string) {
@@ -70,7 +101,8 @@ export class AIServiceClient {
       console.log('[AI Mock] Getting Final Output');
       return this.getMockData("Final Result");
     }
-    return this.requestWithRetry('get', `/final-output/${sessionId}`);
+    const response = await this.requestWithRetry('get', `/final-output/${sessionId}`);
+    return response;
   }
 
   private getMockData(topic: string) {
@@ -93,50 +125,64 @@ export class AIServiceClient {
         }
       ],
       application_problem: {
-        description: `Create a real-world scenario where ${topic} can be applied to solve a logistics problem.`,
-        steps: ["Initialize environment", "Define agent goals", "Connect to data sources", "Implement control loop"]
+        title: "Standard Problem",
+        problem_statement: `Create a real-world scenario where ${topic} can be applied to solve a logistics problem.`,
+        expected_time_minutes: 10,
+        concepts_used: ["Basics"],
+        solution_steps: ["Initialize environment", "Define agent goals", "Connect to data sources", "Implement control loop"],
+        final_answer: "Solved environment",
+        grading_rubric: [{ step: "Initialization", marks: 5 }]
       },
       slides: [
         { title: `Welcome to ${topic}`, content: "Overview of core concepts and architectures." },
         { title: "The Agent Loop", content: "Perceive -> Reason -> Act -> Feedback." }
       ],
-      materials: [
-        {
-          title: `${topic} - Basics`,
-          content: "Comprehensive guide to getting started with autonomous systems."
-        },
-        {
-          title: "Advanced Topics",
-          content: "Scaling agentic workflows across multiple nodes."
-        }
-      ]
+      meta: {
+        los: ["Understand basics"],
+        validation_passed: true
+      }
     };
   }
 
   private async requestWithRetry(method: 'get' | 'post', url: string, data?: any, attempts = 3) {
     for (let i = 0; i < attempts; i++) {
       try {
-        const response = await (method === 'get' 
-          ? this.axiosInstance.get(url) 
+        console.log(`[AI BACKEND CALL] -> ${method.toUpperCase()} ${this.baseUrl}${url}`);
+        if (data) console.log(`[AI REQUEST BODY]:`, JSON.stringify(data, null, 2));
+
+        const response = await (method === 'get'
+          ? this.axiosInstance.get(url)
           : this.axiosInstance.post(url, data));
+
+        console.log(`[AI RESPONSE FROM 4000]:`, JSON.stringify(response.data, null, 2));
         return response.data;
       } catch (error) {
         const status = error.response?.status;
+        console.warn(`[AI Client] Attempt ${i + 1} failed: ${status || error.message}`);
+
         const isRetryable = status >= 500 || error.code === 'ECONNABORTED' || error.message.includes('timeout');
-        
+
         if (i === attempts - 1 || !isRetryable) {
-          this.handleError(error, url);
+          this.handleError(error, url, data);
         }
-        
+
         await new Promise(resolve => setTimeout(resolve, Math.pow(2, i) * 1000));
       }
     }
   }
 
-  private handleError(error: any, context: string) {
-    console.error(`AI Service Error [${context}]:`, error.response?.data || error.message);
+  private handleError(error: any, context: string, payload?: any) {
     const status = error.response?.status || 500;
-    const message = error.response?.data?.message || `AI Service failed during ${context}`;
+    const responseData = error.response?.data;
+
+    console.error('--- AI Service Error Details ---');
+    console.error(`Context: ${context}`);
+    console.error(`Status: ${status}`);
+    console.error(`Payload Sent:`, JSON.stringify(payload, null, 2));
+    console.error(`Error Response:`, JSON.stringify(responseData, null, 2));
+    console.error('--------------------------------');
+
+    const message = responseData?.message || responseData?.error || `AI Service failed during ${context}`;
     throw new InternalServerErrorException(message);
   }
 }
