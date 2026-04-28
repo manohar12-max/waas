@@ -464,8 +464,8 @@ export default function InstructorSessionMaterials() {
                         disabled={
                           mat.status === 'generating' || 
                           mat.status === 'extracting' || 
-                          (extractingPreviewId && (extractingPreviewId === String(mat._id) || extractingPreviewId === String(mat.url))) ||
-                          (generatingId && (generatingId === String(mat._id) || generatingId === String(mat.url)))
+                          !!(extractingPreviewId && (extractingPreviewId === String(mat._id) || extractingPreviewId === String(mat.url))) ||
+                          !!(generatingId && (generatingId === String(mat._id) || generatingId === String(mat.url)))
                         }
                         className={`flex-grow py-4 rounded-xl text-[11px] font-black uppercase tracking-widest relative overflow-hidden group/btn transition-all duration-500 shadow-xl dark:shadow-none ${
                           mat.status === 'generating' || 

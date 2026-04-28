@@ -188,7 +188,7 @@ export default function LearningCenterPage() {
 
    const handleOpenAIPlay = (aiPass: AICurriculum) => {
       // Prioritize explicit slides if available
-      let slideAssets = [];
+      let slideAssets: any[] = [];
       
       if (aiPass.slides && aiPass.slides.length > 0) {
          slideAssets = aiPass.slides.map((s: any, idx: number) => {

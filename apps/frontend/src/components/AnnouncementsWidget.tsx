@@ -24,7 +24,7 @@ const TYPE_STYLES = {
   URGENT:  { icon: Zap,           bg: 'bg-red-500/10',    border: 'border-red-500/30',    text: 'text-red-500',    badge: 'bg-red-500/20 text-red-400',     label: 'Urgent' },
 };
 
-const EMPTY_FORM = { title: '', body: '', type: 'INFO' as const, expiresAt: '' };
+const EMPTY_FORM = { title: '', body: '', type: 'INFO' as Announcement['type'], expiresAt: '' };
 
 export default function AnnouncementsWidget() {
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
