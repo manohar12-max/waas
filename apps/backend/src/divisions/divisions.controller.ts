@@ -21,19 +21,39 @@ export class DivisionsController {
 
   @Get()
   @Roles(UserRole.COLLEGE_ADMIN, UserRole.INSTRUCTOR, UserRole.TEACHER)
-  findAll(@GetUser('collegeId') collegeId: string) {
+  findAll(
+    @GetUser('collegeId') collegeId: string,
+    @GetUser('role') role: string,
+    @GetUser('_id') userId: string
+  ) {
+    if (role === UserRole.INSTRUCTOR) {
+      return this.divisionsService.findAllForInstructor(userId, collegeId);
+    }
+    if (role === UserRole.TEACHER) {
+      return this.divisionsService.findByTeacher(userId);
+    }
     return this.divisionsService.findAll(collegeId);
   }
 
   @Get(':id')
   @Roles(UserRole.COLLEGE_ADMIN, UserRole.INSTRUCTOR, UserRole.TEACHER)
-  findOne(@Param('id') id: string, @GetUser('collegeId') collegeId: string) {
-    return this.divisionsService.findOne(id, collegeId);
+  findOne(
+    @Param('id') id: string, 
+    @GetUser('collegeId') collegeId: string,
+    @GetUser('role') role: string,
+    @GetUser('_id') userId: string
+  ) {
+    return this.divisionsService.findOne(id, collegeId, userId, role);
   }
 
   @Delete(':id')
   @Roles(UserRole.COLLEGE_ADMIN, UserRole.INSTRUCTOR)
-  remove(@Param('id') id: string, @GetUser('collegeId') collegeId: string) {
-    return this.divisionsService.delete(id, collegeId);
+  remove(
+    @Param('id') id: string, 
+    @GetUser('collegeId') collegeId: string,
+    @GetUser('role') role: string,
+    @GetUser('_id') userId: string
+  ) {
+    return this.divisionsService.delete(id, collegeId, userId, role);
   }
 }

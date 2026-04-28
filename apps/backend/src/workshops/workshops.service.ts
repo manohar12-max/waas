@@ -281,15 +281,11 @@ export class WorkshopsService {
       } else if (iId) {
         const instructorIdObj = this.toObjectId(instructorId);
         if (instructorIdObj) {
-          // Instructors should see workshops where they are the instructor,
-          // optionally restricted by college if provided.
+          // Instructors should ONLY see workshops where they are the instructor.
+          query.instructorId = instructorIdObj;
+          // Optionally restricted by college if provided.
           if (cId) {
-            query.$or = [
-              { instructorId: instructorIdObj },
-              { collegeId: cId }
-            ];
-          } else {
-            query.instructorId = instructorIdObj;
+            query.collegeId = cId;
           }
         }
       } else if (cId) {
@@ -384,11 +380,9 @@ export class WorkshopsService {
     // AND for students who should see workshops they are registered in
     if (role !== UserRole.SUPER_ADMIN) {
       if (role === UserRole.INSTRUCTOR && userId) {
-        // Allow if it's THEIR workshop OR same college
-        query.$or = [
-          { collegeId: cId },
-          { instructorId: this.toObjectId(userId) }
-        ];
+        // Only allow if it's THEIR workshop
+        query.instructorId = this.toObjectId(userId);
+        if (cId) query.collegeId = cId;
       } else if (role === UserRole.STUDENT && userId) {
         // Students can see any workshop they are registered in
         query.registeredStudentIds = this.toObjectId(userId);

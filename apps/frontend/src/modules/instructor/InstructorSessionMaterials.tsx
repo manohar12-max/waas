@@ -57,14 +57,17 @@ export default function InstructorSessionMaterials() {
   useEffect(() => {
     fetchSession();
     
-    // Only poll if any material is in a transition state (extracting/generating)
-    const needsPolling = session?.materials.some(m => m.status === 'extracting' || m.status === 'generating');
+    // Determine if we need to start or continue polling
+    const transitionStatuses = ['extracting', 'generating'];
+    const needsPolling = session?.materials.some(m => transitionStatuses.includes(m.status)) || !!extractingPreviewId || !!generatingId;
     
     if (needsPolling) {
-      const interval = setInterval(fetchSession, 3000); // Poll faster
+      const interval = setInterval(() => {
+        fetchSession();
+      }, 3000); 
       return () => clearInterval(interval);
     }
-  }, [sessionId, workshopId, session?.materials?.length, JSON.stringify(session?.materials?.map(m => m.status))]);
+  }, [sessionId, workshopId, session?.materials?.length, JSON.stringify(session?.materials?.map(m => m.status)), !!extractingPreviewId, !!generatingId]);
 
   useEffect(() => {
     // Check for transitions to show toasts
@@ -170,10 +173,8 @@ export default function InstructorSessionMaterials() {
       setShowGenPreviewModal(null);
       toast('AI generation started in the background...', { icon: '🧠' });
 
-      // Give React a frame to paint
-      await new Promise(resolve => setTimeout(resolve, 50));
-
-      await axios.post(`${import.meta.env.VITE_API_URL}/sessions-content/${sessionId}/generate`, {
+      // Trigger the API call without blocking the UI
+      axios.post(`${import.meta.env.VITE_API_URL}/sessions-content/${sessionId}/generate`, {
         materialId: targetId,
         materialUrl: targetUrl,
         topic: editedData.topic,
@@ -181,11 +182,20 @@ export default function InstructorSessionMaterials() {
         syllabus: editedData.syllabus
       }, {
         headers: { Authorization: `Bearer ${token}` }
+      }).then(() => {
+        // Backend returns immediately after setting status to 'generating'
+        fetchSession();
+      }).catch(err => {
+        setGeneratingId(null);
+        toast.error("Generation request failed");
+        console.error(err);
       });
-      fetchSession();
+
+      // Call fetchSession immediately to catch the 'generating' status update
+      setTimeout(fetchSession, 500);
     } catch (err) {
       setGeneratingId(null);
-      toast.error("Generation request failed");
+      toast.error("An unexpected error occurred");
       console.error(err);
     }
   };

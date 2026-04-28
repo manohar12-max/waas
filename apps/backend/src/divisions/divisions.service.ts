@@ -89,6 +89,29 @@ export class DivisionsService {
     }
   }
 
+  async findAllForInstructor(instructorId: any, collegeId: any): Promise<DivisionDocument[]> {
+    try {
+      const iId = this.toObjectId(instructorId);
+      const cId = this.toObjectId(collegeId);
+      
+      // 1. Find all workshops for this instructor
+      const workshops = await this.workshopModel.find({ instructorId: iId }).select('_id');
+      const workshopIds = workshops.map(w => w._id);
+      
+      this.logger.log(`Fetching divisions for instructor ${iId} in college ${cId}`);
+      
+      // 2. Find divisions for these workshops
+      return this.divisionModel
+        .find({ workshopId: { $in: workshopIds }, collegeId: cId })
+        .populate('teacherId', 'name email')
+        .populate('workshopId', 'title registeredStudentIds pendingStudentIds')
+        .exec();
+    } catch (error) {
+      this.logger.error(`Failed to fetch instructor divisions: ${error.message}`, error.stack);
+      return [];
+    }
+  }
+
   async findByTeacher(teacherId: any): Promise<DivisionDocument[]> {
     try {
       const tId = this.toObjectId(teacherId);
@@ -163,7 +186,7 @@ export class DivisionsService {
     };
   }
 
-  async findOne(id: any, collegeId: any): Promise<any> {
+  async findOne(id: any, collegeId: any, userId?: any, role?: string): Promise<any> {
     const dId = this.toObjectId(id);
     let cId = this.toObjectId(collegeId);
 
@@ -172,11 +195,20 @@ export class DivisionsService {
       throw new NotFoundException('Division context lost.');
     }
 
-    this.logger.log(`Fetching division ${dId} (CollegeContext: ${cId})`);
-    const division = await this.divisionModel.findOne({
-      _id: dId,
-      ...(cId ? { collegeId: cId } : {})
-    }).populate('teacherId', 'name email')
+    this.logger.log(`Fetching division ${dId} (CollegeContext: ${cId}, Role: ${role})`);
+    
+    const query: any = { _id: dId };
+    if (cId) query.collegeId = cId;
+
+    // Security: Restrict by role if applicable
+    if (role === 'INSTRUCTOR' && userId) {
+      const workshops = await this.workshopModel.find({ instructorId: this.toObjectId(userId) }).select('_id');
+      query.workshopId = { $in: workshops.map(w => w._id) };
+    } else if (role === 'TEACHER' && userId) {
+      query.teacherId = this.toObjectId(userId);
+    }
+
+    const division = await this.divisionModel.findOne(query).populate('teacherId', 'name email')
       .populate({
         path: 'workshopId',
         populate: [
@@ -210,15 +242,20 @@ export class DivisionsService {
     ).exec();
   }
 
-  async delete(id: any, collegeId: any): Promise<any> {
+  async delete(id: any, collegeId: any, userId?: any, role?: string): Promise<any> {
     const dId = this.toObjectId(id);
     const cId = this.toObjectId(collegeId);
     if (!dId || !cId) return null;
 
-    this.logger.log(`Deleting division ${dId}`);
-    return this.divisionModel.findOneAndDelete({
-      _id: dId,
-      collegeId: cId,
-    }).exec();
+    this.logger.log(`Deleting division ${dId} (Role: ${role})`);
+
+    const query: any = { _id: dId, collegeId: cId };
+
+    if (role === 'INSTRUCTOR' && userId) {
+      const workshops = await this.workshopModel.find({ instructorId: this.toObjectId(userId) }).select('_id');
+      query.workshopId = { $in: workshops.map(w => w._id) };
+    }
+
+    return this.divisionModel.findOneAndDelete(query).exec();
   }
 }

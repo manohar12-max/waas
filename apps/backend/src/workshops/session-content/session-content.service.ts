@@ -151,21 +151,34 @@ export class SessionContentService {
     }
 
     if (sourceMaterialIndex === -1) {
-       throw new BadRequestException('Please select a specific file to generate curriculum from.');
+      throw new BadRequestException('Please select a specific file to generate curriculum from.');
     }
 
     const sourceMaterial = session.materials[sourceMaterialIndex];
 
+    // Update all materials to ensure only one is source, and set status to generating
     session.materials.forEach((m, idx) => {
-        m.isSourceForAI = (idx === sourceMaterialIndex);
+      m.isSourceForAI = (idx === sourceMaterialIndex);
     });
     session.materials[sourceMaterialIndex].status = 'generating';
     session.markModified('materials');
     await session.save();
 
-    const topic = customTopic || session.title;
+    const topic = customTopic || sourceMaterial.title || session.title;
     const audience = customAudience || "General";
 
+    // FIRE AND FORGET: Start background generation
+    this.processBackgroundGeneration(sessionId, sourceMaterial, topic, audience, syllabusOverride)
+      .catch(err => console.error(`[BACKGROUND GEN ERROR] Session ${sessionId}:`, err));
+
+    return { 
+      success: true, 
+      message: 'Generation started in background',
+      status: 'generating'
+    };
+  }
+
+  private async processBackgroundGeneration(sessionId: string, sourceMaterial: any, topic: string, audience: string, syllabusOverride?: string) {
     try {
       let syllabusText = syllabusOverride || "";
       
@@ -211,7 +224,7 @@ export class SessionContentService {
         generatedData?.application_problem || generatedData?.applicationProblem,
         generatedData?.slides || [],
         generatedData?.materials || [],
-        session.title,
+        sourceMaterial.title,
         sourceMaterial.url,
         aiResponse.session_id,
         (sourceMaterial as any)._id?.toString(),
@@ -219,8 +232,9 @@ export class SessionContentService {
         audience
       );
 
-      return aiResponse;
+      console.log(`[BACKGROUND GEN] Success for session ${sessionId}`);
     } catch (error) {
+      console.error(`[BACKGROUND GEN] Failed for session ${sessionId}:`, error);
       const failedSession = await this.sessionModel.findById(sessionId);
       if (failedSession) {
         const matIdx = failedSession.materials.findIndex(m => m.url === sourceMaterial.url);
@@ -230,9 +244,9 @@ export class SessionContentService {
           await failedSession.save();
         }
       }
-      throw error;
     }
   }
+
 
   async reviewStage1(sessionId: string, action: 'continue' | 'edit', editedData?: any, materialId?: string) {
     const session = await this.sessionModel.findById(sessionId);

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Star, MessageSquare, Send, X, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import axios from 'axios';
@@ -31,6 +31,27 @@ export default function FeedbackForm({ isOpen, type, workshopId, sessionId, titl
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Reset state when modal opens to prevent data leakage between sessions
+  useEffect(() => {
+    if (isOpen) {
+      setRatings({
+        contentQuality: 0,
+        clarity: 0,
+        engagement: 0,
+        usefulness: 0,
+        overall: 0,
+      });
+      setComments({
+        liked: '',
+        improvement: '',
+        suggestions: '',
+      });
+      setError(null);
+      setLoading(false);
+    }
+  }, [isOpen]);
+
 
   const handleRating = (key: keyof typeof ratings, value: number) => {
     setRatings(prev => ({ ...prev, [key]: value }));
