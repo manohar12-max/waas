@@ -1,11 +1,12 @@
 // Per-material AI state management enabled
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import toast, { Toaster } from 'react-hot-toast';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Plus, BrainCircuit, CheckCircle2, ChevronLeft, X, FileText, Play, Download, Layout, AlertCircle, Loader2,
-  BookOpen, Check, Edit3, Trash2, CheckCircle, Presentation
+  BookOpen, Check, Edit3, Trash2, CheckCircle, Presentation, Eye
 } from 'lucide-react';
 import { SlideViewer, UnitAssetsItem } from './components/SlideViewer';
 import DocViewer, { DocViewerRenderers } from "@cyntler/react-doc-viewer";
@@ -49,7 +50,9 @@ export default function InstructorSessionMaterials() {
     audience: string;
     syllabus: string;
   } | null>(null);
-  const [extractingPreview, setExtractingPreview] = useState(false);
+  const [extractingPreviewId, setExtractingPreviewId] = useState<string | null>(null);
+  const [generatingId, setGeneratingId] = useState<string | null>(null);
+  const previousMaterialsRef = useRef<Record<string, string>>({});
 
   useEffect(() => {
     fetchSession();
@@ -58,10 +61,32 @@ export default function InstructorSessionMaterials() {
     const needsPolling = session?.materials.some(m => m.status === 'extracting' || m.status === 'generating');
     
     if (needsPolling) {
-      const interval = setInterval(fetchSession, 5000);
+      const interval = setInterval(fetchSession, 3000); // Poll faster
       return () => clearInterval(interval);
     }
-  }, [sessionId, session?.materials.map(m => m.status).join(',')]);
+  }, [sessionId, workshopId, session?.materials?.length, JSON.stringify(session?.materials?.map(m => m.status))]);
+
+  useEffect(() => {
+    // Check for transitions to show toasts
+    if (session) {
+      session.materials.forEach(mat => {
+        const key = mat._id || mat.url;
+        const prevStatus = previousMaterialsRef.current[key];
+
+        // Clear generatingId if the material has finished
+        if (generatingId === (mat._id || (mat as any).id) && (mat.status === 'generated' || mat.status === 'failed' || mat.status === 'approved')) {
+          setGeneratingId(null);
+        }
+
+        if (prevStatus === 'generating' && mat.status === 'generated') {
+          toast.success(`Generated AI curriculum for ${mat.title}`);
+        } else if (prevStatus === 'generating' && mat.status === 'failed') {
+          toast.error(`Failed to generate curriculum for ${mat.title}. Please retry.`);
+        }
+        previousMaterialsRef.current[key] = mat.status;
+      });
+    }
+  }, [session, generatingId]);
 
   const fetchSession = async () => {
     try {
@@ -107,7 +132,7 @@ export default function InstructorSessionMaterials() {
   const handleGenerate = async (material: SessionMaterial, editedData?: { topic: string, audience: string, syllabus: string }) => {
     try {
       const token = localStorage.getItem('token');
-      const targetId = material._id;
+      const targetId = String(material._id || (material as any).id || material.url);
       const targetUrl = material.url;
 
       if (!targetUrl) {
@@ -117,11 +142,14 @@ export default function InstructorSessionMaterials() {
 
       if (!editedData) {
         // Step 1: Just extract and show preview
-        setExtractingPreview(true);
+        const analysisToast = toast.loading("Analyzing material...");
+        setExtractingPreviewId(targetId);
         try {
           const res = await axios.get(`${import.meta.env.VITE_API_URL}/sessions-content/${sessionId}/extract-preview?materialUrl=${targetUrl}`, {
             headers: { Authorization: `Bearer ${token}` }
           });
+          toast.success("Analysis complete", { id: analysisToast });
+          fetchSession(); // Sync status immediately
           setShowGenPreviewModal({
             material,
             topic: res.data.topic,
@@ -129,15 +157,22 @@ export default function InstructorSessionMaterials() {
             syllabus: res.data.syllabus
           });
         } catch (err) {
-          alert("Failed to extract content from file");
+          toast.error("Failed to extract content from file", { id: analysisToast });
         } finally {
-          setExtractingPreview(false);
+          setExtractingPreviewId(null);
         }
         return;
       }
       
       // Step 2: Start actual generation with edited data
+      const targetIdForGen = String(material._id || (material as any).id || material.url || '');
+      setGeneratingId(targetIdForGen);
       setShowGenPreviewModal(null);
+      toast('AI generation started in the background...', { icon: '🧠' });
+
+      // Give React a frame to paint
+      await new Promise(resolve => setTimeout(resolve, 50));
+
       await axios.post(`${import.meta.env.VITE_API_URL}/sessions-content/${sessionId}/generate`, {
         materialId: targetId,
         materialUrl: targetUrl,
@@ -149,7 +184,8 @@ export default function InstructorSessionMaterials() {
       });
       fetchSession();
     } catch (err) {
-      alert("Generation failed");
+      setGeneratingId(null);
+      toast.error("Generation request failed");
       console.error(err);
     }
   };
@@ -272,6 +308,7 @@ export default function InstructorSessionMaterials() {
 
   return (
     <div className="min-h-screen bg-white dark:bg-background-dark text-slate-900 dark:text-white font-outfit p-8 md:p-12 transition-colors duration-500">
+      <Toaster position="bottom-right" />
       {/* Header */}
       <div className="max-w-7xl mx-auto space-y-12">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-8">
@@ -309,121 +346,184 @@ export default function InstructorSessionMaterials() {
         {/* Content Area */}
         <div className="bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/5 rounded-[48px] p-6 md:p-10 min-h-[60vh] shadow-inner">
           {dashboardTab === 'INSTRUCTOR' ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
               {session.materials.map((mat, mi) => (
                 <motion.div
-                  initial={{ opacity: 0, scale: 0.95 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  whileHover={{ y: -5 }}
-                  transition={{ delay: mi * 0.05 }}
                   key={mi}
-                  className="group relative bg-slate-50 dark:bg-card-dark border border-slate-200 dark:border-white/10 rounded-[32px] p-6 flex flex-col gap-6 shadow-xl dark:shadow-none hover:border-primary-light/40 transition-all overflow-hidden cursor-pointer"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: mi * 0.05 }}
+                  className="group relative bg-[#0f1115] rounded-3xl p-[2px] transition-all duration-500 overflow-hidden shadow-2xl"
                   onClick={() => setActiveDoc({ title: mat.title, url: mat.url.startsWith('http') ? mat.url : `${import.meta.env.VITE_API_URL}${mat.url}`, type: mat.type })}
                 >
-                  {/* Glassy Accent Decor */}
-                  <div className="absolute top-0 right-0 w-32 h-32 bg-primary-light/5 rounded-full -mr-16 -mt-16 blur-2xl group-hover:bg-primary-light/10 transition-all" />
+                  {/* Animated Border Gradient */}
+                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-indigo-500/0 to-transparent group-hover:from-indigo-500/50 group-hover:via-purple-500/50 group-hover:to-pink-500/50 transition-all duration-1000 opacity-0 group-hover:opacity-100" />
+                  
+                  <div className="relative bg-white dark:bg-[#0f1115] border border-slate-200 dark:border-white/5 rounded-[22px] p-8 h-full flex flex-col gap-8 shadow-sm">
+                    {/* Breathing Background Glow */}
+                    <motion.div 
+                      animate={{ 
+                        scale: [1, 1.2, 1],
+                        opacity: [0.05, 0.1, 0.05]
+                      }}
+                      transition={{ 
+                        duration: 8,
+                        repeat: Infinity,
+                        ease: "easeInOut"
+                      }}
+                      className="absolute -top-32 -right-32 w-64 h-64 bg-indigo-600/10 rounded-full blur-[100px] pointer-events-none"
+                    />
 
-                  {/* Card Header: Icon + Status */}
-                  <div className="flex justify-between items-start relative z-10">
-                    <div className={`w-14 h-14 rounded-2xl flex items-center justify-center ${mat.isSourceForAI ? 'bg-primary-light text-white shadow-lg shadow-primary-light/20' : 'bg-slate-100 dark:bg-white/5 text-slate-400 dark:text-white/40'}`}>
-                      <FileText className="w-7 h-7" />
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <a
-                        href={mat.url.startsWith('http') ? mat.url : `${import.meta.env.VITE_API_URL}${mat.url}`}
-                        download
-                        onClick={(e) => e.stopPropagation()}
-                        className="p-3 bg-slate-50 dark:bg-white/5 hover:bg-slate-100 dark:hover:bg-white/10 rounded-xl transition-all border border-slate-200 dark:border-white/5 text-slate-400 dark:text-white/30 hover:text-slate-900 dark:hover:text-white relative z-20"
-                        title="Download"
-                      >
-                        <Download className="w-4 h-4" />
-                      </a>
-                      <button
-                        onClick={(e) => { e.stopPropagation(); handleDeleteMaterial(mat.url); }}
-                        className="p-3 bg-red-500/5 hover:bg-red-500 text-red-500 hover:text-white rounded-xl transition-all border border-red-500/10 relative z-20"
-                        title="Delete Material"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                      <div className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest border ${mat.isPublished ? 'bg-green-500/10 border-green-500/20 text-green-500 shadow-sm' : 'bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/5 text-slate-400 dark:text-white/40'}`}>
-                        {mat.isPublished ? 'Published' : 'Draft'}
+                    {/* Generation Progress Bar */}
+                    {(
+                      mat.status === 'generating' || 
+                      mat.status === 'extracting' || 
+                      (extractingPreviewId && (
+                        extractingPreviewId === String(mat._id) || 
+                        extractingPreviewId === String((mat as any).id) || 
+                        extractingPreviewId === String(mat.url)
+                      )) || 
+                      (generatingId && (
+                        generatingId === String(mat._id) || 
+                        generatingId === String((mat as any).id) ||
+                        generatingId === String(mat.url)
+                      ))
+                    ) && (
+                      <div className="absolute top-0 left-0 right-0 h-1 bg-indigo-500/20 overflow-hidden z-[100] rounded-t-[22px]">
+                        <motion.div 
+                          className="w-full h-full bg-gradient-to-r from-indigo-500 via-purple-500 to-indigo-500 shadow-[0_0_20px_#6366f1]"
+                          initial={{ x: '-100%' }}
+                          animate={{ x: '100%' }}
+                          transition={{ repeat: Infinity, duration: 1.5, ease: 'linear' }}
+                        />
                       </div>
-                      <button
-                        onClick={(e) => { e.stopPropagation(); handleGenerate(mat); }}
-                        className={`p-3 rounded-xl border transition-all ${mat.status === 'generating' || extractingPreview ? 'bg-primary-light text-white border-primary-light shadow-xl shadow-primary-light/20' : 'bg-slate-100 dark:bg-white/5 text-slate-400 dark:text-white/30 hover:border-primary-light hover:text-primary-light'}`}
-                        title="Generate AI Curriculum from this file"
-                        disabled={mat.status === 'generating' || extractingPreview}
-                      >
-                        {mat.status === 'generating' || extractingPreview ? <Loader2 className="w-4 h-4 animate-spin" /> : <BrainCircuit className="w-4 h-4" />}
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Card Body: Title + Meta */}
-                  <div className="space-y-3 relative z-10 flex-1">
-                    <h4 className="font-black text-xl leading-tight text-slate-900 dark:text-white group-hover:text-primary-light transition-colors line-clamp-2 min-h-[3rem]">
-                      {mat.title}
-                    </h4>
-                    <div className="flex items-center gap-2">
-                      <p className="text-[10px] font-black uppercase opacity-40 tracking-[0.2em]">{mat.type || 'Document'}</p>
-                      <div className="w-1 h-1 rounded-full bg-slate-300 dark:bg-white/10" />
-                      <span className="text-[10px] font-bold text-slate-400 dark:text-white/20">{mat.isPublished ? 'Live Asset' : 'Internal Draft'}</span>
-                    </div>
-                  </div>
-
-                  {/* Card Actions: View / Publish / Slides */}
-                  <div className="grid grid-cols-2 gap-3 relative z-10 pt-2">
-                    <button
-                      onClick={(e) => { e.stopPropagation(); setActiveDoc({ title: mat.title, url: mat.url.startsWith('http') ? mat.url : `${import.meta.env.VITE_API_URL}${mat.url}`, type: mat.type }); }}
-                      className="py-3.5 bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 rounded-[18px] text-[10px] font-black uppercase tracking-[0.1em] transition-all border border-slate-200 dark:border-white/5 text-slate-600 dark:text-white/60 flex items-center justify-center gap-2"
-                    >
-                      <BookOpen className="w-3 h-3" /> View
-                    </button>
-                    <button
-                      onClick={(e) => { e.stopPropagation(); handleTogglePublish(mat.url); }}
-                      className={`py-3.5 rounded-[18px] text-[10px] font-black uppercase tracking-[0.1em] transition-all border flex items-center justify-center gap-2 ${mat.isPublished ? 'bg-green-500/10 border-green-500/40 text-green-500' : 'bg-primary-light text-white shadow-lg shadow-primary-light/20 border-primary-light'}`}
-                    >
-                      {mat.isPublished ? <Check className="w-3 h-3" /> : <Plus className="w-3 h-3" />}
-                      {mat.isPublished ? 'Published' : 'Draft'}
-                    </button>
-
-                    {(mat.type === 'SLIDES' || mat.url.toLowerCase().endsWith('.pptx')) && (
-                      <button
-                        onClick={() => {
-                          if (mat.isSourceForAI && generatedContent.length > 0) {
-                            const content = generatedContent[0];
-                            setActiveSlideshow([{
-                              subTopicTitle: "AI Review",
-                              assets: content.materials.map((m: any) => ({
-                                title: m.title,
-                                content: m.content ? [m.content] : (m.links || [])
-                              }))
-                            }]);
-                          } else {
-                            setActiveDoc({ title: mat.title, url: mat.url.startsWith('http') ? mat.url : `${import.meta.env.VITE_API_URL}${mat.url}`, type: 'SLIDES' });
-                          }
-                        }}
-                        className="col-span-2 py-3.5 bg-primary-light/10 text-primary-light hover:bg-primary-light hover:text-white rounded-[18px] text-[10px] font-black uppercase tracking-[0.1em] transition-all border border-primary-light/20 flex items-center justify-center gap-2"
-                      >
-                        <Layout className="w-3 h-3" /> Interactive Slides
-                      </button>
                     )}
+
+                    {/* Header: Icon & Badges */}
+                    <div className="flex justify-between items-start">
+                      <div className="relative">
+                        <motion.div 
+                          whileHover={{ scale: 1.05, rotate: 2 }}
+                          className={`w-20 h-20 rounded-2xl flex items-center justify-center transition-all duration-700 relative overflow-hidden ${mat.isSourceForAI ? 'bg-gradient-to-br from-indigo-600 to-purple-600 text-white shadow-2xl shadow-indigo-600/30' : 'bg-slate-100 dark:bg-white/5 text-slate-400 dark:text-white/20 group-hover:bg-slate-200 dark:group-hover:bg-white/10 group-hover:text-slate-600 dark:group-hover:text-white'}`}
+                        >
+                          <FileText className="w-10 h-10 relative z-10" />
+                          <div className="absolute inset-0 bg-gradient-to-tr from-white/0 via-white/10 to-white/0 opacity-0 group-hover:opacity-100 transition-opacity" />
+                        </motion.div>
+                        
+                        {(mat.status === 'generated' || mat.status === 'approved') && (
+                          <motion.div 
+                            animate={{ 
+                              boxShadow: ["0 0 0px rgba(99,102,241,0.4)", "0 0 20px rgba(99,102,241,0.8)", "0 0 0px rgba(99,102,241,0.4)"]
+                            }}
+                            transition={{ duration: 2, repeat: Infinity }}
+                            className="absolute -top-2 -right-2 w-8 h-8 bg-indigo-500 text-white rounded-full flex items-center justify-center shadow-2xl ring-4 ring-[#0f1115] z-30"
+                          >
+                            <BrainCircuit className="w-4 h-4" />
+                          </motion.div>
+                        )}
+                      </div>
+                      
+                      <div className="flex flex-col items-end gap-3">
+                        <div className="flex items-center gap-2">
+                          <span className={`px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-colors duration-500 ${mat.isPublished ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-500 border border-emerald-500/20' : 'bg-slate-100 dark:bg-white/5 text-slate-400 dark:text-white/40 border border-slate-200 dark:border-white/10'}`}>
+                            {mat.isPublished ? 'Published' : 'Draft'}
+                          </span>
+                          {(mat.status === 'generated' || mat.status === 'approved') && (
+                            <span className="px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20 flex items-center gap-2 animate-pulse">
+                              <BrainCircuit className="w-3.5 h-3.5" /> AI Ready
+                            </span>
+                          )}
+                        </div>
+                        <span className="text-[10px] font-bold text-slate-400 dark:text-white/20 uppercase tracking-[0.3em] group-hover:text-slate-600 dark:group-hover:text-white/40 transition-colors">
+                          {mat.type} ASSET
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Body: Title */}
+                    <div className="space-y-4">
+                      <h3 className="text-2xl font-black text-slate-900 dark:text-white leading-tight transition-all duration-500 group-hover:bg-clip-text group-hover:text-transparent group-hover:bg-gradient-to-r group-hover:from-indigo-600 group-hover:to-purple-600 dark:group-hover:from-white dark:group-hover:to-indigo-400">
+                        {mat.title}
+                      </h3>
+                      <div className="h-[1px] w-full bg-slate-100 dark:bg-white/5 relative overflow-hidden">
+                        <motion.div 
+                          initial={{ x: '-100%' }}
+                          whileHover={{ x: '0%' }}
+                          transition={{ duration: 0.5 }}
+                          className="absolute inset-0 bg-gradient-to-r from-transparent via-indigo-500/50 to-transparent"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Footer: Actions */}
+                    <div className="flex items-center gap-4 mt-auto">
+                      <motion.button
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                        onClick={(e) => { e.stopPropagation(); handleGenerate(mat); }}
+                        disabled={
+                          mat.status === 'generating' || 
+                          mat.status === 'extracting' || 
+                          (extractingPreviewId && (extractingPreviewId === String(mat._id) || extractingPreviewId === String(mat.url))) ||
+                          (generatingId && (generatingId === String(mat._id) || generatingId === String(mat.url)))
+                        }
+                        className={`flex-grow py-4 rounded-xl text-[11px] font-black uppercase tracking-widest relative overflow-hidden group/btn transition-all duration-500 shadow-xl dark:shadow-none ${
+                          mat.status === 'generating' || 
+                          mat.status === 'extracting' || 
+                          (extractingPreviewId && (extractingPreviewId === String(mat._id) || extractingPreviewId === String(mat.url))) ||
+                          (generatingId && (generatingId === String(mat._id) || generatingId === String(mat.url)))
+                          ? 'bg-indigo-600 text-white' : 'bg-slate-900 dark:bg-white text-white dark:text-black'
+                        }`}
+                      >
+                        <span className="relative z-10 flex items-center justify-center gap-2 transition-colors group-hover/btn:text-white dark:group-hover/btn:text-white">
+                          {mat.status === 'generating' || 
+                           mat.status === 'extracting' || 
+                           (extractingPreviewId && (extractingPreviewId === String(mat._id) || extractingPreviewId === String(mat.url))) ||
+                           (generatingId && (generatingId === String(mat._id) || generatingId === String(mat.url))) ? (
+                            <><Loader2 className="w-4 h-4 animate-spin" /> Processing...</>
+                          ) : (
+                            <><BrainCircuit className="w-4 h-4" /> AI Generation</>
+                          )}
+                        </span>
+                        <div className="absolute inset-0 bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-600 opacity-0 group-hover/btn:opacity-100 transition-all duration-500 translate-y-full group-hover/btn:translate-y-0" />
+                      </motion.button>
+                      
+                      <motion.button
+                        whileHover={{ scale: 1.1, rotate: 5 }}
+                        whileTap={{ scale: 0.9 }}
+                        onClick={(e) => { e.stopPropagation(); setActiveDoc({ title: mat.title, url: mat.url.startsWith('http') ? mat.url : `${import.meta.env.VITE_API_URL}${mat.url}`, type: mat.type }); }}
+                        className="p-4 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 text-slate-400 dark:text-white/30 hover:border-indigo-500/50 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-500/5 transition-all duration-500"
+                        title="View Asset"
+                      >
+                        <Eye className="w-5 h-5" />
+                      </motion.button>
+                      
+                      <motion.button
+                        whileHover={{ scale: 1.1, rotate: -5 }}
+                        whileTap={{ scale: 0.9 }}
+                        onClick={(e) => { e.stopPropagation(); handleDeleteMaterial(mat.url); }}
+                        className="p-4 bg-slate-50 dark:bg-white/5 text-slate-400 dark:text-white/20 hover:bg-red-500/10 hover:text-red-500 rounded-xl border border-slate-200 dark:border-white/5 hover:border-red-500/20 transition-all duration-300"
+                      >
+                        <Trash2 className="w-5 h-5" />
+                      </motion.button>
+                    </div>
                   </div>
                 </motion.div>
               ))}
 
               {/* Add Material Card */}
               <motion.div
-                whileHover={{ y: -5 }}
-                className="group relative bg-slate-100/50 dark:bg-white/[0.02] border-2 border-dashed border-slate-200 dark:border-white/10 rounded-[32px] p-6 flex flex-col items-center justify-center gap-4 transition-all cursor-pointer hover:border-primary-light hover:bg-primary-light/5"
+                whileHover={{ scale: 1.02 }}
+                className="group relative bg-slate-100/50 dark:bg-white/[0.02] border-2 border-dashed border-slate-200 dark:border-white/10 rounded-3xl p-12 flex flex-col items-center justify-center gap-6 transition-all duration-700 cursor-pointer overflow-hidden"
                 onClick={() => setShowAddMaterialModal(true)}
               >
-                <div className="w-16 h-16 rounded-full bg-white dark:bg-white/5 flex items-center justify-center shadow-sm group-hover:scale-110 transition-transform">
-                  <Plus className="w-8 h-8 text-primary-light" />
+                <div className="absolute inset-0 bg-indigo-500/0 group-hover:bg-indigo-500/5 transition-colors duration-700" />
+                <div className="w-16 h-16 rounded-2xl bg-white dark:bg-white/5 flex items-center justify-center shadow-xl group-hover:bg-indigo-500 group-hover:text-white transition-all duration-700 relative z-10 border border-slate-100 dark:border-transparent">
+                  <Plus className="w-8 h-8 text-slate-400 dark:text-white/20 group-hover:text-white" />
                 </div>
-                <div className="text-center">
-                  <h4 className="font-black text-lg text-slate-900 dark:text-white group-hover:text-primary-light transition-colors">Add New Asset</h4>
-                  <p className="text-[10px] font-bold uppercase opacity-40 tracking-widest mt-1">Upload PDF or Slides</p>
+                <div className="text-center space-y-2 relative z-10">
+                  <h4 className="font-black text-xl text-slate-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-all duration-500">Add New Asset</h4>
+                  <p className="text-slate-400 dark:text-white/20 text-[10px] font-bold uppercase tracking-[0.2em] group-hover:text-slate-600 dark:group-hover:text-white/40 transition-colors">Upload PDF or Presentation</p>
                 </div>
               </motion.div>
             </div>
@@ -469,11 +569,15 @@ export default function InstructorSessionMaterials() {
                         {/* Integrated Actions */}
                         <div className="flex items-center gap-4">
                           {(() => {
-                             const mat = session.materials.find(m => m.url === content.sourceMaterialUrl || m._id === content.materialId);
-                             if (!mat) return null;
+                             const mat = session.materials.find(m => 
+                               (m._id && m._id === content.materialId) || 
+                               ((m as any).id && (m as any).id === content.materialId) ||
+                               (m.url === content.sourceMaterialUrl)
+                             );
+                             
                              return (
                                <>
-                                 {mat.status === 'generated' && mat.aiWorkflowStage && mat.aiWorkflowStage !== 'Finalized' && (
+                                 {mat && mat.status === 'generated' && mat.aiWorkflowStage && mat.aiWorkflowStage !== 'Finalized' && (
                                    <button
                                      onClick={() => handleOpenReview(content)}
                                      className="bg-amber-500 text-white px-8 py-5 rounded-[24px] font-black text-xs uppercase tracking-widest flex items-center gap-3 shadow-xl shadow-amber-500/30 hover:scale-105 transition-all"
@@ -481,7 +585,8 @@ export default function InstructorSessionMaterials() {
                                      <Edit3 className="w-5 h-5" /> Review AI Assets
                                    </button>
                                  )}
-                                                                   {mat.aiWorkflowStage === 'Finalized' && mat.status !== 'approved' && (
+
+                                 {mat && mat.aiWorkflowStage === 'Finalized' && mat.status !== 'approved' && (
                                     <button
                                       onClick={() => handleApprove(mat._id)}
                                       className="bg-green-500 text-white px-8 py-5 rounded-[24px] font-black text-xs uppercase tracking-widest flex items-center gap-3 shadow-xl shadow-green-500/30 hover:scale-105 transition-all"
@@ -490,34 +595,33 @@ export default function InstructorSessionMaterials() {
                                     </button>
                                   )}
 
-                                  {(mat.status === 'approved' || mat.aiWorkflowStage === 'Finalized') && (
-                                    <button
-                                      onClick={() => handleTogglePublishContent(mat._id!)}
-                                      className={`px-8 py-5 rounded-[24px] font-black text-xs uppercase tracking-widest flex items-center gap-3 transition-all shadow-xl ${content?.isPublished ? 'bg-teal-500 text-white shadow-teal-500/30' : 'bg-slate-200 dark:bg-white/10 text-slate-500 dark:text-white/40 hover:text-slate-900 dark:hover:text-white'}`}
-                                    >
-                                      {content?.isPublished ? <CheckCircle2 className="w-5 h-5" /> : <Loader2 className="w-5 h-5" />}
-                                      {content?.isPublished ? "Published" : "Draft"}
-                                    </button>
-                                  )}
-
+                                  <button
+                                    onClick={() => handleTogglePublishContent(content.materialId || (mat as any)?._id)}
+                                    className={`px-8 py-5 rounded-[24px] font-black text-xs uppercase tracking-widest flex items-center gap-3 transition-all shadow-xl ${content?.isPublished ? 'bg-teal-500 text-white shadow-teal-500/30' : 'bg-slate-200 dark:bg-white/10 text-slate-500 dark:text-white/40 hover:text-slate-900 dark:hover:text-white'}`}
+                                  >
+                                    {content?.isPublished ? <CheckCircle2 className="w-5 h-5" /> : <Loader2 className="w-5 h-5" />}
+                                    {content?.isPublished ? "Published" : "Draft"}
+                                  </button>
 
                                  <button
                                    onClick={async () => {
-                                     if (!window.confirm(`Are you sure you want to delete AI generated curriculum for "${mat.title}"? This cannot be undone.`)) return;
+                                     const title = mat?.title || content.sourceMaterialTitle || "this curriculum";
+                                     if (!window.confirm(`Are you sure you want to delete AI generated curriculum for "${title}"? This cannot be undone.`)) return;
                                      try {
                                        const token = localStorage.getItem('token');
                                        await axios.delete(`${import.meta.env.VITE_API_URL}/sessions-content/${sessionId}/content`, {
-                                         data: { materialId: mat._id },
+                                         data: { materialId: content.materialId || (mat as any)?._id },
                                          headers: { Authorization: `Bearer ${token}` }
                                        });
                                        fetchSession();
+                                       toast.success("Curriculum deleted");
                                      } catch (err: any) {
-                                       alert(`Failed to delete curriculum: ${err.response?.data?.message || err.message}`);
+                                       toast.error(`Failed to delete: ${err.response?.data?.message || err.message}`);
                                      }
                                    }}
                                    className="p-5 bg-red-500/10 text-red-500 rounded-[24px] border border-red-500/20 hover:bg-red-500 hover:text-white transition-all shadow-lg shadow-red-500/10"
                                    title="Delete AI Curriculum"
-                                 >
+                                  >
                                    <Trash2 className="w-5 h-5" />
                                  </button>
                                </>

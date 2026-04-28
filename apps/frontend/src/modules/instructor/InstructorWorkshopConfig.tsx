@@ -106,7 +106,7 @@ export default function InstructorWorkshopConfig() {
       <AnimatePresence mode="wait">
         {activeTab === 'DYNAMIC' ? (
           <motion.div key="dynamic" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}>
-            <SessionContentGen workshopId={id!} onUpdate={fetchWorkshop} />
+            <SessionContentGen workshop={workshop} workshopId={id!} onUpdate={fetchWorkshop} />
           </motion.div>
         ) : (
           <motion.div key="classic" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="grid grid-cols-1 lg:grid-cols-3 gap-10">

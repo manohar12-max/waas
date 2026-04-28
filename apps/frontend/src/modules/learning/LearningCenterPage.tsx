@@ -28,6 +28,7 @@ interface AICurriculum {
    mcqs: any[];
    applicationProblem?: any;
    materials: any[];
+   slides?: any[];
    mcqStatus?: {
       attempts: number;
       attemptsRemaining: number;
@@ -186,13 +187,35 @@ export default function LearningCenterPage() {
    };
 
    const handleOpenAIPlay = (aiPass: AICurriculum) => {
+      // Prioritize explicit slides if available
+      let slideAssets = [];
+      
+      if (aiPass.slides && aiPass.slides.length > 0) {
+         slideAssets = aiPass.slides.map((s: any, idx: number) => {
+            if (typeof s === 'string') {
+               return {
+                  title: s,
+                  content: []
+               };
+            }
+            return {
+               title: s.title || `Slide ${idx + 1}`,
+               content: Array.isArray(s.content) ? s.content : (s.content ? [s.content] : [])
+            };
+         });
+      } else if (aiPass.materials && aiPass.materials.length > 0) {
+         // Fallback to materials if no slides
+         slideAssets = aiPass.materials.map((m: any, idx: number) => ({
+            title: m.title || `Resource ${idx + 1}`,
+            content: m.content ? [m.content] : (m.links || [])
+         }));
+      }
+
       const slides: UnitAssetsItem[] = [{
          subTopicTitle: "AI Generated Review",
-         assets: aiPass.materials.map((m: any) => ({
-            title: m.title,
-            content: m.content ? [m.content] : (m.links || [])
-         }))
+         assets: slideAssets
       }];
+      
       setActiveSlideshow(slides);
    };
 
@@ -305,8 +328,8 @@ export default function LearningCenterPage() {
                               }}
                            >
                               <option value="ALL" className="bg-slate-50 dark:bg-slate-900">Show All Programs</option>
-                              {workshops.map(w => (
-                                 <option key={w._id} value={w._id} className="bg-slate-50 dark:bg-slate-900">{w.title}</option>
+                              {workshops.map((w, idx) => (
+                                 <option key={w._id || `w-${idx}`} value={w._id} className="bg-slate-50 dark:bg-slate-900">{w.title}</option>
                               ))}
                            </select>
                         </div>
@@ -381,15 +404,15 @@ export default function LearningCenterPage() {
 
                            {/* Grouped Content (AI Path) */}
                            <div className="space-y-32">
-                              {workshop.days.map((day) => (
-                                 <div key={day.dayNumber} className="space-y-16">
+                              {workshop.days.map((day, di) => (
+                                 <div key={day.dayNumber || `day-${di}`} className="space-y-16">
                                     <div className="flex items-center gap-8 group">
                                        <span className="text-4xl md:text-5xl font-black text-slate-300 dark:text-white/20 group-hover:text-primary-light/40 transition-colors uppercase italic tracking-tighter">Day 0{day.dayNumber}</span>
                                        <div className="h-px flex-1 bg-gradient-to-r from-slate-200 dark:from-white/10 to-transparent" />
                                     </div>
                                     <div className="space-y-20">
                                        {day.sessions.map((session, si) => (
-                                          <div key={session._id} className="relative pl-10 border-l-2 border-slate-200 dark:border-white/5 space-y-10">
+                                          <div key={session._id || `sess-${si}`} className="relative pl-10 border-l-2 border-slate-200 dark:border-white/5 space-y-10">
                                              <div className="absolute left-[-9px] top-0 w-4 h-4 rounded-full bg-slate-50 dark:bg-[#020208] border-2 border-primary-light shadow-[0_0_10px_rgba(99,102,241,0.3)]" />
                                              <div className="space-y-4">
                                                 <div className="flex items-center justify-between">
@@ -428,7 +451,7 @@ export default function LearningCenterPage() {
                                                       <div className="flex items-center gap-3"><div className="w-8 h-8 bg-indigo-500/10 text-indigo-500 rounded-lg flex items-center justify-center"><BookOpen className="w-4 h-4" /></div><h4 className="text-sm font-black tracking-widest italic uppercase text-slate-400 dark:text-white/40">Institutional Assets</h4></div>
                                                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                                                          {session.materials.filter(m => m.isPublished).map((mat, mi) => (
-                                                            <div key={mi} className="bg-white dark:bg-white/[0.03] border border-slate-200 dark:border-white/5 rounded-[24px] p-6 flex flex-col justify-between group hover:bg-slate-50 dark:hover:bg-white/[0.05] transition-all shadow-sm dark:shadow-none min-h-[160px]">
+                                                            <div key={`mat-${mi}`} className="bg-white dark:bg-white/[0.03] border border-slate-200 dark:border-white/5 rounded-[24px] p-6 flex flex-col justify-between group hover:bg-slate-50 dark:hover:bg-white/[0.05] transition-all shadow-sm dark:shadow-none min-h-[160px]">
                                                                <div className="flex items-start gap-4">
                                                                   <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${mat.type === 'PDF' ? 'bg-rose-500/10 text-rose-500' : 'bg-primary-light/10 text-primary-light'}`}>
                                                                      {mat.type === 'PDF' ? <FileText className="w-6 h-6" /> : <Layout className="w-6 h-6" />}
@@ -458,7 +481,7 @@ export default function LearningCenterPage() {
                                                       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                                                          {session.aiContent && session.aiContent.length > 0 ? (
                                                             session.aiContent.map((content, ci) => (
-                                                               <div key={ci} className="bg-white dark:bg-[#0a0a14] border-2 border-indigo-500/10 dark:border-indigo-500/5 rounded-[40px] p-8 space-y-8 relative overflow-hidden group shadow-xl shadow-indigo-500/5 dark:shadow-none">
+                                                               <div key={content._id || `ai-${ci}`} className="bg-white dark:bg-[#0a0a14] border-2 border-indigo-500/10 dark:border-indigo-500/5 rounded-[40px] p-8 space-y-8 relative overflow-hidden group shadow-xl shadow-indigo-500/5 dark:shadow-none">
                                                                   <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/10 blur-[80px] -mr-16 -mt-16 group-hover:scale-150 transition-transform duration-1000" />
                                                                   <div className="flex items-center justify-between relative z-10">
                                                                      <div className="space-y-1">
