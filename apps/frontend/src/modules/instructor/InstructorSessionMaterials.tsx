@@ -435,9 +435,15 @@ export default function InstructorSessionMaterials() {
                       
                       <div className="flex flex-col items-end gap-3">
                         <div className="flex items-center gap-2">
-                          <span className={`px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-colors duration-500 ${mat.isPublished ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-500 border border-emerald-500/20' : 'bg-slate-100 dark:bg-white/5 text-slate-400 dark:text-white/40 border border-slate-200 dark:border-white/10'}`}>
+                          <motion.button
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
+                            onClick={(e) => { e.stopPropagation(); handleTogglePublish(mat.url); }}
+                            className={`px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all duration-500 flex items-center gap-2 shadow-sm ${mat.isPublished ? 'bg-emerald-500 text-white shadow-emerald-500/20' : 'bg-slate-100 dark:bg-white/5 text-slate-400 dark:text-white/40 border border-slate-200 dark:border-white/10 hover:bg-slate-200 dark:hover:bg-white/10'}`}
+                          >
+                            {mat.isPublished ? <CheckCircle2 className="w-3.5 h-3.5" /> : <div className="w-3.5 h-3.5 rounded-full border-2 border-current opacity-30" />}
                             {mat.isPublished ? 'Published' : 'Draft'}
-                          </span>
+                          </motion.button>
                           {(mat.status === 'generated' || mat.status === 'approved') && (
                             <span className="px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20 flex items-center gap-2 animate-pulse">
                               <BrainCircuit className="w-3.5 h-3.5" /> AI Ready
@@ -498,6 +504,16 @@ export default function InstructorSessionMaterials() {
                         <div className="absolute inset-0 bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-600 opacity-0 group-hover/btn:opacity-100 transition-all duration-500 translate-y-full group-hover/btn:translate-y-0" />
                       </motion.button>
                       
+                      <motion.button
+                        whileHover={{ scale: 1.1, rotate: 5 }}
+                        whileTap={{ scale: 0.9 }}
+                        onClick={(e) => { e.stopPropagation(); handleTogglePublish(mat.url); }}
+                        className={`p-4 rounded-xl border transition-all duration-500 ${mat.isPublished ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-500 shadow-lg shadow-emerald-500/10' : 'bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-400 dark:text-white/30 hover:border-emerald-500/50 hover:text-emerald-600 dark:hover:text-emerald-400'}`}
+                        title={mat.isPublished ? "Set to Draft" : "Publish Asset"}
+                      >
+                        {mat.isPublished ? <CheckCircle2 className="w-5 h-5" /> : <CheckCircle className="w-5 h-5" />}
+                      </motion.button>
+
                       <motion.button
                         whileHover={{ scale: 1.1, rotate: 5 }}
                         whileTap={{ scale: 0.9 }}

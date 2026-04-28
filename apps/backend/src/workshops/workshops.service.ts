@@ -76,8 +76,8 @@ export class WorkshopsService {
     }
 
     // 2. Resolve Student Identity
-    let student = await this.userModel.findOne({ 
-      email: { $regex: new RegExp(`^${email}$`, 'i') } 
+    let student = await this.userModel.findOne({
+      email: { $regex: new RegExp(`^${email}$`, 'i') }
     });
 
     if (student) {
@@ -97,7 +97,7 @@ export class WorkshopsService {
       if (isPending) {
         throw new ConflictException('Your registration is pending approval.');
       }
-      
+
       this.logger.log(`Existing student ${email} applying for new workshop: ${workshop.title}`);
     } else {
       // 3. Create Identity if not exists
@@ -144,10 +144,10 @@ export class WorkshopsService {
     if (!workshop) throw new NotFoundException('Workshop not found');
 
     // 2. Resolve Student Identity
-    let student = await this.userModel.findOne({ 
-      email: { $regex: new RegExp(`^${trimmedEmail}$`, 'i') } 
+    let student = await this.userModel.findOne({
+      email: { $regex: new RegExp(`^${trimmedEmail}$`, 'i') }
     });
-    
+
     if (student) {
       if (student.role !== UserRole.STUDENT) {
         throw new ConflictException('A user with this email already exists with a different role (Teacher/Admin).');
@@ -274,7 +274,7 @@ export class WorkshopsService {
       }
 
       const query: any = {};
-      
+
       if (sId) {
         // Students only see workshops they are registered for
         query.registeredStudentIds = sId;
@@ -357,7 +357,7 @@ export class WorkshopsService {
     if (updateDto.instructorId) {
       updateDto.instructorId = this.toObjectId(updateDto.instructorId);
     }
-    
+
     // Safety: Remove collegeId from payload to prevent accidental institutional reassignment
     delete updateDto.collegeId;
 
@@ -374,7 +374,7 @@ export class WorkshopsService {
     if (!wId) throw new NotFoundException('Workshop not found.');
 
     const query: any = { _id: wId };
-    
+
     // For non-super-admins, we usually restrict by collegeId 
     // EXCEPT for instructors who should always see their assigned workshops
     // AND for students who should see workshops they are registered in
@@ -406,12 +406,12 @@ export class WorkshopsService {
     const now = new Date();
     const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
-    
+
     let calculatedStatus = workshop.status;
     if (workshop.schedule?.start && workshop.schedule?.end) {
       const start = new Date(workshop.schedule.start);
       const end = new Date(workshop.schedule.end);
-      
+
       if (start > endOfToday) calculatedStatus = 'UPCOMING';
       else if (end < startOfToday) calculatedStatus = 'INACTIVE';
       else calculatedStatus = 'ACTIVE';
@@ -477,7 +477,7 @@ export class WorkshopsService {
     const wId = this.toObjectId(id);
     const cId = this.toObjectId(collegeId);
     const iId = this.toObjectId(instructorId);
-    
+
     if (!wId) throw new BadRequestException('Invalid Workshop ID.');
 
     const workshop = await this.workshopModel.findById(wId);
@@ -494,21 +494,21 @@ export class WorkshopsService {
     }
 
     this.logger.log(`Deleting workshop: ${wId} (Verified for College: ${cId}, Instructor: ${iId})`);
-    
+
     // Cascading deletion could be added here for assignments, etc.
     return this.workshopModel.deleteOne({ _id: wId }).exec();
   }
 
   private async autoUpdateStatuses(collegeId?: any, targetStudentId?: any): Promise<void> {
     const now = new Date();
-    
+
     // Day-aware boundaries
     const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
 
     const cId = this.toObjectId(collegeId);
     const sId = this.toObjectId(targetStudentId);
-    
+
     const baseQuery: any = {};
     if (cId) baseQuery.collegeId = cId;
     if (sId) baseQuery.registeredStudentIds = sId;
@@ -519,35 +519,35 @@ export class WorkshopsService {
       // 1. Force to ACTIVE if the day has arrived or we are in the range
       // A workshop is ACTIVE if: start <= endOfToday AND end >= startOfToday
       await this.workshopModel.updateMany(
-        { 
-          ...baseQuery, 
-          status: { $ne: 'ACTIVE' }, 
-          'schedule.start': { $lte: endOfToday }, 
-          'schedule.end': { $gte: startOfToday } 
+        {
+          ...baseQuery,
+          status: { $ne: 'ACTIVE' },
+          'schedule.start': { $lte: endOfToday },
+          'schedule.end': { $gte: startOfToday }
         },
         { $set: { status: 'ACTIVE' } }
       ).exec();
 
       // 2. Force to INACTIVE if the end day has passed
       await this.workshopModel.updateMany(
-        { 
-          ...baseQuery, 
-          status: { $ne: 'INACTIVE' }, 
-          'schedule.end': { $lt: startOfToday } 
+        {
+          ...baseQuery,
+          status: { $ne: 'INACTIVE' },
+          'schedule.end': { $lt: startOfToday }
         },
         { $set: { status: 'INACTIVE' } }
       ).exec();
 
       // 3. Force to UPCOMING if the start day is in the future
       await this.workshopModel.updateMany(
-        { 
-          ...baseQuery, 
-          status: { $ne: 'UPCOMING' }, 
-          'schedule.start': { $gt: endOfToday } 
+        {
+          ...baseQuery,
+          status: { $ne: 'UPCOMING' },
+          'schedule.start': { $gt: endOfToday }
         },
         { $set: { status: 'UPCOMING' } }
       ).exec();
-      
+
       // 4. Catch-all for missing status
       await this.workshopModel.updateMany(
         { ...baseQuery, status: { $nin: ['UPCOMING', 'ACTIVE', 'INACTIVE'] } },
@@ -610,7 +610,7 @@ export class WorkshopsService {
 
     const workshop = await this.workshopModel.findById(wId);
     if (!workshop) throw new NotFoundException('Workshop not found.');
-    
+
     const isRegistered = workshop.registeredStudentIds.some(
       (rid: any) => rid.toString() === sId.toString()
     );
@@ -635,7 +635,7 @@ export class WorkshopsService {
     // Verify Registration
     const workshop = await this.workshopModel.findById(wId);
     if (!workshop) throw new NotFoundException('Workshop not found.');
-    
+
     const isRegistered = workshop.registeredStudentIds.some(
       (rid: any) => rid.toString() === sId!.toString()
     );
@@ -723,9 +723,9 @@ export class WorkshopsService {
   async findManyByTitle(title: string, collegeId: any): Promise<WorkshopDocument[]> {
     const cId = this.toObjectId(collegeId);
     if (!cId) return [];
-    return this.workshopModel.find({ 
+    return this.workshopModel.find({
       title: { $regex: new RegExp(`^${title}$`, 'i') },
-      collegeId: cId 
+      collegeId: cId
     }).exec();
   }
 
@@ -733,7 +733,7 @@ export class WorkshopsService {
   async createMediaPost(createDto: any, teacherId: string): Promise<WorkshopMediaPostDocument> {
     const wId = this.toObjectId(createDto.workshopId);
     this.logger.log(`Creating media post for workshop: ${wId} by teacher ${teacherId}`);
-    
+
     const post = new this.mediaPostModel({
       ...createDto,
       workshopId: wId,
@@ -782,7 +782,7 @@ export class WorkshopsService {
   async createTeacherContent(createDto: any, teacherId: string): Promise<TeacherContentDocument> {
     const { shareToMediaFeed, ...data } = createDto;
     this.logger.log(`Creating teacher content for workshop: ${data.workshopId} by teacher ${teacherId}`);
-    
+
     const content = new this.teacherContentModel({
       ...data,
       workshopId: this.toObjectId(data.workshopId),
@@ -793,18 +793,18 @@ export class WorkshopsService {
 
     // Mirror to Media Feed if requested and type is IMAGE or VIDEO
     if (shareToMediaFeed && (data.type === 'IMAGE' || data.type === 'VIDEO')) {
-        try {
-            this.logger.log(`Mirroring content to Media Feed: ${savedContent._id}`);
-            await this.createMediaPost({
-                workshopId: data.workshopId,
-                mediaType: data.type,
-                mediaUrl: data.url,
-                caption: data.title,
-                description: data.description
-            }, teacherId);
-        } catch (err) {
-            this.logger.error('Mirroring to Media Feed Failed', err.stack);
-        }
+      try {
+        this.logger.log(`Mirroring content to Media Feed: ${savedContent._id}`);
+        await this.createMediaPost({
+          workshopId: data.workshopId,
+          mediaType: data.type,
+          mediaUrl: data.url,
+          caption: data.title,
+          description: data.description
+        }, teacherId);
+      } catch (err) {
+        this.logger.error('Mirroring to Media Feed Failed', err.stack);
+      }
     }
 
     return savedContent;
@@ -842,7 +842,7 @@ export class WorkshopsService {
 
   async uploadToCloudinary(file: Express.Multer.File): Promise<string> {
     this.logger.log(`Uploading file ${file.originalname} to Cloudinary...`);
-    
+
     // Determine the resource type for Cloudinary
     let resource_type: 'image' | 'video' | 'raw' | 'auto' = 'auto';
     if (file.mimetype.startsWith('image/')) resource_type = 'image';
@@ -858,7 +858,7 @@ export class WorkshopsService {
             return reject(new BadRequestException(`Cloudinary Upload Failed: ${error.message}`));
           }
           if (!result) return reject(new BadRequestException('Cloudinary upload returned no result'));
-          
+
           this.logger.log(`Cloudinary Upload Success: ${result.secure_url}`);
           resolve(result.secure_url);
         }
@@ -872,7 +872,7 @@ export class WorkshopsService {
   async deleteMediaPost(id: string): Promise<any> {
     const post = await this.mediaPostModel.findById(id);
     if (!post) throw new NotFoundException('Post not found');
-    
+
     this.logger.log(`Deleting media post: ${id}`);
     try {
       const publicId = this.extractPublicId(post.mediaUrl);
@@ -881,14 +881,14 @@ export class WorkshopsService {
     } catch (err) {
       this.logger.error(`Cloudinary Delete Failed: ${err.message}`, err.stack);
     }
-    
+
     return this.mediaPostModel.findByIdAndDelete(id);
   }
 
   async deleteTeacherContent(id: string): Promise<any> {
     const content = await this.teacherContentModel.findById(id);
     if (!content) throw new NotFoundException('Content not found');
-    
+
     this.logger.log(`Deleting teacher content: ${id}`);
     try {
       if (content.type !== 'LINK') {
@@ -899,7 +899,7 @@ export class WorkshopsService {
     } catch (err) {
       this.logger.error(`Cloudinary Delete Failed: ${err.message}`, err.stack);
     }
-    
+
     return this.teacherContentModel.findByIdAndDelete(id);
   }
 
@@ -914,7 +914,7 @@ export class WorkshopsService {
   /** Unified material getter for NAAC reporting */
   async getAllWorkshopMaterials(workshopId: string) {
     const wId = this.toObjectId(workshopId);
-    
+
     // 1. Get static curriculum materials from the workshop document
     const workshop = await this.workshopModel.findById(wId);
     const staticMaterials = (workshop?.content || []).flatMap(section => section.materials || []);
@@ -925,7 +925,7 @@ export class WorkshopsService {
     this.logger.log(`Dynamic educator mats found: ${dynamicMaterials.length}`);
 
     // 3. Get materials from AI-generated curriculum sessions
-    const aiSessions = await this.sessionModel.find({ 
+    const aiSessions = await this.sessionModel.find({
       $or: [
         { workshopId: wId },
         { workshopId: workshopId }
@@ -933,8 +933,8 @@ export class WorkshopsService {
     }).exec();
     this.logger.log(`Querying Sessions for workshopId: ${workshopId}. Found: ${aiSessions.length}`);
     if (aiSessions.length === 0) {
-        const sample = await this.sessionModel.findOne().exec();
-        this.logger.log(`DEBUG: Sample Session from DB workshopId type: ${typeof sample?.workshopId}. Value: ${sample?.workshopId}`);
+      const sample = await this.sessionModel.findOne().exec();
+      this.logger.log(`DEBUG: Sample Session from DB workshopId type: ${typeof sample?.workshopId}. Value: ${sample?.workshopId}`);
     }
     const aiSessionMaterials = aiSessions.flatMap(s => s.materials || []);
     this.logger.log(`AI Curriculum sessions found: ${aiSessions.length}. AI mats: ${aiSessionMaterials.length}`);
