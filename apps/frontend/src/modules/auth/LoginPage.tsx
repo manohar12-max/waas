@@ -30,7 +30,7 @@ export default function LoginPage() {
     setError("");
 
     const email = normalizeEmail(formData.email);
-    
+
     try {
       const response = await axios.post(`${import.meta.env.VITE_API_URL}/auth/login`, {
         email,
@@ -72,33 +72,33 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center relative overflow-hidden bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 font-outfit">
+    <div className="h-[100dvh] w-full flex items-center justify-center relative overflow-hidden bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 font-outfit p-4">
       {/* Background Dynamics */}
       <div className="absolute top-[-10%] left-[-10%] w-[55%] h-[55%] bg-primary-light/20 blur-[130px] rounded-full animate-pulse" />
       <div className="absolute bottom-[-10%] right-[-10%] w-[55%] h-[55%] bg-indigo-600/20 blur-[130px] rounded-full animate-pulse" style={{ animationDelay: '2s' }} />
 
       <motion.div
-        initial={{ opacity: 0, y: 30 }}
+        initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="w-full max-w-xl p-12 bg-white/40 dark:bg-white/[0.03] backdrop-blur-3xl rounded-[64px] z-10 mx-4 shadow-2xl border border-slate-200 dark:border-white/10"
+        className="w-full max-w-[400px] md:max-w-md p-4 md:p-10 bg-white/40 dark:bg-white/[0.03] backdrop-blur-3xl rounded-[24px] md:rounded-[48px] z-10 shadow-2xl border border-slate-200 dark:border-white/10 overflow-hidden"
       >
-        <div className="text-center mb-10">
+        <div className="text-center mb-4 md:mb-8">
           <motion.div
             initial={{ scale: 0.8 }}
             animate={{ scale: 1 }}
-            className="w-20 h-20 bg-primary-light rounded-[32px] flex items-center justify-center mx-auto mb-6 shadow-2xl shadow-primary-light/40"
+            className="w-10 h-10 md:w-16 md:h-16 bg-primary-light rounded-[14px] md:rounded-[24px] flex items-center justify-center mx-auto mb-2 md:mb-4 shadow-xl shadow-primary-light/30"
           >
-            <LogIn className="text-white w-10 h-10" />
+            <LogIn className="text-white w-5 h-5 md:w-8 md:h-8" />
           </motion.div>
-          <h1 className="text-4xl font-black tracking-tighter uppercase">
-             <div className="flex flex-col items-center">
-               <span className="text-primary-light text-xl tracking-[0.3em] mb-2">NEXUS</span>
-               <span className="text-[10px] text-slate-500 uppercase tracking-[0.3em] font-normal block mb-4">by Pixaflip</span>
-               <span className="text-slate-900 dark:text-white">Portal</span>
-             </div>
-          </h1>
-          <p className="opacity-40 mt-4 text-[10px] font-black uppercase tracking-[0.3em] leading-relaxed">
-            Secure Entry for Authorized Personnel
+          
+          <div className="flex flex-col items-center">
+            <span className="text-primary-light text-xs md:text-lg tracking-[0.4em] font-black mb-0.5">NEXUS</span>
+            <span className="text-[6px] md:text-[8px] text-slate-500 uppercase tracking-[0.4em] font-medium block mb-1 md:mb-3">by Pixaflip</span>
+            <h1 className="text-lg md:text-3xl font-black tracking-tight text-slate-900 dark:text-white leading-none">Portal Login</h1>
+          </div>
+          
+          <p className="opacity-30 mt-1 md:mt-3 text-[6px] md:text-[9px] font-bold uppercase tracking-[0.2em] leading-relaxed max-w-[200px] mx-auto">
+            Authorized Access Only
           </p>
         </div>
 
@@ -106,43 +106,55 @@ export default function LoginPage() {
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="mb-8 p-5 bg-red-500/10 border border-red-500/20 text-red-500 rounded-2xl flex items-center gap-4 text-sm font-bold"
+            className="mb-3 md:mb-6 p-2 md:p-4 bg-red-500/10 border border-red-500/20 text-red-500 rounded-xl flex items-center gap-2 text-[9px] md:text-xs font-bold"
           >
-            <AlertCircle className="w-6 h-6 shrink-0" />
+            <AlertCircle className="w-3 h-3 md:w-4 md:h-4 shrink-0" />
             {error}
           </motion.div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-6 text-slate-900 dark:text-white">
-          <div className="space-y-2">
-            <label className="text-[10px] font-black uppercase tracking-[0.2em] opacity-40 ml-4">Email Address</label>
+        <form onSubmit={handleSubmit} className="space-y-2 md:space-y-5 text-slate-900 dark:text-white">
+          <div className="space-y-1">
+            <label className="text-[7px] md:text-[9px] font-black uppercase tracking-[0.2em] opacity-40 ml-3">Email Address</label>
             <div className="relative group">
-              <Mail className="absolute left-6 top-1/2 -translate-y-1/2 w-4 h-4 opacity-30 group-focus-within:opacity-100 group-focus-within:text-primary-light transition-all" />
-              <input type="email" required value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} className="w-full bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/5 rounded-[24px] py-5 pl-14 pr-6 outline-none focus:ring-2 focus:ring-primary-light/20 transition-all font-bold group-hover:bg-slate-200 dark:group-hover:bg-white/10 text-slate-900 dark:text-white cursor-pointer placeholder:opacity-40" placeholder="Your institutional email" />
+              <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-3 h-3 md:w-4 md:h-4 opacity-30 group-focus-within:opacity-100 group-focus-within:text-primary-light transition-all" />
+              <input 
+                type="email" 
+                required 
+                value={formData.email} 
+                onChange={(e) => setFormData({ ...formData, email: e.target.value })} 
+                className="w-full bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/5 rounded-xl md:rounded-2xl py-2 md:py-4 pl-10 md:pl-12 pr-4 outline-none focus:ring-2 focus:ring-primary-light/20 transition-all font-bold group-hover:bg-slate-200 dark:group-hover:bg-white/10 text-slate-900 dark:text-white text-[10px] md:text-sm placeholder:opacity-30" 
+                placeholder="email@institution.edu" 
+              />
             </div>
           </div>
 
-          <div className="space-y-2">
-            <label className="text-[10px] font-black uppercase tracking-[0.2em] opacity-40 ml-4">Secure Password</label>
+          <div className="space-y-1">
+            <label className="text-[7px] md:text-[9px] font-black uppercase tracking-[0.2em] opacity-40 ml-3">Security Key</label>
             <div className="relative group">
-              <Lock className="absolute left-6 top-1/2 -translate-y-1/2 w-4 h-4 opacity-30 group-focus-within:opacity-100 group-focus-within:text-primary-light transition-all" />
-              <input type="password" required value={formData.password} onChange={(e) => setFormData({ ...formData, password: e.target.value })} className="w-full bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/5 rounded-[24px] py-5 pl-14 pr-6 outline-none focus:ring-2 focus:ring-primary-light/20 transition-all font-bold group-hover:bg-slate-200 dark:group-hover:bg-white/10 text-slate-900 dark:text-white cursor-pointer placeholder:opacity-40" placeholder="••••••••" />
+              <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-3 h-3 md:w-4 md:h-4 opacity-30 group-focus-within:opacity-100 group-focus-within:text-primary-light transition-all" />
+              <input 
+                type="password" 
+                required 
+                value={formData.password} 
+                onChange={(e) => setFormData({ ...formData, password: e.target.value })} 
+                className="w-full bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/5 rounded-xl md:rounded-2xl py-2 md:py-4 pl-10 md:pl-12 pr-4 outline-none focus:ring-2 focus:ring-primary-light/20 transition-all font-bold group-hover:bg-slate-200 dark:group-hover:bg-white/10 text-slate-900 dark:text-white text-[10px] md:text-sm placeholder:opacity-30" 
+                placeholder="••••••••" 
+              />
             </div>
           </div>
 
           <motion.button
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 1 }}
+            whileHover={{ scale: 1.01 }}
+            whileTap={{ scale: 0.99 }}
             type="submit"
             disabled={loading}
-            className="w-full py-6 bg-primary-light text-white rounded-[32px] font-black uppercase tracking-[0.2em] transition-all hover:bg-primary-dark shadow-2xl shadow-primary-light/20 flex items-center justify-center gap-4 text-xs mt-6 cursor-pointer"
+            className="w-full py-3 md:py-5 bg-primary-light text-white rounded-xl md:rounded-2xl font-black uppercase tracking-[0.2em] transition-all hover:bg-primary-dark shadow-xl shadow-primary-light/20 flex items-center justify-center gap-3 text-[8px] md:text-[10px] mt-2 md:mt-4 cursor-pointer"
           >
             {loading ? (
-              <Loader2 className="w-6 h-6 animate-spin" />
+              <Loader2 className="w-3 h-3 md:w-4 md:h-4 animate-spin" />
             ) : (
-              <>
-                Authenticate
-              </>
+              "Authenticate"
             )}
           </motion.button>
         </form>

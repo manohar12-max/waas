@@ -105,7 +105,7 @@ export default function StudentRegistrationPage() {
             <p className="opacity-40 font-bold uppercase tracking-widest text-[10px]">Enrollment Successful</p>
           </div>
           <p className="text-sm opacity-60 leading-relaxed font-medium">
-            Your registration for <b>{workshop?.title}</b> has been received and is <b>pending approval</b>. 
+            Your registration for <b>{workshop?.title}</b> has been received and is <b>pending approval</b>.
             Once an instructor approves your request, you will be officially enrolled.
           </p>
           <button
@@ -124,26 +124,26 @@ export default function StudentRegistrationPage() {
       {/* Dynamic Background */}
       <div className="absolute top-[-10%] left-[-10%] w-[55%] h-[55%] bg-primary-light/10 blur-[130px] rounded-full animate-pulse" />
 
-      <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-xl p-12 glass-morphism rounded-[64px] z-10 shadow-2xl border border-white/5 space-y-10">
-        
+      <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-xl p-6 md:p-8 glass-morphism rounded-[32px] md:rounded-[48px] z-10 shadow-2xl border border-white/5 space-y-6">
+
         {/* Branding */}
-        <div className="text-center -mb-4">
-          <div className="font-outfit font-black text-2xl tracking-tighter text-primary-light">
-             NEXUS
-             <div className="text-[10px] font-black uppercase tracking-widest text-slate-500 opacity-60 mt-1 block">by Pixaflip</div>
+        <div className="text-center -mb-2">
+          <div className="font-outfit font-black text-xl tracking-tighter text-primary-light">
+            NEXUS
+            <div className="text-[8px] font-black uppercase tracking-widest text-slate-500 opacity-60 mt-0.5 block">by Pixaflip</div>
           </div>
         </div>
 
         {/* Institutional Context */}
         {workshop && (
-          <div className="p-8 bg-white/5 border border-white/5 rounded-[40px] space-y-4 shadow-inner">
-            <div className="flex items-center gap-3 text-primary-light">
-              <School className="w-5 h-5" />
-              <span className="text-[10px] font-black uppercase tracking-widest">{workshop.collegeId.name}</span>
+          <div className="p-5 md:p-6 bg-white/5 border border-white/5 rounded-[24px] md:rounded-[32px] space-y-3 shadow-inner">
+            <div className="flex items-center gap-2 text-primary-light">
+              <School className="w-4 h-4" />
+              <span className="text-[8px] font-black uppercase tracking-widest">{workshop.collegeId.name}</span>
             </div>
-            <h1 className="text-3xl font-black tracking-tight">{workshop.title}</h1>
-            <div className="flex items-center gap-2 opacity-40 text-xs font-bold uppercase tracking-widest">
-              <BookOpen className="w-4 h-4" /> Curriculum Enrollment
+            <h1 className="text-xl md:text-2xl font-black tracking-tight">{workshop.title}</h1>
+            <div className="flex items-center gap-2 opacity-40 text-[10px] font-bold uppercase tracking-widest">
+              <BookOpen className="w-3.5 h-3.5" /> Curriculum Enrollment
             </div>
           </div>
         )}

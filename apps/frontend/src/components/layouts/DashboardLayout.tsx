@@ -38,16 +38,16 @@ interface SidebarItemProps {
 const SidebarItem = ({ icon: Icon, label, active, collapsed, onClick }: Omit<SidebarItemProps, 'path'>) => (
   <button
     onClick={onClick}
-    className={`w-full flex items-center gap-3 px-4 py-4 rounded-2xl cursor-pointer transition-colors duration-200 group ${active
+    className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl cursor-pointer transition-colors duration-200 group ${active
         ? 'bg-primary-light text-white shadow-lg shadow-primary-light/30'
         : 'hover:bg-primary-light/10 text-slate-500 dark:text-slate-400 hover:text-primary-light'
       }`}
   >
-    <div className={`transition-transform duration-200 shrink-0 ${active ? 'scale-110' : 'group-hover:scale-110'}`}>
-      <Icon className="w-5 h-5" />
+    <div className={`transition-transform duration-200 shrink-0 ${active ? 'scale-105' : 'group-hover:scale-105'}`}>
+      <Icon className="w-4 h-4 md:w-4.5 md:h-4.5" />
     </div>
     <div className={`overflow-hidden transition-all duration-500 flex items-center ${collapsed ? 'max-w-0 opacity-0 ml-0' : 'max-w-[200px] opacity-100 ml-1'}`}>
-      <span className="font-semibold tracking-tight whitespace-nowrap">
+      <span className="font-bold text-xs tracking-tight whitespace-nowrap">
         {label}
       </span>
     </div>
@@ -112,25 +112,25 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       {/* Sidebar */}
       <motion.aside
         initial={false}
-        animate={{ width: collapsed ? 84 : 280 }}
+        animate={{ width: collapsed ? 64 : 240 }}
         transition={{ type: "tween", ease: "circOut", duration: 0.5 }}
         className="hidden md:flex flex-col bg-surface-light dark:bg-card-dark border-r border-slate-200 dark:border-white/10 h-screen sticky top-0 z-50 shadow-[10px_0_30px_rgba(0,0,0,0.05)] dark:shadow-[20px_0_60px_rgba(0,0,0,0.3)] will-change-[width]"
       >
-        <div className="h-20 px-6 flex items-center justify-between overflow-hidden border-b-2 border-slate-200/60 dark:border-white/10 bg-white/50 dark:bg-black/20 backdrop-blur-sm">
+        <div className="h-14 px-4 flex items-center justify-between overflow-hidden border-b border-slate-200/60 dark:border-white/10 bg-white/50 dark:bg-black/20 backdrop-blur-sm">
           <div className={`transition-all duration-500 flex items-center overflow-hidden ${collapsed ? 'max-w-0 opacity-0' : 'max-w-full opacity-100'}`}>
-            <div className="font-outfit font-black text-2xl tracking-tight text-primary-light whitespace-nowrap flex flex-col">
-              NEXUS<span className="text-[10px] font-black uppercase tracking-widest text-slate-500 mt-1 leading-none">by Pixaflip</span>
+            <div className="font-outfit font-black text-xl tracking-tight text-primary-light whitespace-nowrap flex flex-col">
+              NEXUS<span className="text-[8px] font-black uppercase tracking-widest text-slate-500 mt-0.5 leading-none">by Pixaflip</span>
             </div>
           </div>
           <button
             onClick={() => setCollapsed(!collapsed)}
-            className="p-2.5 bg-white dark:bg-white/5 hover:bg-slate-50 dark:hover:bg-white/10 rounded-xl transition-all text-slate-500 dark:text-slate-400 shrink-0 shadow-sm border border-slate-200 dark:border-white/10 hover:border-primary-light/30"
+            className="p-1.5 bg-white dark:bg-white/5 hover:bg-slate-50 dark:hover:bg-white/10 rounded-lg transition-all text-slate-500 dark:text-slate-400 shrink-0 shadow-sm border border-slate-200 dark:border-white/10"
           >
-            {collapsed ? <ChevronRight className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+            {collapsed ? <ChevronRight className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
           </button>
         </div>
 
-        <div className="px-4 py-8 flex-1 space-y-2 overflow-y-auto no-scrollbar">
+        <div className="px-2 py-4 flex-1 space-y-1 overflow-y-auto no-scrollbar">
           {filteredMenuItems.map((item) => (
             <SidebarItem
               key={item.path}
@@ -142,16 +142,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           ))}
         </div>
 
-        <div className="p-4 space-y-2 border-t border-slate-200 dark:border-white/10 bg-slate-50/50 dark:bg-white/[0.02]">
+        <div className="p-2 space-y-1 border-t border-slate-200 dark:border-white/10 bg-slate-50/50 dark:bg-white/[0.02]">
           <button
             onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl cursor-pointer transition-all hover:bg-primary-light/10 text-slate-500 dark:text-slate-400 group relative overflow-hidden"
+            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg cursor-pointer transition-all hover:bg-primary-light/10 text-slate-500 dark:text-slate-400 group relative overflow-hidden"
           >
-            <div className="w-5 h-5 flex items-center justify-center group-hover:text-primary-light transition-colors shrink-0">
-              {theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+            <div className="w-4 h-4 flex items-center justify-center group-hover:text-primary-light transition-colors shrink-0">
+              {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
             </div>
             <div className={`overflow-hidden transition-all duration-300 flex items-center ${collapsed ? 'w-0 opacity-0' : 'w-full opacity-100'}`}>
-              <span className="font-medium group-hover:text-primary-light transition-colors whitespace-nowrap ml-1">
+              <span className="font-semibold text-xs group-hover:text-primary-light transition-colors whitespace-nowrap ml-1">
                 {theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
               </span>
             </div>
@@ -159,11 +159,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
           <button
             onClick={handleLogout}
-            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl cursor-pointer transition-all hover:bg-red-500/10 text-red-500 group relative overflow-hidden"
+            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg cursor-pointer transition-all hover:bg-red-500/10 text-red-500 group relative overflow-hidden"
           >
-            <LogOut className="w-5 h-5 group-hover:translate-x-1 transition-transform shrink-0" />
+            <LogOut className="w-4 h-4 group-hover:translate-x-0.5 transition-transform shrink-0" />
             <div className={`overflow-hidden transition-all duration-300 flex items-center ${collapsed ? 'w-0 opacity-0' : 'w-full opacity-100'}`}>
-              <span className="font-medium whitespace-nowrap ml-1">
+              <span className="font-semibold text-xs whitespace-nowrap ml-1">
                 Logout
               </span>
             </div>
@@ -174,16 +174,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       {/* Main Content Area */}
       <main className="flex-1 flex flex-col h-screen overflow-hidden bg-white/40 dark:bg-transparent backdrop-blur-[1px]">
         {/* Top Header Bar */}
-        <div className="h-20 flex items-center justify-between px-6 border-b border-slate-200 dark:border-white/10 bg-white/80 dark:bg-black/20 backdrop-blur-sm sticky top-0 z-30 shrink-0">
+        <div className="h-14 flex items-center justify-between px-4 border-b border-slate-200 dark:border-white/10 bg-white/80 dark:bg-black/20 backdrop-blur-sm sticky top-0 z-30 shrink-0">
           <div className="flex items-center gap-3">
             {/* Mobile menu toggle */}
             <button
               onClick={() => setMobileOpen(true)}
-              className="md:hidden p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-white/10 transition-colors cursor-pointer"
+              className="md:hidden p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-white/10 transition-colors cursor-pointer"
             >
-              <Menu className="w-5 h-5" />
+              <Menu className="w-4 h-4" />
             </button>
-            <div className="text-sm font-bold opacity-40 uppercase tracking-widest hidden md:block">
+            <div className="text-[10px] font-black opacity-40 uppercase tracking-widest hidden md:block">
               {filteredMenuItems.find(m => m.path === location.pathname)?.label || 'Dashboard'}
             </div>
           </div>
@@ -191,10 +191,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             {/* Theme toggle */}
             <button
               onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-              className="p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-white/10 transition-colors cursor-pointer text-slate-500"
+              className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-white/10 transition-colors cursor-pointer text-slate-500"
               title={theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
             >
-              {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+              {theme === 'dark' ? <Sun className="w-3.5 h-3.5" /> : <Moon className="w-3.5 h-3.5" />}
             </button>
             {/* Profile Dropdown */}
             <ProfilePanel onLogout={handleLogout} />
@@ -203,9 +203,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
         {/* GOD MODE Banner */}
         {isImpersonating && (
-          <div className="flex items-center justify-between bg-orange-500 dark:bg-orange-600 text-white p-4 font-bold text-sm tracking-wide shadow-lg z-40">
+          <div className="flex items-center justify-between bg-orange-500 dark:bg-orange-600 text-white px-4 py-2 font-bold text-[10px] tracking-wide shadow-lg z-40">
             <div className="flex items-center gap-2">
-              <span className="animate-pulse w-2 h-2 rounded-full bg-white opacity-80" />
+              <span className="animate-pulse w-1.5 h-1.5 rounded-full bg-white opacity-80" />
               GOD MODE ACTIVE — {impersonateCollegeName || 'Restricted Access'}
             </div>
             <button
@@ -215,7 +215,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 navigate('/colleges');
                 window.location.reload();
               }}
-              className="bg-white text-orange-600 px-4 py-1.5 rounded-full text-xs uppercase font-black tracking-widest cursor-pointer hover:scale-105 active:scale-95 transition-all shadow-md shadow-black/10"
+              className="bg-white text-orange-600 px-3 py-1 rounded-full text-[8px] uppercase font-black tracking-widest cursor-pointer hover:scale-105 active:scale-95 transition-all shadow-md shadow-black/10"
             >
               Exit Identity
             </button>
@@ -224,10 +224,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
 
         {/* Scrollable Area */}
-        <div className="flex-1 overflow-y-auto p-4 md:p-8 custom-scrollbar">
+        <div className="flex-1 overflow-y-auto p-3 md:p-6 custom-scrollbar">
           <motion.div
             key={location.pathname}
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4 }}
           >

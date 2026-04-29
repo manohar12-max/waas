@@ -32,10 +32,11 @@ export class User {
     required: true,
     enum: UserRole,
     default: UserRole.STUDENT,
+    index: true,
   })
   role: UserRole;
 
-  @Prop({ type: Types.ObjectId, ref: 'College', required: false })
+  @Prop({ type: Types.ObjectId, ref: 'College', required: false, index: true })
   collegeId?: Types.ObjectId;
 
   @Prop({ default: true })

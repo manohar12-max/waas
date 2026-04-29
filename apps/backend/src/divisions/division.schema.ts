@@ -11,13 +11,13 @@ export class Division {
   @Prop()
   description?: string;
 
-  @Prop({ type: Types.ObjectId, ref: 'College', required: true })
+  @Prop({ type: Types.ObjectId, ref: 'College', required: true, index: true })
   collegeId: Types.ObjectId;
 
-  @Prop({ type: Types.ObjectId, ref: 'Workshop', required: true })
+  @Prop({ type: Types.ObjectId, ref: 'Workshop', required: true, index: true })
   workshopId: Types.ObjectId;
 
-  @Prop({ type: Types.ObjectId, ref: 'User', required: false })
+  @Prop({ type: Types.ObjectId, ref: 'User', required: false, index: true })
   teacherId?: Types.ObjectId; // The managing faculty (from Prompt 3)
 
   @Prop({ default: 'ACTIVE' })

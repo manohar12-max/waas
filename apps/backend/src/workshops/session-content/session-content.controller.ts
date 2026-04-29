@@ -251,4 +251,20 @@ export class SessionContentController {
     const studentId = req.query.studentId || userId; // Allow staff to check student status
     return this.service.getMcqStatus(studentId, sessionId, materialId);
   }
+
+  @Get('workshop/:id/mcq-analytics')
+  @Roles(UserRole.INSTRUCTOR, UserRole.TEACHER, UserRole.COLLEGE_ADMIN, UserRole.SUPER_ADMIN)
+  async getWorkshopMcqAnalytics(
+    @Param('id') workshopId: string
+  ) {
+    return this.service.getWorkshopMcqAnalytics(workshopId);
+  }
+
+  @Get('student/mcq-summary')
+  @Roles(UserRole.STUDENT)
+  async getStudentMcqSummary(
+    @GetUser('_id') userId: string
+  ) {
+    return this.service.getStudentMcqSummary(userId);
+  }
 }

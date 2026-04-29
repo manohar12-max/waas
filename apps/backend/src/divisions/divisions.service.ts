@@ -82,6 +82,7 @@ export class DivisionsService {
         .find({ collegeId: cId })
         .populate('teacherId', 'name email')
         .populate('workshopId', 'title registeredStudentIds pendingStudentIds')
+        .lean()
         .exec();
     } catch (error) {
       this.logger.error(`Failed to fetch divisions: ${error.message}`, error.stack);
@@ -105,6 +106,7 @@ export class DivisionsService {
         .find({ workshopId: { $in: workshopIds }, collegeId: cId })
         .populate('teacherId', 'name email')
         .populate('workshopId', 'title registeredStudentIds pendingStudentIds')
+        .lean()
         .exec();
     } catch (error) {
       this.logger.error(`Failed to fetch instructor divisions: ${error.message}`, error.stack);

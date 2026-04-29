@@ -21,6 +21,7 @@ export default function DivisionManagementPage() {
   const [divisions, setDivisions] = useState<Division[]>([]);
   const [teachers, setTeachers] = useState<any[]>([]);
   const [workshops, setWorkshops] = useState<any[]>([]);
+  const [mcqStats, setMcqStats] = useState<Record<string, any>>({});
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -56,6 +57,22 @@ export default function DivisionManagementPage() {
       setDivisions(divRes.data);
       setTeachers(teachRes.data);
       setWorkshops(workRes.data);
+
+      // Fetch MCQ stats for each workshop
+      const stats: Record<string, any> = {};
+      for (const workshop of workRes.data) {
+        try {
+          const res = await axios.get(`${import.meta.env.VITE_API_URL}/sessions-content/workshop/${workshop._id}/mcq-analytics`, {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          const uniqueStudents = new Set(res.data.map((a: any) => a.userId?._id)).size;
+          const passedQuizzes = res.data.filter((a: any) => a.isPassed).length;
+          stats[workshop._id] = { uniqueStudents, passedQuizzes };
+        } catch (e) {
+          console.error(`Failed to fetch stats for ${workshop._id}:`, e);
+        }
+      }
+      setMcqStats(stats);
     } catch (err) {
       console.error(err);
     } finally {
@@ -126,6 +143,18 @@ export default function DivisionManagementPage() {
                   <span className={`text-lg font-black ${div.workshopId?.pendingStudentIds?.length > 0 ? 'text-orange-500' : ''}`}>
                     {div.workshopId?.pendingStudentIds?.length || 0}
                   </span>
+                </div>
+                <div className="bg-white/5 p-4 rounded-3xl border border-white/5 col-span-2">
+                  <span className="text-[8px] font-black uppercase opacity-30 tracking-[0.2em] block mb-1">MCQ Completion Rate</span>
+                  <div className="flex items-center gap-3">
+                    <div className="flex-1 h-1.5 bg-slate-100 dark:bg-white/5 rounded-full overflow-hidden">
+                      <div 
+                        className="h-full bg-primary-light" 
+                        style={{ width: `${Math.min(100, ((mcqStats[div.workshopId?._id]?.passedQuizzes || 0) / Math.max(1, div.workshopId?.registeredStudentIds?.length || 0)) * 20)}%` }}
+                      />
+                    </div>
+                    <span className="text-xs font-black">{mcqStats[div.workshopId?._id]?.uniqueStudents || 0} Students Active</span>
+                  </div>
                 </div>
               </div>
 
