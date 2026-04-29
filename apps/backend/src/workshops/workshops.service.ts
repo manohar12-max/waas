@@ -33,6 +33,9 @@ export class WorkshopsService {
     });
   }
 
+  private lastStatusUpdate: Record<string, number> = {};
+  private readonly STATUS_UPDATE_COOLDOWN = 5 * 60 * 1000; // 5 minutes
+
   async enrollStudent(enrollDto: any) {
     const email = enrollDto.email?.trim()?.toLowerCase() || '';
     const { inviteToken, name, phone, phoneNumber, password } = enrollDto;
@@ -174,6 +177,63 @@ export class WorkshopsService {
     });
 
     return student;
+  }
+
+  async bulkCreateStudentsForWorkshop(workshopId: string, studentsData: any[], collegeId: any) {
+    this.logger.log(`Bulk creating ${studentsData.length} students for workshop ${workshopId}`);
+    const results: any[] = [];
+
+    for (const rawData of studentsData) {
+      let currentEmail = 'unknown';
+      try {
+        // Normalize keys to lowercase (e.g., Name -> name, EMAIL -> email)
+        const data: any = {};
+        Object.keys(rawData).forEach(key => {
+          data[key.toLowerCase()] = rawData[key];
+        });
+        currentEmail = data.email || 'unknown';
+
+        if (!data.name || !data.email) {
+          results.push({ email: currentEmail, success: false, error: 'Missing name or email' });
+          continue;
+        }
+
+        // Generate password: first 3 chars of name + @123 (e.g. Jasprit -> Jas@123)
+        const password = data.name.toString().trim().substring(0, 3) + '@123';
+        
+        await this.createStudentForWorkshop(workshopId, { ...data, password }, collegeId);
+        results.push({ email: currentEmail, success: true });
+      } catch (err) {
+        this.logger.error(`Failed to create student ${currentEmail}: ${err.message}`);
+        results.push({ email: currentEmail, success: false, error: err.message });
+      }
+    }
+
+    return results;
+  }
+
+  async deleteStudentCompletely(workshopId: string, studentId: string) {
+    this.logger.log(`Deleting student ${studentId} from workshop ${workshopId} and all related records`);
+
+    // 1. Remove from Workshop arrays
+    await this.workshopModel.findByIdAndUpdate(workshopId, {
+      $pull: { 
+        registeredStudentIds: this.toObjectId(studentId),
+        pendingStudentIds: this.toObjectId(studentId)
+      }
+    });
+
+    // 2. Delete Attendance records for this student in this workshop
+    await this.attendanceModel.deleteMany({
+      workshopId: this.toObjectId(workshopId),
+      studentId: this.toObjectId(studentId)
+    });
+
+    // 3. Delete the student identity entirely
+    await this.userModel.findByIdAndDelete(studentId);
+    
+    this.logger.log(`Student identity ${studentId} deleted entirely.`);
+    return { success: true };
   }
 
   private toObjectId(id: any): Types.ObjectId | null {
@@ -501,13 +561,19 @@ export class WorkshopsService {
 
   private async autoUpdateStatuses(collegeId?: any, targetStudentId?: any): Promise<void> {
     const now = new Date();
+    const cId = this.toObjectId(collegeId);
+    const sId = this.toObjectId(targetStudentId);
+
+    // Throttling: Only update once every 5 minutes per college to avoid heavy DB load
+    if (cId) {
+      const lastUpdate = this.lastStatusUpdate[cId.toString()] || 0;
+      if (Date.now() - lastUpdate < this.STATUS_UPDATE_COOLDOWN) return;
+      this.lastStatusUpdate[cId.toString()] = Date.now();
+    }
 
     // Day-aware boundaries
     const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
-
-    const cId = this.toObjectId(collegeId);
-    const sId = this.toObjectId(targetStudentId);
 
     const baseQuery: any = {};
     if (cId) baseQuery.collegeId = cId;
@@ -515,9 +581,10 @@ export class WorkshopsService {
 
     if (Object.keys(baseQuery).length === 0) return;
 
+    this.logger.log(`Throttled Status Auto-Update triggered for College/Student context.`);
+
     try {
-      // 1. Force to ACTIVE if the day has arrived or we are in the range
-      // A workshop is ACTIVE if: start <= endOfToday AND end >= startOfToday
+      // 1. Force to ACTIVE
       await this.workshopModel.updateMany(
         {
           ...baseQuery,
@@ -528,7 +595,7 @@ export class WorkshopsService {
         { $set: { status: 'ACTIVE' } }
       ).exec();
 
-      // 2. Force to INACTIVE if the end day has passed
+      // 2. Force to INACTIVE
       await this.workshopModel.updateMany(
         {
           ...baseQuery,
@@ -538,19 +605,13 @@ export class WorkshopsService {
         { $set: { status: 'INACTIVE' } }
       ).exec();
 
-      // 3. Force to UPCOMING if the start day is in the future
+      // 3. Force to UPCOMING
       await this.workshopModel.updateMany(
         {
           ...baseQuery,
           status: { $ne: 'UPCOMING' },
           'schedule.start': { $gt: endOfToday }
         },
-        { $set: { status: 'UPCOMING' } }
-      ).exec();
-
-      // 4. Catch-all for missing status
-      await this.workshopModel.updateMany(
-        { ...baseQuery, status: { $nin: ['UPCOMING', 'ACTIVE', 'INACTIVE'] } },
         { $set: { status: 'UPCOMING' } }
       ).exec();
     } catch (err) {
@@ -650,13 +711,19 @@ export class WorkshopsService {
       {
         $set: {
           date: new Date(),
-          status: 'PRESENT',
+          status: method === 'ABSENT' ? 'ABSENT' : 'PRESENT',
           verificationMethod: method,
           verifiedBy: vId
         }
       },
       { upsert: true, returnDocument: 'after' }
     ).exec();
+  }
+
+  async getStudentAttendance(workshopId: string, studentId: string) {
+    const wId = this.toObjectId(workshopId);
+    const sId = this.toObjectId(studentId);
+    return this.attendanceModel.findOne({ workshopId: wId, studentId: sId }).exec();
   }
 
   async checkinByEmail(workshopId: string, email: string): Promise<any> {

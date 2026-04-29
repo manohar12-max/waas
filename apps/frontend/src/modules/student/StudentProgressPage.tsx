@@ -26,6 +26,7 @@ interface Achievement {
 
 export default function StudentProgressPage() {
   const [achievements, setAchievements] = useState<Achievement[]>([]);
+  const [mcqSummary, setMcqSummary] = useState<{ totalQuizzes: number, passedQuizzes: number, avgScore: number } | null>(null);
   const [loading, setLoading] = useState(true);
   
   useEffect(() => {
@@ -51,8 +52,21 @@ export default function StudentProgressPage() {
       ]);
       setLoading(false);
     }, 1000);
+    fetchMcqSummary();
     return () => clearTimeout(timer);
   }, []);
+
+  const fetchMcqSummary = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.get(`${import.meta.env.VITE_API_URL}/sessions-content/student/mcq-summary`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setMcqSummary(response.data);
+    } catch (err) {
+      console.error('Failed to fetch MCQ summary:', err);
+    }
+  };
 
   return (
     <div className="space-y-12 pb-24 font-outfit">
@@ -80,6 +94,13 @@ export default function StudentProgressPage() {
                <span className="text-[10px] font-black uppercase tracking-widest opacity-60">Certificates</span>
              </div>
              <div className="text-4xl font-black tracking-tighter">{achievements.filter(a => a.status === 'COMPLETED').length}</div>
+          </div>
+          <div className="p-8 bg-emerald-500 rounded-[40px] text-white shadow-2xl shadow-emerald-500/30 space-y-2 min-w-[200px]">
+             <div className="flex items-center gap-3 mb-1">
+               <Zap className="w-4 h-4" />
+               <span className="text-[10px] font-black uppercase tracking-widest opacity-60">Avg. Score</span>
+             </div>
+             <div className="text-4xl font-black tracking-tighter">{mcqSummary?.avgScore || 0}%</div>
           </div>
         </div>
       </div>

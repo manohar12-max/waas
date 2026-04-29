@@ -32,10 +32,10 @@ export class Workshop {
   @Prop()
   description?: string;
 
-  @Prop({ type: Types.ObjectId, ref: 'College', required: true })
+  @Prop({ type: Types.ObjectId, ref: 'College', required: true, index: true })
   collegeId: Types.ObjectId;
 
-  @Prop({ type: Types.ObjectId, ref: 'User', required: true })
+  @Prop({ type: Types.ObjectId, ref: 'User', required: true, index: true })
   instructorId: Types.ObjectId; // Technical mentor (Operational lead)
 
   @Prop({ type: [ContentSection], default: [] })
@@ -43,8 +43,8 @@ export class Workshop {
 
   @Prop({
     type: {
-      start: { type: Date, required: true },
-      end: { type: Date, required: true },
+      start: { type: Date, required: true, index: true },
+      end: { type: Date, required: true, index: true },
     },
     required: true,
   })

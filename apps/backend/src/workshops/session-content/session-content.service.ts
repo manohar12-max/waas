@@ -608,4 +608,35 @@ export class SessionContentService {
       lastScore: lastAttempt ? lastAttempt.score : null
     };
   }
+
+  async getWorkshopMcqAnalytics(workshopId: string) {
+    // 1. Get all sessions for this workshop
+    const sessions = await this.sessionModel.find({ workshopId: new Types.ObjectId(workshopId) });
+    const sessionIds = sessions.map(s => s._id);
+
+    // 2. Get all attempts for these sessions
+    const attempts = await this.mcqAttemptModel.find({
+      sessionId: { $in: sessionIds }
+    }).populate('userId', 'name email');
+
+    return attempts;
+  }
+
+  async getStudentMcqSummary(userId: string) {
+    const attempts = await this.mcqAttemptModel.find({
+      userId: new Types.ObjectId(userId)
+    });
+
+    const totalQuizzes = new Set(attempts.map(a => `${a.sessionId}-${a.materialId}`)).size;
+    const passedQuizzes = new Set(attempts.filter(a => a.isPassed).map(a => `${a.sessionId}-${a.materialId}`)).size;
+    
+    const scores = attempts.map(a => (a.score / a.totalQuestions) * 100);
+    const avgScore = scores.length > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : 0;
+
+    return {
+      totalQuizzes,
+      passedQuizzes,
+      avgScore
+    };
+  }
 }

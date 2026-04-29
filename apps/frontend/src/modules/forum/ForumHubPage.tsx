@@ -250,18 +250,18 @@ export default function ForumHubPage() {
                 <div className="p-6 flex items-start justify-between">
                   <div className="flex items-center gap-4">
                     <div className="w-10 h-10 rounded-[14px] bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-black text-sm shadow-md">
-                      {post.author.name[0]}
+                      {post.author?.name?.[0] || '?'}
                     </div>
                     <div>
-                      <h4 className="font-bold text-sm tracking-tight">{post.author.name}</h4>
+                      <h4 className="font-bold text-sm tracking-tight">{post.author?.name || 'Unknown'}</h4>
                       <div className="flex items-center gap-2 mt-0.5">
-                        <span className="text-[9px] font-black uppercase tracking-widest text-primary-light opacity-80">{post.author.email}</span>
+                        <span className="text-[9px] font-black uppercase tracking-widest text-primary-light opacity-80">{post.author?.email || 'No Email'}</span>
                         <span className="text-[8px] font-bold opacity-30 tracking-widest">• {new Date(post.createdAt).toLocaleDateString()} {post.isEdited && '(edited)'}</span>
                       </div>
                     </div>
                   </div>
 
-                  {(user.id === post.author._id || ['COLLEGE_ADMIN', 'SUPER_ADMIN'].includes(user.role)) && (
+                  {(user?.id === post.author?._id || ['COLLEGE_ADMIN', 'SUPER_ADMIN'].includes(user?.role)) && (
                     <div className="flex items-center gap-2">
                        <button onClick={() => openEditor(post)} className="p-2 hover:bg-slate-100 dark:hover:bg-white/5 rounded-xl transition-all cursor-pointer opacity-40 hover:opacity-100 hover:text-indigo-500"><Pencil className="w-4 h-4" /></button>
                        <button onClick={() => handleDeletePost(post._id)} className="p-2 hover:bg-slate-100 dark:hover:bg-white/5 rounded-xl transition-all cursor-pointer opacity-40 hover:opacity-100 hover:text-red-500"><Trash2 className="w-4 h-4" /></button>
@@ -289,11 +289,11 @@ export default function ForumHubPage() {
 
                 {/* Interactions */}
                 <div className="p-4 border-b border-slate-200 dark:border-white/5 flex items-center gap-6">
-                  <button onClick={() => handleLike(post._id)} className={`flex items-center gap-2 group cursor-pointer transition-colors ${post.likes.includes(user.id) ? 'text-pink-500' : 'text-slate-500 hover:text-pink-500'}`}>
-                    <div className={`p-2 rounded-xl transition-colors ${post.likes.includes(user.id) ? 'bg-pink-500/10' : 'bg-slate-100 dark:bg-white/5 group-hover:bg-pink-500/10'}`}>
-                      <Heart className={`w-4 h-4 ${post.likes.includes(user.id) ? 'fill-current' : ''}`} />
+                  <button onClick={() => handleLike(post._id)} className={`flex items-center gap-2 group cursor-pointer transition-colors ${post.likes?.includes(user?.id) ? 'text-pink-500' : 'text-slate-500 hover:text-pink-500'}`}>
+                    <div className={`p-2 rounded-xl transition-colors ${post.likes?.includes(user?.id) ? 'bg-pink-500/10' : 'bg-slate-100 dark:bg-white/5 group-hover:bg-pink-500/10'}`}>
+                      <Heart className={`w-4 h-4 ${post.likes?.includes(user?.id) ? 'fill-current' : ''}`} />
                     </div>
-                    <span className="text-[10px] font-black">{post.likes.length}</span>
+                    <span className="text-[10px] font-black">{post.likes?.length || 0}</span>
                   </button>
 
                   <button onClick={() => toggleComments(post._id)} className="flex items-center gap-2 group cursor-pointer text-slate-500 hover:text-primary-light transition-colors">
@@ -316,16 +316,16 @@ export default function ForumHubPage() {
                         <div className="space-y-4">
                           {!commentsMap[post._id] ? (
                             <Loader2 className="w-5 h-5 mx-auto animate-spin opacity-30" />
-                          ) : commentsMap[post._id].length === 0 ? (
+                          ) : (commentsMap[post._id] || []).length === 0 ? (
                             <p className="text-xs text-center font-bold opacity-30 py-4 uppercase tracking-widest">No replies yet</p>
                           ) : (
-                            commentsMap[post._id].map(comment => (
+                            (commentsMap[post._id] || []).map(comment => (
                               <div key={comment._id} className="flex gap-4">
-                                <div className="w-8 h-8 rounded-xl bg-primary-light/20 flex shrink-0 items-center justify-center text-xs font-black text-primary-light">{comment.author.name[0]}</div>
+                                <div className="w-8 h-8 rounded-xl bg-primary-light/20 flex shrink-0 items-center justify-center text-xs font-black text-primary-light">{comment.author?.name?.[0] || '?'}</div>
                                 <div className="flex-1 bg-white dark:bg-[#1A1A2E] border border-slate-200 dark:border-white/5 p-4 rounded-3xl rounded-tl-sm relative group">
                                   <div className="flex justify-between items-start mb-1">
-                                    <h5 className="font-bold text-xs">{comment.author.name}</h5>
-                                    {(user.id === comment.author._id || ['COLLEGE_ADMIN', 'SUPER_ADMIN'].includes(user.role)) && (
+                                    <h5 className="font-bold text-xs">{comment.author?.name || 'Unknown'}</h5>
+                                    {(user?.id === comment.author?._id || ['COLLEGE_ADMIN', 'SUPER_ADMIN'].includes(user?.role)) && (
                                       <button onClick={() => handleDeleteComment(comment._id, post._id)} className="opacity-0 group-hover:opacity-100 text-red-500 hover:text-red-400 cursor-pointer transition-opacity"><Trash2 className="w-3 h-3" /></button>
                                     )}
                                   </div>

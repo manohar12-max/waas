@@ -42,6 +42,25 @@ export class WorkshopsController {
     return this.workshopsService.createStudentForWorkshop(workshopId, studentData, collegeId);
   }
 
+  @Post(':id/bulk-students')
+  @Roles(UserRole.TEACHER, UserRole.INSTRUCTOR, UserRole.COLLEGE_ADMIN)
+  bulkCreateStudents(
+    @Param('id') workshopId: string,
+    @Body('students') students: any[],
+    @GetUser('collegeId') collegeId: string
+  ) {
+    return this.workshopsService.bulkCreateStudentsForWorkshop(workshopId, students, collegeId);
+  }
+
+  @Delete(':id/students/:studentId')
+  @Roles(UserRole.TEACHER, UserRole.INSTRUCTOR, UserRole.COLLEGE_ADMIN)
+  deleteStudent(
+    @Param('id') workshopId: string,
+    @Param('studentId') studentId: string
+  ) {
+    return this.workshopsService.deleteStudentCompletely(workshopId, studentId);
+  }
+
   @Post(':id/approve-student/:studentId')
   @Roles(UserRole.TEACHER, UserRole.INSTRUCTOR, UserRole.COLLEGE_ADMIN)
   approveStudent(
@@ -165,6 +184,12 @@ export class WorkshopsController {
   @Roles(UserRole.INSTRUCTOR, UserRole.TEACHER, UserRole.COLLEGE_ADMIN)
   getAttendance(@Param('id') workshopId: string) {
     return this.workshopsService.getAttendanceForWorkshop(workshopId);
+  }
+
+  @Get(':id/my-attendance')
+  @Roles(UserRole.STUDENT)
+  getMyAttendance(@Param('id') wId: string, @GetUser('_id') sId: string) {
+    return this.workshopsService.getStudentAttendance(wId, sId);
   }
 
   @Delete(':id/attendance/:studentId')

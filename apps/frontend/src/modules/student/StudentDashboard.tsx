@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import AnnouncementsWidget from '../../components/AnnouncementsWidget';
+import { toast } from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   BookOpen, 
@@ -15,7 +16,15 @@ import {
   Award,
   Zap,
   FileCheck,
-  XCircle
+  XCircle,
+  UserCheck,
+  TrendingUp,
+  Target,
+  Rocket,
+  Flame,
+  ChevronRight,
+  Plus,
+  Compass
 } from 'lucide-react';
 
 interface LiveWorkshop {
@@ -51,10 +60,14 @@ interface AssignmentStats {
 
 export default function StudentDashboard() {
   const navigate = useNavigate();
-  const [liveWorkshops, setLiveWorkshops] = useState<LiveWorkshop[]>([]);
+  const [activeWorkshops, setActiveWorkshops] = useState<LiveWorkshop[]>([]);
+  const [upcomingWorkshops, setUpcomingWorkshops] = useState<LiveWorkshop[]>([]);
+  const [recentlyAdded, setRecentlyAdded] = useState<LiveWorkshop[]>([]);
   const [assignmentStats, setAssignmentStats] = useState<AssignmentStats | null>(null);
   const [assignTab, setAssignTab] = useState<'pending' | 'pastDue' | 'submitted'>('pending');
   const [loading, setLoading] = useState(true);
+  const [mcqSummary, setMcqSummary] = useState<{ totalQuizzes: number, passedQuizzes: number, avgScore: number } | null>(null);
+  const [selectedWorkshopAttendance, setSelectedWorkshopAttendance] = useState<any>(null);
   const [otp, setOtp] = useState("");
   const [selectedWorkshop, setSelectedWorkshop] = useState<string | null>(null);
   const [verifying, setVerifying] = useState(false);
@@ -63,9 +76,22 @@ export default function StudentDashboard() {
   const user = JSON.parse(localStorage.getItem('user') || '{}');
 
   useEffect(() => {
-    fetchLiveWorkshops();
+    fetchWorkshops();
     fetchAssignments();
+    fetchMcqSummary();
   }, []);
+
+  const fetchMcqSummary = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.get(`${import.meta.env.VITE_API_URL}/sessions-content/student/mcq-summary`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setMcqSummary(response.data);
+    } catch (err) {
+      console.error('Failed to fetch MCQ summary:', err);
+    }
+  };
 
   const fetchAssignments = async () => {
     try {
@@ -79,19 +105,49 @@ export default function StudentDashboard() {
     }
   };
 
-  const fetchLiveWorkshops = async () => {
+  const fetchWorkshops = async () => {
     try {
       const token = localStorage.getItem('token');
-      // Students see all workshops in their college
       const response = await axios.get(`${import.meta.env.VITE_API_URL}/workshops`, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      // Filter for ONGOING workshops
-      setLiveWorkshops(response.data.filter((w: any) => w.status === 'ACTIVE'));
+      const all = response.data;
+      setActiveWorkshops(all.filter((w: any) => w.status === 'ACTIVE'));
+      setUpcomingWorkshops(all.filter((w: any) => w.status === 'UPCOMING').slice(0, 3));
+      // Sort by creation or just take latest for "Recently Added"
+      setRecentlyAdded([...all].reverse().slice(0, 3));
     } catch (err) {
       console.error(err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchAttendance = async (workshopId: string) => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.get(`${import.meta.env.VITE_API_URL}/workshops/${workshopId}/my-attendance`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setSelectedWorkshopAttendance(response.data);
+    } catch (err) {
+      console.error('Failed to fetch attendance:', err);
+    }
+  };
+
+  const markAttendance = async (workshopId: string, status: 'PRESENT' | 'ABSENT') => {
+    try {
+      const token = localStorage.getItem('token');
+      const user = JSON.parse(localStorage.getItem('user') || '{}');
+      const sId = user._id || user.id;
+      const response = await axios.post(`${import.meta.env.VITE_API_URL}/workshops/${workshopId}/attendance`, 
+        { studentId: sId, method: status === 'ABSENT' ? 'ABSENT' : 'SELF_CHECKIN' },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setSelectedWorkshopAttendance(response.data);
+      toast.success(`Marked as ${status}`);
+    } catch (err) {
+      toast.error('Failed to mark attendance');
     }
   };
 
@@ -108,7 +164,7 @@ export default function StudentDashboard() {
       // For now, we simulate the OTP check (in production, backend validates the active session token)
       await axios.post(`${import.meta.env.VITE_API_URL}/workshops/${selectedWorkshop}/attendance`, 
         { 
-          studentId: user.id,
+          studentId: user._id || user.id,
           method: 'OTP',
           otp: otp // Backend will validate this in the next iteration
         },
@@ -126,252 +182,311 @@ export default function StudentDashboard() {
   };
 
   return (
-    <div className="space-y-12 pb-24 font-outfit">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-8">
-        <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}>
-          <div className="flex items-center gap-3 mb-3">
-            <span className="px-3 py-1 bg-primary-light/10 text-primary-light rounded-full text-[10px] font-black uppercase tracking-widest border border-primary-light/20">Student Mode</span>
-            <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-          </div>
-          <h1 className="text-5xl font-black tracking-tighter mb-3">Student Command</h1>
-          <p className="opacity-40 font-medium max-w-lg text-lg leading-relaxed">Access your active curricula and verify your presence in the digital theatre.</p>
-        </motion.div>
+    <div className="space-y-8 pb-20 font-outfit relative">
+      {/* Background Decorative Elements */}
+      <div className="absolute top-0 right-0 w-[400px] h-[400px] bg-primary-light/5 blur-[100px] rounded-full -z-10" />
+
+      {/* Hero Section - More Compact */}
+      <div className="relative overflow-hidden p-8 md:p-12 rounded-[40px] bg-gradient-to-br from-slate-900 to-indigo-950 text-white shadow-xl">
+        <div className="absolute top-0 right-0 p-8 opacity-10 rotate-12">
+           <Rocket className="w-48 h-48 text-white" />
+        </div>
+        <div className="relative z-10 max-w-xl">
+           <motion.div 
+             initial={{ opacity: 0, x: -10 }} 
+             animate={{ opacity: 1, x: 0 }}
+             className="flex items-center gap-2 mb-4"
+           >
+              <span className="px-3 py-1 bg-white/10 backdrop-blur-md rounded-full text-[9px] font-black uppercase tracking-widest border border-white/10">Dashboard</span>
+              <div className="flex items-center gap-1.5 text-emerald-400">
+                 <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                 <span className="text-[9px] font-black uppercase tracking-widest">Active</span>
+              </div>
+           </motion.div>
+           <h1 className="text-4xl md:text-5xl font-black tracking-tight mb-4 leading-tight">
+             Welcome, <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary-light to-indigo-400">{user.name.split(' ')[0]}</span>
+           </h1>
+           <p className="text-base opacity-60 font-medium leading-relaxed max-w-lg">
+             Your learning trajectory is currently {activeWorkshops.length > 0 ? 'active' : 'idle'}. {activeWorkshops.length > 0 ? `You have ${activeWorkshops.length} live sessions.` : 'No live sessions right now.'}
+           </p>
+        </div>
+        
+        {/* Quick Stats Overlay - Smaller */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-8 relative z-10">
+           {[
+             { label: 'Attendance', value: '92%', icon: UserCheck, color: 'text-emerald-400' },
+             { label: 'Accuracy', value: `${mcqSummary?.avgScore ?? 0}%`, icon: Target, color: 'text-amber-400' },
+             { label: 'Missions', value: assignmentStats?.counts.total ?? 0, icon: Flame, color: 'text-orange-400' },
+             { label: 'Rank', value: '#12', icon: TrendingUp, color: 'text-indigo-400' }
+           ].map((stat, i) => (
+             <motion.div 
+               key={i}
+               initial={{ opacity: 0, y: 10 }}
+               animate={{ opacity: 1, y: 0 }}
+               transition={{ delay: i * 0.05 }}
+               className="bg-white/5 backdrop-blur-md border border-white/10 p-4 rounded-2xl hover:bg-white/10 transition-all"
+             >
+                <stat.icon className={`w-4 h-4 mb-2 ${stat.color}`} />
+                <div className="text-xl font-black">{stat.value}</div>
+                <div className="text-[8px] font-black uppercase tracking-widest opacity-40">{stat.label}</div>
+             </motion.div>
+           ))}
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
-        <div className="lg:col-span-8 space-y-8">
-          <h3 className="font-black text-2xl tracking-tight px-2 flex items-center gap-4">
-             <Activity className="w-6 h-6 text-primary-light" />
-             Current Operations
-          </h3>
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+        <div className="lg:col-span-8 space-y-10">
           
-          <div className="space-y-6">
-            {liveWorkshops.length > 0 ? (
-              liveWorkshops.map((workshop) => (
-                <motion.div 
-                  key={workshop._id} 
-                  className={`group bg-card-light dark:bg-card-dark border rounded-[48px] p-8 transition-all shadow-2xl relative overflow-hidden ${selectedWorkshop === workshop._id ? 'border-primary-light ring-4 ring-primary-light/10' : 'border-slate-200 dark:border-white/5'}`}
-                >
-                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-                    <div className="flex gap-6 items-start">
-                      <div className="w-16 h-16 rounded-[24px] bg-primary-light/10 flex items-center justify-center text-primary-light border border-white/5">
-                        <Zap className="w-8 h-8" />
-                      </div>
-                      <div className="space-y-1">
-                        <h4 className="text-2xl font-black tracking-tight">{workshop.title}</h4>
-                        <div className="flex items-center gap-3 text-[10px] font-black uppercase opacity-40">
-                           <Clock className="w-3.5 h-3.5" />
-                           Started: {new Date(workshop.schedule.start).toLocaleTimeString()}
+          {/* Active Theater Section */}
+          <section className="space-y-4">
+            <h3 className="text-2xl font-black tracking-tight flex items-center gap-3 px-2">
+               <Activity className="w-5 h-5 text-emerald-500" />
+               Live Workshop Theatre
+            </h3>
+            
+            <div className="space-y-3">
+              {activeWorkshops.length > 0 ? (
+                activeWorkshops.map((workshop) => (
+                  <motion.div 
+                    key={workshop._id} 
+                    className={`p-6 rounded-[32px] border transition-all relative overflow-hidden group ${selectedWorkshop === workshop._id ? 'bg-primary-light/5 border-primary-light' : 'bg-card-light dark:bg-card-dark border-slate-200 dark:border-white/5 shadow-md'}`}
+                  >
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 relative z-10">
+                      <div className="flex items-center gap-4">
+                        <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-primary-light to-indigo-600 text-white flex items-center justify-center shadow-lg">
+                           <BookOpen className="w-7 h-7" />
+                        </div>
+                        <div>
+                          <h4 className="font-black text-lg mb-0.5">{workshop.title}</h4>
+                          <div className="flex items-center gap-2">
+                             <div className="flex items-center gap-1 px-2 py-0.5 bg-emerald-500/10 text-emerald-500 rounded-md text-[8px] font-black uppercase tracking-widest border border-emerald-500/20">
+                               On-Air
+                             </div>
+                             <p className="text-[9px] uppercase font-black tracking-widest opacity-30 flex items-center gap-1"><Clock className="w-3 h-3" /> Started {new Date(workshop.schedule.start).toLocaleTimeString()}</p>
+                          </div>
                         </div>
                       </div>
+                      <button 
+                        onClick={() => {
+                          setSelectedWorkshop(workshop._id);
+                          fetchAttendance(workshop._id);
+                        }}
+                        className={`px-8 py-3.5 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all cursor-pointer ${selectedWorkshop === workshop._id ? 'bg-primary-light text-white' : 'bg-slate-100 dark:bg-white/5 hover:bg-primary-light/10 text-slate-700 dark:text-white'}`}
+                      >
+                        {selectedWorkshop === workshop._id ? 'Active' : 'Attend Session'}
+                      </button>
                     </div>
-                    <button 
-                      onClick={() => setSelectedWorkshop(workshop._id)}
-                      className={`px-8 py-4 rounded-3xl font-black text-[10px] uppercase tracking-widest transition-all cursor-pointer ${selectedWorkshop === workshop._id ? 'bg-primary-light text-white' : 'bg-slate-100 dark:bg-transparent border border-slate-200 dark:border-white/10 hover:bg-slate-200 dark:hover:bg-white/5 opacity-60 dark:opacity-40 hover:opacity-100 text-slate-700 dark:text-white'}`}
-                    >
-                       Join Workshop
-                    </button>
-                  </div>
-                </motion.div>
-              ))
-            ) : (
-              <div className="bg-slate-50 dark:bg-white/5 border border-dashed border-slate-200 dark:border-white/10 rounded-[48px] p-20 text-center">
-                <BookOpen className="w-12 h-12 mx-auto opacity-10 mb-4" />
-                <p className="font-black uppercase tracking-widest opacity-20 text-sm">No Active Institutional Sessions</p>
-              </div>
-            )}
-          </div>
 
-          {/* Assignment Stats Summary Cards */}
-          <div className="grid grid-cols-3 gap-4">
-            <div className="bg-indigo-500/10 border border-indigo-500/20 rounded-2xl p-4 text-center">
-              <Clock className="w-5 h-5 text-indigo-400 mx-auto mb-1" />
-              <div className="font-black text-2xl text-indigo-400">{assignmentStats?.counts.pending ?? '—'}</div>
-              <div className="text-[9px] font-black uppercase tracking-widest opacity-50 mt-1">Pending</div>
+                    {selectedWorkshop === workshop._id && (
+                      <motion.div 
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        className="mt-6 pt-6 border-t border-slate-200 dark:border-white/10"
+                      >
+                         <div className="flex flex-col md:flex-row items-center justify-between gap-6 bg-slate-500/5 p-6 rounded-3xl">
+                            <div className="flex items-center gap-4">
+                               <div className="w-10 h-10 bg-emerald-500 text-white rounded-xl flex items-center justify-center">
+                                  <UserCheck className="w-5 h-5" />
+                               </div>
+                               <div>
+                                  <h5 className="font-black text-base mb-0.5">Mark Attendance</h5>
+                                  <p className="text-[8px] font-black uppercase opacity-40 tracking-widest">Instant self-check-in</p>
+                               </div>
+                            </div>
+                            
+                            <div className="flex gap-2">
+                               {selectedWorkshopAttendance ? (
+                                  <div className={`px-6 py-3 rounded-xl flex items-center gap-2 font-black text-[9px] uppercase tracking-widest ${selectedWorkshopAttendance.status === 'PRESENT' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-red-500/10 text-red-500'}`}>
+                                     {selectedWorkshopAttendance.status === 'PRESENT' ? <CheckCircle2 className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
+                                     Status: {selectedWorkshopAttendance.status}
+                                  </div>
+                               ) : (
+                                  <>
+                                     <button 
+                                        onClick={() => markAttendance(workshop._id, 'ABSENT')}
+                                        className="px-5 py-3 bg-white dark:bg-white/5 text-red-500 border border-red-500/20 rounded-xl text-[8px] font-black uppercase tracking-widest hover:bg-red-500 hover:text-white transition-all cursor-pointer"
+                                     >
+                                        Absent
+                                     </button>
+                                     <button 
+                                        onClick={() => markAttendance(workshop._id, 'PRESENT')}
+                                        className="px-8 py-3 bg-emerald-500 text-white rounded-xl text-[8px] font-black uppercase tracking-widest hover:bg-emerald-600 shadow-lg shadow-emerald-500/20 transition-all cursor-pointer"
+                                     >
+                                        Check In
+                                     </button>
+                                  </>
+                               )}
+                            </div>
+                         </div>
+                      </motion.div>
+                    )}
+                  </motion.div>
+                ))
+              ) : (
+                <div className="bg-card-light dark:bg-card-dark border border-dashed border-slate-200 dark:border-white/10 rounded-3xl p-16 text-center">
+                  <Compass className="w-8 h-8 opacity-20 mx-auto mb-4" />
+                  <p className="font-black uppercase tracking-widest opacity-20 text-[10px]">No Active Theater Sessions</p>
+                </div>
+              )}
             </div>
-            <div className="bg-red-500/10 border border-red-500/20 rounded-2xl p-4 text-center">
-              <XCircle className="w-5 h-5 text-red-400 mx-auto mb-1" />
-              <div className="font-black text-2xl text-red-400">{assignmentStats?.counts.pastDue ?? '—'}</div>
-              <div className="text-[9px] font-black uppercase tracking-widest opacity-50 mt-1">Past Due</div>
-            </div>
-            <div className="bg-green-500/10 border border-green-500/20 rounded-2xl p-4 text-center">
-              <FileCheck className="w-5 h-5 text-green-400 mx-auto mb-1" />
-              <div className="font-black text-2xl text-green-400">{assignmentStats?.counts.submitted ?? '—'}</div>
-              <div className="text-[9px] font-black uppercase tracking-widest opacity-50 mt-1">Submitted</div>
-            </div>
-          </div>
+          </section>
 
-          {/* Assignment Tabs */}
-          <div>
-            <h3 className="font-black text-2xl tracking-tight px-1 flex items-center gap-3 mb-4">
-              <BookOpen className="w-6 h-6 text-indigo-500" />
-              Assignments
+          {/* Discovery Feed */}
+          <section className="space-y-4">
+            <h3 className="text-2xl font-black tracking-tight flex items-center gap-3 px-2">
+               <Plus className="w-5 h-5 text-indigo-500" />
+               New Curricula
             </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+               {recentlyAdded.map((workshop) => (
+                  <motion.div 
+                    key={workshop._id}
+                    className="p-6 bg-card-light dark:bg-card-dark border border-slate-200 dark:border-white/5 rounded-3xl shadow-sm group cursor-pointer"
+                  >
+                     <div className="w-10 h-10 rounded-xl bg-indigo-500/10 text-indigo-500 flex items-center justify-center mb-4">
+                        <Rocket className="w-5 h-5" />
+                     </div>
+                     <h4 className="text-base font-black mb-1 line-clamp-1">{workshop.title}</h4>
+                     <p className="text-[9px] font-black uppercase opacity-30 tracking-widest mb-4">Discovery Feed</p>
+                     <div className="flex items-center justify-between">
+                        <span className="text-[8px] font-black uppercase bg-slate-500/10 px-2 py-0.5 rounded-md opacity-60">{workshop.status}</span>
+                        <ChevronRight className="w-4 h-4 opacity-20 group-hover:opacity-100 transition-all text-indigo-500" />
+                     </div>
+                  </motion.div>
+               ))}
+            </div>
+          </section>
 
-            {/* Tab Selector */}
-            <div className="flex gap-2 mb-4">
-              {(['pending', 'pastDue', 'submitted'] as const).map(tab => {
-                const labels = { pending: '⏳ Pending', pastDue: '❌ Past Due', submitted: '✅ Submitted' };
-                const counts = assignmentStats?.counts;
-                const count = counts ? counts[tab] : 0;
-                const active = assignTab === tab;
-                return (
+          {/* Strategic Missions */}
+          <section className="space-y-4">
+            <div className="flex items-center justify-between px-2">
+               <h3 className="text-2xl font-black tracking-tight flex items-center gap-3">
+                  <Target className="w-5 h-5 text-primary-light" />
+                  Missions
+               </h3>
+               <div className="flex gap-1.5">
+                {(['pending', 'pastDue', 'submitted'] as const).map(tab => (
                   <button
                     key={tab}
                     onClick={() => setAssignTab(tab)}
-                    className={`flex-1 py-2 px-3 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
-                      active
-                        ? tab === 'pending' ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-500/30'
-                          : tab === 'pastDue' ? 'bg-red-500 text-white shadow-lg shadow-red-500/30'
-                          : 'bg-green-500 text-white shadow-lg shadow-green-500/30'
-                        : 'bg-slate-100 dark:bg-white/5 opacity-60 hover:opacity-100'
+                    className={`px-4 py-1.5 rounded-xl font-black text-[8px] uppercase tracking-widest transition-all ${
+                      assignTab === tab 
+                        ? 'bg-primary-light text-white' 
+                        : 'bg-slate-100 dark:bg-white/5 opacity-50 hover:opacity-100'
                     }`}
                   >
-                    {labels[tab]}
-                    <span className={`px-1.5 py-0.5 rounded-md text-[9px] ${active ? 'bg-white/20' : 'bg-slate-200 dark:bg-white/10'}`}>
-                      {count}
-                    </span>
+                    {tab} ({assignmentStats?.counts[tab] ?? 0})
                   </button>
-                );
-              })}
+                ))}
+               </div>
             </div>
 
-            {/* Tab Content */}
             <AnimatePresence mode="wait">
-              <motion.div
-                key={assignTab}
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -8 }}
-                transition={{ duration: 0.2 }}
-                className="grid grid-cols-1 md:grid-cols-2 gap-4"
-              >
-                {(assignmentStats?.[assignTab] ?? []).length > 0 ? (
-                  (assignmentStats![assignTab] as Assignment[]).map((assignment) => (
-                    <div
-                      key={assignment._id}
-                      className={`rounded-2xl p-5 flex flex-col justify-between border transition-colors shadow-md ${
-                        assignTab === 'pastDue'
-                          ? 'bg-red-500/5 border-red-500/20 hover:border-red-500/40'
-                          : assignTab === 'submitted'
-                          ? 'bg-green-500/5 border-green-500/20 hover:border-green-500/40'
-                          : 'bg-indigo-500/5 border-indigo-500/20 hover:border-indigo-500/40'
-                      }`}
-                    >
-                      <div className="space-y-2 mb-4">
-                        <div className="flex justify-between items-start gap-2">
-                          <h4 className="font-black text-sm leading-snug line-clamp-2">{assignment.title}</h4>
-                          <span className={`shrink-0 px-2 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-widest ${
-                            assignTab === 'submitted' ? 'bg-green-500/20 text-green-500'
-                            : assignTab === 'pastDue' ? 'bg-red-500/20 text-red-500'
-                            : 'bg-indigo-500/20 text-indigo-500'
-                          }`}>
-                            {assignment.maxMarks}pts
-                          </span>
-                        </div>
-                        <div className="text-[9px] font-bold uppercase opacity-40 space-y-0.5">
-                          <p className="flex items-center gap-1"><Clock className="w-3 h-3" /> Due: {new Date(assignment.dueDate).toLocaleString()}</p>
-                          {assignment.teacherId && <p>Teacher: {assignment.teacherId.name}</p>}
-                          {assignment.workshopId && <p>Workshop: {(assignment.workshopId as any).title}</p>}
-                          {assignTab === 'submitted' && assignment.submission && (
-                            <p className="text-green-500 opacity-80">Submitted: {new Date(assignment.submission.submittedAt).toLocaleString()}</p>
-                          )}
-                          {assignTab === 'submitted' && assignment.submission?.marks !== undefined && assignment.submission.marks > 0 && (
-                            <p className="text-green-500 opacity-80">Marks: {assignment.submission.marks}/{assignment.maxMarks}</p>
-                          )}
-                        </div>
-                      </div>
-
-                      <div className="pt-3 border-t border-current/10">
-                        {assignTab === 'submitted' ? (
-                          <div className="flex items-center justify-center gap-2 text-green-500 font-black text-[10px] uppercase tracking-widest">
-                            <CheckCircle2 className="w-4 h-4" />
-                            {assignment.submission?.status === 'late' ? 'Submitted Late' : 'Submitted On Time'}
-                          </div>
-                        ) : assignTab === 'pastDue' ? (
-                          <div className="flex items-center justify-center gap-2 text-red-500 font-black text-[10px] uppercase tracking-widest">
-                            <AlertCircle className="w-4 h-4" /> Deadline Passed
-                          </div>
-                        ) : (
-                          <button
+               <motion.div
+                 key={assignTab}
+                 initial={{ opacity: 0, y: 5 }}
+                 animate={{ opacity: 1, y: 0 }}
+                 exit={{ opacity: 0, y: -5 }}
+                 className="grid grid-cols-1 md:grid-cols-2 gap-4"
+               >
+                  {(assignmentStats?.[assignTab] ?? []).length > 0 ? (
+                    assignmentStats![assignTab].map((assignment) => (
+                      <div key={assignment._id} className="p-6 bg-card-light dark:bg-card-dark border border-slate-200 dark:border-white/5 rounded-3xl shadow-sm flex flex-col justify-between group">
+                         <div>
+                            <div className="flex justify-between items-start mb-4">
+                               <div className="w-10 h-10 bg-slate-500/5 rounded-xl flex items-center justify-center">
+                                  <Flame className="w-5 h-5 opacity-20" />
+                                </div>
+                               <span className="text-[8px] font-black uppercase bg-primary-light/10 text-primary-light px-2 py-0.5 rounded-md">{assignment.maxMarks} XP</span>
+                            </div>
+                            <h4 className="text-base font-black mb-1 line-clamp-2">{assignment.title}</h4>
+                            <p className="text-[8px] font-black uppercase opacity-30 tracking-widest flex items-center gap-1.5 mb-6">
+                               <Clock className="w-3 h-3" /> {new Date(assignment.dueDate).toLocaleDateString()}
+                            </p>
+                         </div>
+                         <button 
                             onClick={() => navigate(`/submit/${assignment._id}`)}
-                            className="w-full py-2.5 bg-indigo-500 hover:bg-indigo-600 text-white rounded-xl font-black text-[10px] uppercase tracking-widest transition-all cursor-pointer shadow-lg shadow-indigo-500/20"
-                          >
-                            Submit Project
-                          </button>
-                        )}
+                            className="w-full py-3 bg-slate-900 dark:bg-white text-white dark:text-slate-950 rounded-xl font-black text-[9px] uppercase tracking-widest transition-all shadow-md"
+                         >
+                            {assignTab === 'submitted' ? 'Review' : 'Launch'}
+                         </button>
                       </div>
+                    ))
+                  ) : (
+                    <div className="col-span-full py-12 text-center border border-dashed border-slate-200 dark:border-white/5 rounded-3xl opacity-20">
+                       <p className="font-black uppercase tracking-widest text-[10px]">No active missions</p>
                     </div>
-                  ))
-                ) : (
-                  <div className="col-span-2 p-10 text-center border border-dashed border-slate-200 dark:border-white/10 rounded-2xl">
-                    <p className="font-bold text-[10px] uppercase opacity-30">
-                      {assignTab === 'pending' ? 'No pending assignments 🎉' : assignTab === 'pastDue' ? 'No overdue assignments' : 'No submissions yet'}
-                    </p>
-                  </div>
-                )}
-              </motion.div>
+                  )}
+               </motion.div>
             </AnimatePresence>
-          </div>
+          </section>
+
         </div>
 
         <div className="lg:col-span-4 space-y-8">
-          <h3 className="font-black text-2xl tracking-tight px-2">Verification Hub</h3>
-          <div className="bg-gradient-to-br from-primary-light to-indigo-600 rounded-[56px] p-10 text-white shadow-2xl relative overflow-hidden">
-             <div className="absolute top-0 right-0 p-8 opacity-20"><ShieldCheck className="w-20 h-20" /></div>
-             <div className="relative z-10 space-y-8">
-               <div className="space-y-2">
-                 <h4 className="text-2xl font-black tracking-tight">Enter Session OTP</h4>
-                 <p className="text-xs opacity-60 font-medium">Verify your presence using the 8-digit terminal code shown in the theater.</p>
-               </div>
+          {/* Performance Card - Compact */}
+          <div className="p-8 rounded-[40px] bg-card-light dark:bg-card-dark border border-slate-200 dark:border-white/5 shadow-lg space-y-8">
+             <div className="flex items-center justify-between">
+                <h4 className="text-lg font-black tracking-tight">Performance</h4>
+                <div className="w-10 h-10 bg-primary-light/10 text-primary-light rounded-xl flex items-center justify-center"><TrendingUp className="w-5 h-5" /></div>
+             </div>
+             
+             <div className="space-y-6">
+                <div className="space-y-3">
+                   <div className="flex justify-between items-end">
+                      <span className="text-[9px] font-black uppercase tracking-widest opacity-40">Accuracy</span>
+                      <span className="text-xl font-black">{mcqSummary?.avgScore ?? 0}%</span>
+                   </div>
+                   <div className="h-3 bg-slate-500/10 rounded-full overflow-hidden p-0.5">
+                      <motion.div 
+                        initial={{ width: 0 }}
+                        animate={{ width: `${mcqSummary?.avgScore ?? 0}%` }}
+                        className="h-full bg-primary-light rounded-full shadow-md"
+                      />
+                   </div>
+                </div>
 
-               <form onSubmit={handleVerify} className="space-y-4">
-                 <input 
-                   required
-                   className="w-full bg-white/10 border border-white/20 rounded-3xl p-6 outline-none font-black text-center text-2xl tracking-[0.4em] placeholder:opacity-20 uppercase"
-                   placeholder="••••••••"
-                   maxLength={8}
-                   value={otp}
-                   disabled={!selectedWorkshop}
-                   onChange={e => setOtp(e.target.value.toUpperCase())}
-                 />
-                 <button 
-                   disabled={!selectedWorkshop || verifying}
-                   type="submit"
-                   className="w-full py-6 bg-white text-primary-light rounded-[32px] font-black uppercase tracking-widest transition-all hover:scale-[1.02] shadow-xl disabled:opacity-40 disabled:scale-100 flex items-center justify-center gap-3 cursor-pointer"
-                 >
-                   {verifying ? <Loader2 className="animate-spin" /> : "Verify Attendance"}
-                 </button>
-               </form>
-
-               <AnimatePresence>
-                 {message.text && (
-                   <motion.div 
-                      initial={{ opacity: 0, y: 10 }} 
-                      animate={{ opacity: 1, y: 0 }}
-                      className={`p-4 rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center gap-3 ${message.type === 'success' ? 'bg-green-400/20 text-green-300' : 'bg-red-400/20 text-red-300'}`}
-                   >
-                     <AlertCircle className="w-4 h-4" /> {message.text}
-                   </motion.div>
-                 )}
-               </AnimatePresence>
-
-               {!selectedWorkshop && liveWorkshops.length > 0 && (
-                 <p className="text-[10px] font-black uppercase tracking-widest text-center opacity-60 animate-bounce">Select a workshop to begin</p>
-               )}
+                <div className="grid grid-cols-2 gap-3">
+                   <div className="p-4 bg-slate-500/5 rounded-2xl border border-white/5">
+                      <p className="text-[8px] font-black uppercase opacity-40 mb-0.5">Solved</p>
+                      <p className="text-xl font-black">{mcqSummary?.passedQuizzes ?? 0}</p>
+                   </div>
+                   <div className="p-4 bg-slate-500/5 rounded-2xl border border-white/5">
+                      <p className="text-[8px] font-black uppercase opacity-40 mb-0.5">Total</p>
+                      <p className="text-xl font-black">{mcqSummary?.totalQuizzes ?? 0}</p>
+                   </div>
+                </div>
              </div>
           </div>
 
-          <div className="p-10 rounded-[56px] bg-card-light dark:bg-card-dark border border-slate-200 dark:border-white/5 shadow-2xl space-y-6">
-             <div className="flex items-center gap-4 text-primary-light">
-               <Award className="w-8 h-8" />
-               <h4 className="text-xl font-black tracking-tight">Achievements</h4>
+          {/* Upcoming Shifts - Compact */}
+          <div className="p-6 space-y-4">
+             <h4 className="text-lg font-black tracking-tight flex items-center gap-2 px-2">
+               <Clock className="w-4 h-4 text-primary-light" />
+               Upcoming
+             </h4>
+             <div className="space-y-3">
+                {upcomingWorkshops.map((w) => (
+                   <div key={w._id} className="flex items-center gap-3 p-3 hover:bg-slate-500/5 rounded-2xl transition-all group">
+                      <div className="w-10 h-10 rounded-lg bg-slate-500/10 flex items-center justify-center">
+                         <Clock className="w-4 h-4 opacity-40" />
+                      </div>
+                      <div>
+                         <p className="font-bold text-xs line-clamp-1">{w.title}</p>
+                         <p className="text-[8px] font-black uppercase opacity-30">{new Date(w.schedule.start).toLocaleDateString()}</p>
+                      </div>
+                   </div>
+                ))}
+                {upcomingWorkshops.length === 0 && <p className="text-[9px] font-black uppercase opacity-20 px-2">No upcoming shifts</p>}
              </div>
-             <div className="space-y-4">
-               <div className="p-10 bg-slate-50 dark:bg-white/5 rounded-3xl border border-dashed border-slate-200 dark:border-white/10 text-center">
-                  <p className="text-[10px] font-black uppercase tracking-widest opacity-20">Milestones Coming Soon</p>
-               </div>
+          </div>
+
+          <div className="p-8 rounded-[40px] bg-indigo-500/5 border border-indigo-500/10 shadow-sm space-y-4">
+             <div className="flex items-center gap-3 text-indigo-500">
+                <Award className="w-6 h-6" />
+                <h4 className="text-base font-black tracking-tight">Achievements</h4>
              </div>
+             <p className="text-[9px] font-black uppercase tracking-widest opacity-30 text-center py-4 border border-dashed border-indigo-500/20 rounded-2xl">Coming Soon</p>
           </div>
         </div>
       </div>
